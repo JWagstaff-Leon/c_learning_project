@@ -8,6 +8,7 @@ extern "C" {
 
 #include "message_queue.h"
 
+#include <pthread.h>
 #include <stddef.h>
 
 #include "common_types.h"
@@ -30,6 +31,8 @@ typedef struct
     size_t queue_size;
     size_t front_index;
     size_t used_slots;
+
+    pthread_mutex_t queue_mutex;
 } sMESSAGE_QUEUE;
 
 // Functions -------------------------------------------------------------------

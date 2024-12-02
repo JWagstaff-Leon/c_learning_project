@@ -11,7 +11,8 @@ typedef enum
     STATUS_ALLOC_FAILED   = BASE_ERROR_VALUE - 2,
     STATUS_DEALLOC_FAILED = BASE_ERROR_VALUE - 3,
     STATUS_NO_SPACE       = BASE_ERROR_VALUE - 4,
+    STATUS_EMPTY          = BASE_ERROR_VALUE - 5,
 } eSTATUS;
 
-typedef void* (*fGENERIC_ALLOCATOR) (size_t);
-typedef void (*fGENERIC_DEALLOCATOR) (void*);
+typedef void* (*fGENERIC_ALLOCATOR)(size_t);
+typedef void (*fGENERIC_DEALLOCATOR)(void*);

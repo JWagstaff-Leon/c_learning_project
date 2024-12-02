@@ -58,7 +58,7 @@ typedef struct
 
 typedef struct
 {
-    sCHAT_SERVER_CONNECTION *list;
+    sCHAT_SERVER_CONNECTION* list;
     uint32_t                 count;
     uint32_t                 size;
 } sCHAT_SERVER_CONNECTIONS;
@@ -74,7 +74,7 @@ static const sCHAT_SERVER_CONNECTION k_new_user = {
         .events = 0,
         .revents = 0
     },
-    .state = CHAT_USER_STATE_DISCONNECTED
+    .state = CHAT_SERVER_CONNECTION_STATE_DISCONNECTED
 };
 
 

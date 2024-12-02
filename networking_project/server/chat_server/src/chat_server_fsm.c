@@ -5,12 +5,15 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include "message_queue.h"
+
 
 static void init_processing(
-    sCHAT_SERVER_MESSAGE *message,
-    sCHAT_SERVER_CBLK *master_cblk_ptr)
+    const sCHAT_SERVER_MESSAGE* message,
+    sCHAT_SERVER_CBLK*          master_cblk_ptr)
 {
-    eSTATUS status;
+    eSTATUS              status;
+    sCHAT_SERVER_MESSAGE new_message;
 
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
@@ -19,7 +22,7 @@ static void init_processing(
     {
         case CHAT_SERVER_MESSAGE_OPEN:
         {
-            status = chat_server_do_open(master_cblk_ptr);
+            status = chat_server_network_open(&master_cblk_ptr->connections.list[0]);
             if(STATUS_SUCCESS != status)
             {
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -28,11 +31,19 @@ static void init_processing(
                 break;
             }
 
+            master_cblk_ptr->connections.count = 1;
+
             master_cblk_ptr->state = CHAT_SERVER_STATE_OPEN;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_SERVER_EVENT_OPENED,
                                         NULL);
-            // TODO enqueue poll message to start poll loop
+          
+            new_message.type = CHAT_SERVER_MESSAGE_POLL;
+            status           = message_queue_put(master_cblk_ptr->message_queue,
+                                                 &new_message,
+                                                 sizeof(new_message));
+            assert(STATUS_SUCCESS == status);
+
             break;
         }
         case CHAT_SERVER_MESSAGE_RESET:
@@ -44,7 +55,12 @@ static void init_processing(
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
         {
-            chat_server_do_close(master_cblk_ptr);
+            chat_server_network_close(master_cblk_ptr);
+
+            status = message_queue_destroy(master_cblk_ptr->message_queue);
+            assert(STATUS_SUCCESS == status);
+
+            free(master_cblk_ptr->connections.list);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -62,10 +78,11 @@ static void init_processing(
 
 
 static void open_processing(
-    sCHAT_SERVER_MESSAGE *message,
-    sCHAT_SERVER_CBLK *master_cblk_ptr)
+    const sCHAT_SERVER_MESSAGE* message,
+    sCHAT_SERVER_CBLK*          master_cblk_ptr)
 {
-    eSTATUS status;
+    eSTATUS              status;
+    sCHAT_SERVER_MESSAGE new_message;
 
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
@@ -74,16 +91,23 @@ static void open_processing(
     {
         case CHAT_SERVER_MESSAGE_POLL:
         {
-            status = chat_server_do_poll(&master_cblk_ptr->connections);
+            status = chat_server_network_poll(&master_cblk_ptr->connections);
             assert(STATUS_SUCCESS == status);
 
-            status = chat_server_process_connection_events(&master_cblk_ptr->connections);
-            // TODO enqueue new poll
+            status = chat_server_process_connections_events(&master_cblk_ptr->connections);
+            assert(STATUS_SUCCESS == status);
+
+            new_message.type = CHAT_SERVER_MESSAGE_POLL;
+            status           = message_queue_put(master_cblk_ptr->message_queue,
+                                                 &new_message,
+                                                 sizeof(new_message));
+            assert(STATUS_SUCCESS == status);
+
             break;
         }
         case CHAT_SERVER_MESSAGE_RESET:
         {
-            chat_server_start_reset(master_cblk_ptr);
+            chat_server_network_reset(&master_cblk_ptr->connections);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_INIT;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -93,7 +117,10 @@ static void open_processing(
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
         {
-            chat_server_do_close(master_cblk_ptr);
+            chat_server_network_close(master_cblk_ptr);
+
+            status = message_queue_destroy(master_cblk_ptr->message_queue);
+            assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -110,9 +137,9 @@ static void open_processing(
 }
 
 
-static dispatch_message(
-    const sCHAT_SERVER_MESSAGE *message,
-    sCHAT_SERVER_CBLK *master_cblk_ptr)
+static void dispatch_message(
+    const sCHAT_SERVER_MESSAGE* message,
+    sCHAT_SERVER_CBLK*          master_cblk_ptr)
 {
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
@@ -140,13 +167,14 @@ static dispatch_message(
 }
 
 void* chat_server_process_thread_entry(
-    void *arg)
+    void* arg)
 {
     sCHAT_SERVER_CBLK *master_cblk_ptr;
     sCHAT_SERVER_MESSAGE message;
+    eSTATUS status;
 
-    sCHAT_SERVER_CONNECTIONS *connections = calloc(8, sizeof(sCHAT_SERVER_CONNECTION));
-    if (NULL == connections)
+    sCHAT_SERVER_CONNECTION* connections_list = calloc(8, sizeof(sCHAT_SERVER_CONNECTION));
+    if (NULL == connections_list)
     {
         return NULL;
     }
@@ -154,14 +182,16 @@ void* chat_server_process_thread_entry(
     master_cblk_ptr = (sCHAT_SERVER_CBLK *)arg;
     assert(NULL != master_cblk_ptr);
 
-    master_cblk_ptr->connections
+    master_cblk_ptr->connections.list  = connections_list;
+    master_cblk_ptr->connections.count = 0;
+    master_cblk_ptr->connections.size  = 8;
 
     while (CHAT_SERVER_STATE_CLOSED != master_cblk_ptr->state)
     {
-        // TODO
-        // Block on getting a message from the message queue
-        // Get the message
-        
+        status = message_queue_get(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS != status);
         dispatch_message(&message, master_cblk_ptr);
     }
 

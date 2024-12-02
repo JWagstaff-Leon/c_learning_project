@@ -4,8 +4,9 @@
 #include <assert.h>
 #include <string.h>
 
+
 eSTATUS message_queue_create(
-    MESSAGE_QUEUE        message_queue_out,
+    MESSAGE_QUEUE_ID*    out_message_queue_id,
     size_t               queue_size,
     size_t               message_size,
     fGENERIC_ALLOCATOR   allocator,
@@ -17,7 +18,7 @@ eSTATUS message_queue_create(
 
     assert(NULL != allocator);
     assert(NULL != deallocator);
-    assert(NULL != message_queue_out);
+    assert(NULL != out_message_queue_id);
 
     new_queue_buffer_size = queue_size * message_size;
     new_queue_buffer = allocator(new_queue_buffer_size);
@@ -38,105 +39,134 @@ eSTATUS message_queue_create(
 
     new_message_queue_ptr->allocator    = allocator;
     new_message_queue_ptr->deallocator  = deallocator;
+
     new_message_queue_ptr->queue_buffer = new_queue_buffer;
+    
     new_message_queue_ptr->queue_size   = queue_size;
     new_message_queue_ptr->message_size = message_size;
+    
     new_message_queue_ptr->front_index  = 0;
     new_message_queue_ptr->used_slots   = 0;
 
-    message_queue_out = new_message_queue_ptr;
+    pthread_mutex_init(new_message_queue_ptr->queue_mutex,
+                       NULL);
+
+    *out_message_queue_id = (MESSAGE_QUEUE_ID)new_message_queue_ptr;
     return STATUS_SUCCESS;
 }
 
 
 eSTATUS message_queue_put(
-    MESSAGE_QUEUE     message_queue,
+    MESSAGE_QUEUE_ID  message_queue_id,
     const void* const message,
     size_t            message_size)
 {
-    sMESSAGE_QUEUE* message_queue_ptr;
+    sMESSAGE_QUEUE* message_queue;
     size_t          current_message_index;
     size_t          current_message_offset;
     void*           current_message_buffer;
+    eSTATUS         return_status = STATUS_SUCCESS;
 
-    assert(NULL != message_queue);
+    assert(NULL != message_queue_id);
     assert(NULL != message);
 
-    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
-    
-    if (message_size > message_queue_ptr->message_size)
+    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
+    pthread_mutex_lock(&message_queue->queue_mutex);
+
+    if (message_size > message_queue->message_size)
     {
-        return STATUS_INVALID_ARG;
+        return_status = STATUS_INVALID_ARG;
+        goto func_exit;
     }
 
-    if (message_queue_ptr->used_slots >= message_queue_ptr->queue_size)
+    if (message_queue->used_slots >= message_queue->queue_size)
     {
-        return STATUS_NO_SPACE;
+        return_status = STATUS_NO_SPACE;
+        goto func_exit;
     }
 
-    current_message_index  = (message_queue_ptr->front_index + message_queue_ptr->used_slots) % message_queue_ptr->queue_size;
-    current_message_offset = current_message_index * message_queue_ptr->message_size;
-    current_message_buffer = (void*)((size_t)message_queue_ptr->queue_buffer + current_message_offset);
+    current_message_index  = (message_queue->front_index + message_queue->used_slots) % message_queue->queue_size;
+    current_message_offset = current_message_index * message_queue->message_size;
+    current_message_buffer = (void*)((size_t)message_queue->queue_buffer + current_message_offset);
 
     memcpy(current_message_buffer,
            message,
-           message_queue_ptr->message_size);
+           message_queue->message_size);
 
-    message_queue_ptr->used_slots += 1;
-    return STATUS_SUCCESS;
+    message_queue->used_slots += 1;
+    return_status = STATUS_SUCCESS;
+
+func_exit:
+    pthread_mutex_unlock(&message_queue->queue_mutex);
+    return return_status;
 }
 
 
 eSTATUS message_queue_peek(
-    MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
-    size_t        out_buffer_size)
+    MESSAGE_QUEUE_ID message_queue_id,
+    void* const      message_out_buffer,
+    size_t           out_buffer_size)
 {
-    sMESSAGE_QUEUE* message_queue_ptr;
+    sMESSAGE_QUEUE* message_queue;
     size_t          current_message_offset;
     void*           current_message_buffer;
+    eSTATUS         return_status = STATUS_SUCCESS;
 
-    assert(NULL != message_queue);
+    assert(NULL != message_queue_id);
     assert(NULL != message_out_buffer);
 
-    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
+    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
+    pthread_mutex_lock(&message_queue->queue_mutex);
 
-    if (out_buffer_size < message_queue_ptr->message_size)
+    if (out_buffer_size < message_queue->message_size)
     {
-        return STATUS_INVALID_ARG;
+        return_status = STATUS_INVALID_ARG;
+        goto func_exit;
     }
 
-    current_message_offset = message_queue_ptr->front_index * message_queue_ptr->message_size;
-    current_message_buffer = (void*)((size_t)message_queue_ptr->queue_buffer + current_message_offset);
+    if (message_queue->used_slots <= 0)
+    {
+        return_status = STATUS_EMPTY;
+        goto func_exit;
+    }
+
+    current_message_offset = message_queue->front_index * message_queue->message_size;
+    current_message_buffer = (void*)((size_t)message_queue->queue_buffer + current_message_offset);
 
     memcpy(message_out_buffer,
            current_message_buffer,
-           message_queue_ptr->message_size);
+           message_queue->message_size);
 
-    return STATUS_SUCCESS;
+    return_status = STATUS_SUCCESS;
+
+func_exit:
+    pthread_mutex_unlock(&message_queue->queue_mutex);
+    return return_status;
 }
 
     
 eSTATUS message_queue_get(
-    MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
-    size_t        out_buffer_size)
+    MESSAGE_QUEUE_ID message_queue_id,
+    void* const      message_out_buffer,
+    size_t           out_buffer_size)
 {
-    sMESSAGE_QUEUE* message_queue_ptr;
+    sMESSAGE_QUEUE* message_queue;
     eSTATUS         status;
 
-    assert(NULL != message_queue);
+    assert(NULL != message_queue_id);
 
-    status = message_queue_peek(message_queue,
+    status = message_queue_peek(message_queue_id,
                                 message_out_buffer,
                                 out_buffer_size);
     
     if (STATUS_SUCCESS == status)
     {
-        message_queue_ptr = ((sMESSAGE_QUEUE*)message_queue);
+        message_queue = ((sMESSAGE_QUEUE*)message_queue_id);
+        pthread_mutex_lock(&message_queue->queue_mutex);
 
-        message_queue_ptr->used_slots -= 1;
-        message_queue_ptr->front_index = (message_queue_ptr->front_index + 1) % message_queue_ptr->queue_size;
+        message_queue->used_slots -= 1;
+        message_queue->front_index = (message_queue->front_index + 1) % message_queue->queue_size;
+        pthread_mutex_unlock(&message_queue->queue_mutex);
     }
 
     return status;
@@ -144,15 +174,15 @@ eSTATUS message_queue_get(
 
 
 eSTATUS message_queue_destroy(
-    MESSAGE_QUEUE message_queue)
+    MESSAGE_QUEUE_ID message_queue_id)
 {
-    sMESSAGE_QUEUE* message_queue_ptr;
+    sMESSAGE_QUEUE* message_queue;
 
-    assert(NULL != message_queue);
+    assert(NULL != message_queue_id);
 
-    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
-    message_queue_ptr->deallocator(message_queue_ptr->queue_buffer);
-    message_queue_ptr->deallocator(message_queue_ptr);
-    // --------- MAKE SURE to NEVER use message_queue/message_queue_ptr after this line
+    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
+    message_queue->deallocator(message_queue->queue_buffer);
+    message_queue->deallocator(message_queue);
+    // --------- MAKE SURE to NEVER use message_queue_id/message_queue after this line
     return STATUS_SUCCESS;
 }

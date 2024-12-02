@@ -28,13 +28,13 @@ typedef void* (*fCHAT_SERVER_THREAD_ENTRY) (void*);
 typedef eSTATUS (*fCHAT_SERVER_THREAD_CREATE_CBACK) (fCHAT_SERVER_THREAD_ENTRY, void*);
 
 
-typedef void sCHAT_SERVER_CBLK_DATA;
+typedef void sCHAT_SERVER_CBACK_DATA;
 
 
 typedef void (*fCHAT_SERVER_USER_CBACK) (
-    void* user_arg,
-    eCHAT_SERVER_EVENT_TYPE mask,
-    sCHAT_SERVER_CBLK_DATA* data);
+    void*                    user_arg,
+    eCHAT_SERVER_EVENT_TYPE  mask,
+    sCHAT_SERVER_CBACK_DATA* data);
 
 
 typedef enum

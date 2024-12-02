@@ -13,6 +13,8 @@ extern "C" {
 
 #define CHAT_EVENT_MAX_LENGTH 65535
 
+#define CHAT_EVENT_ORIGIN_SERVER 0
+
 
 // Types -----------------------------------------------------------------------
 
