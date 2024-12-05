@@ -4,12 +4,19 @@
 extern "C" {
 #endif
 
+// Defines ---------------------------------------------------------------------
+
+#define CHAT_SERVER_CONNECTION_MAX_NAME_SIZE 65
+
+
 // Includes --------------------------------------------------------------------
 
 #include <poll.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "chat_event.h"
+
 
 
 // Types -----------------------------------------------------------------------
@@ -51,8 +58,7 @@ typedef struct
 
     sCHAT_SERVER_CONNECTION_READ_INFO read_info;
 
-    unsigned char *name;
-    uint32_t       name_length;
+    unsigned char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
 } sCHAT_SERVER_CONNECTION;
 
 
@@ -66,9 +72,8 @@ typedef struct
 
 // Constants -------------------------------------------------------------------
 
-static const sCHAT_SERVER_CONNECTION k_new_user = {
-    .name = NULL,
-    .name_length = 0,
+static const sCHAT_SERVER_CONNECTION k_blank_user = {
+    .name = "",
     .pollfd = {
         .fd = -1,
         .events = 0,

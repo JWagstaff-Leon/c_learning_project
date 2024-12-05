@@ -43,24 +43,30 @@ typedef enum
 } eCONNECTION_EVENT;
 
 
+typedef void* CHAT_SERVER;
+
+
 // Functions -------------------------------------------------------------------
 
-eSTATUS chat_server_init(
+eSTATUS chat_server_create(
+    CHAT_SERVER*                     out_new_chat_server,
+    fGENERIC_ALLOCATOR               allocator,
+    fGENERIC_DEALLOCATOR             deallocator,
     fCHAT_SERVER_THREAD_CREATE_CBACK create_thread,
     fCHAT_SERVER_USER_CBACK          user_cback,
     void*                            user_arg);
 
 
 eSTATUS chat_server_open(
-    void);
+    CHAT_SERVER chat_server);
 
 
 eSTATUS chat_server_reset(
-    void);
+    CHAT_SERVER chat_server);
 
 
 eSTATUS chat_server_close(
-    void);
+    CHAT_SERVER chat_server);
 
 
 #ifdef __cplusplus

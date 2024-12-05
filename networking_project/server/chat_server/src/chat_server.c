@@ -13,11 +13,6 @@
 #include "message_queue.h"
 
 
-// Globals ---------------------------------------------------------------------
-
-static sCHAT_SERVER_CBLK k_master_cblk; // REVIEW add an allocator to allow dynamic allocation?
-
-
 // Function Implementations ----------------------------------------------------
 
 static eSTATUS init_cblk(
@@ -49,49 +44,71 @@ static eSTATUS init_msg_queue(
 }
 
 
-eSTATUS chat_server_init(
+eSTATUS chat_server_create(
+    CHAT_SERVER*                     out_new_chat_server,
+    fGENERIC_ALLOCATOR               allocator,
+    fGENERIC_DEALLOCATOR             deallocator,
     fCHAT_SERVER_THREAD_CREATE_CBACK create_thread,
     fCHAT_SERVER_USER_CBACK          user_cback,
-    void                            *user_arg)
+    void*                            user_arg)
 {
+    sCHAT_SERVER_CBLK* new_master_cblk_ptr;
+    
     eSTATUS status;
     int     thread_status;
 
+    assert(NULL != allocator);
+    assert(NULL != deallocator);
     assert(NULL != user_cback);
+    assert(NULL != out_new_chat_server);
 
-    status = init_cblk(&k_master_cblk);
+    new_master_cblk_ptr = (sCHAT_SERVER_CBLK*)allocator(sizeof(sCHAT_SERVER_CBLK));
+    if (NULL == new_master_cblk_ptr)
+    {
+        return STATUS_ALLOC_FAILED;
+    }
+
+    status = init_cblk(new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
+        deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    k_master_cblk.user_cback = user_cback;
-    k_master_cblk.user_arg   = user_arg;
+    new_master_cblk_ptr->user_cback = user_cback;
+    new_master_cblk_ptr->user_arg   = user_arg;
 
-    status = init_msg_queue(&k_master_cblk.message_queue);
+    status = init_msg_queue(new_master_cblk_ptr->message_queue);
     if (STATUS_SUCCESS != status)
     {
+        deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    status = create_thread(chat_server_process_thread_entry, &k_master_cblk);
+    status = create_thread(chat_server_process_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
+        deallocator(new_master_cblk_ptr);
         return status;
     }
     
+    *out_new_chat_server = new_master_cblk_ptr;
     return STATUS_SUCCESS;
 }
 
 
 eSTATUS chat_server_open(
-    void)
+    CHAT_SERVER chat_server)
 {
     eSTATUS              status;
     sCHAT_SERVER_MESSAGE message;
+    sCHAT_SERVER_CBLK*   master_cblk_ptr;
+
+    assert(NULL != chat_server);
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
 
     message.type = CHAT_SERVER_MESSAGE_OPEN;
-    status       = message_queue_put(k_master_cblk.message_queue,
+    status       = message_queue_put(master_cblk_ptr->message_queue,
                                      &message,
                                      sizeof(message));
 
@@ -99,13 +116,18 @@ eSTATUS chat_server_open(
 }
 
 
-eSTATUS chat_server_reset(void)
+eSTATUS chat_server_reset(
+    CHAT_SERVER chat_server)
 {
     eSTATUS              status;
     sCHAT_SERVER_MESSAGE message;
+    sCHAT_SERVER_CBLK*   master_cblk_ptr;
+
+    assert(NULL != chat_server);
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
 
     message.type = CHAT_SERVER_MESSAGE_RESET;
-    status       = message_queue_put(k_master_cblk.message_queue,
+    status       = message_queue_put(master_cblk_ptr->message_queue,
                                      &message,
                                      sizeof(message));
 
@@ -113,13 +135,18 @@ eSTATUS chat_server_reset(void)
 }
 
 
-eSTATUS chat_server_close(void)
+eSTATUS chat_server_close(
+    CHAT_SERVER chat_server)
 {
     eSTATUS              status;
     sCHAT_SERVER_MESSAGE message;
+    sCHAT_SERVER_CBLK*   master_cblk_ptr;
+
+    assert(NULL != chat_server);
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
 
     message.type = CHAT_SERVER_MESSAGE_CLOSE;
-    status       = message_queue_put(k_master_cblk.message_queue,
+    status       = message_queue_put(master_cblk_ptr->message_queue,
                                      &message,
                                      sizeof(message));
 

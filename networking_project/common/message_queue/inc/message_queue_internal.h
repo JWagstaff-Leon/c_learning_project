@@ -24,7 +24,6 @@ typedef struct
 {
     void* queue_buffer;
 
-    fGENERIC_ALLOCATOR   allocator;
     fGENERIC_DEALLOCATOR deallocator;
 
     size_t message_size;
@@ -33,6 +32,7 @@ typedef struct
     size_t used_slots;
 
     pthread_mutex_t queue_mutex;
+    pthread_cond_t  queue_cond_var;
 } sMESSAGE_QUEUE;
 
 // Functions -------------------------------------------------------------------

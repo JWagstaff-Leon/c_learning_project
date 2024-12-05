@@ -12,33 +12,14 @@ extern "C" {
 // Includes --------------------------------------------------------------------
 
 #include "chat_server.h"
+#include "chat_server_connections.h"
 
 #include <pthread.h>
 #include <stdint.h>
 
-#include "chat_server_connections.h"
 #include "common_types.h"
 #include "message_queue.h"
 
-
-// Constants -------------------------------------------------------------------
-
-char* k_server_event_canned_messages[] = {
-    "",                                    // CHAT_EVENT_UNDEFINED
-    "",                                    // CHAT_EVENT_CHAT_MESSAGE
-    "",                                    // CHAT_EVENT_CONNECTION_FAILED
-    "Your message content was too large",  // CHAT_EVENT_OVERSIZED_CONTENT
-    "Please enter your username",          // CHAT_EVENT_USERNAME_REQUEST
-    "",                                    // CHAT_EVENT_USERNAME_SUBMIT
-    "Username accepted",                   // CHAT_EVENT_USERNAME_ACCEPTED
-    "Username rejected",                   // CHAT_EVENT_USERNAME_REJECTED
-    "Server is shutting down",             // CHAT_EVENT_SERVER_SHUTDOWN
-    "",                                    // CHAT_EVENT_USER_LIST
-    "",                                    // CHAT_EVENT_USER_JOIN
-    "",                                    // CHAT_EVENT_USER_LEAVE
-};
-
-char k_server_full_message[] = "Server is full";
 
 // Types -----------------------------------------------------------------------
 
@@ -52,6 +33,8 @@ typedef enum
 
 typedef struct
 {
+    fGENERIC_DEALLOCATOR deallocator;
+
     fCHAT_SERVER_USER_CBACK user_cback;
     void*                   user_arg;
 
@@ -80,12 +63,9 @@ eSTATUS chat_server_process_connections_events(
     sCHAT_SERVER_CONNECTIONS* connections);
 
 
-void chat_server_network_reset(
+void chat_server_network_close(
     sCHAT_SERVER_CONNECTIONS* connections);
 
-
-void chat_server_network_close(
-    sCHAT_SERVER_CBLK* master_cblk_ptr);
 
 #ifdef __cplusplus
 }

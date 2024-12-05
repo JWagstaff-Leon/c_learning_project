@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "common_types.h"
+
 
 eSTATUS message_queue_create(
     MESSAGE_QUEUE_ID*    out_message_queue_id,
@@ -37,7 +39,6 @@ eSTATUS message_queue_create(
     memset(new_message_queue_ptr, 0, sizeof(sMESSAGE_QUEUE));
     memset(new_queue_buffer, 0, new_queue_buffer_size);
 
-    new_message_queue_ptr->allocator    = allocator;
     new_message_queue_ptr->deallocator  = deallocator;
 
     new_message_queue_ptr->queue_buffer = new_queue_buffer;
@@ -48,8 +49,9 @@ eSTATUS message_queue_create(
     new_message_queue_ptr->front_index  = 0;
     new_message_queue_ptr->used_slots   = 0;
 
-    pthread_mutex_init(new_message_queue_ptr->queue_mutex,
+    pthread_mutex_init(&new_message_queue_ptr->queue_mutex,
                        NULL);
+    pthread_cond_init(&new_message_queue_ptr->queue_cond_var, NULL);
 
     *out_message_queue_id = (MESSAGE_QUEUE_ID)new_message_queue_ptr;
     return STATUS_SUCCESS;
@@ -95,6 +97,8 @@ eSTATUS message_queue_put(
 
     message_queue->used_slots += 1;
     return_status = STATUS_SUCCESS;
+
+    pthread_cond_signal(&message_queue->queue_cond_var);
 
 func_exit:
     pthread_mutex_unlock(&message_queue->queue_mutex);
@@ -155,6 +159,12 @@ eSTATUS message_queue_get(
 
     assert(NULL != message_queue_id);
 
+    pthread_mutex_lock(&message_queue->queue_mutex);
+    while (message_queue->used_slots < 1)
+    {
+        pthread_cond_wait(&message_queue->queue_cond_var, &message_queue->queue_mutex);
+    }
+
     status = message_queue_peek(message_queue_id,
                                 message_out_buffer,
                                 out_buffer_size);
@@ -162,13 +172,12 @@ eSTATUS message_queue_get(
     if (STATUS_SUCCESS == status)
     {
         message_queue = ((sMESSAGE_QUEUE*)message_queue_id);
-        pthread_mutex_lock(&message_queue->queue_mutex);
 
         message_queue->used_slots -= 1;
         message_queue->front_index = (message_queue->front_index + 1) % message_queue->queue_size;
-        pthread_mutex_unlock(&message_queue->queue_mutex);
     }
 
+    pthread_mutex_unlock(&message_queue->queue_mutex);
     return status;
 }
 
@@ -179,10 +188,12 @@ eSTATUS message_queue_destroy(
     sMESSAGE_QUEUE* message_queue;
 
     assert(NULL != message_queue_id);
-
     message_queue = (sMESSAGE_QUEUE*)message_queue_id;
+
+    pthread_mutex_destroy(&message_queue->queue_mutex);
+    pthread_cond_destroy(&message_queue->queue_cond_var);
     message_queue->deallocator(message_queue->queue_buffer);
+
     message_queue->deallocator(message_queue);
-    // --------- MAKE SURE to NEVER use message_queue_id/message_queue after this line
     return STATUS_SUCCESS;
 }
