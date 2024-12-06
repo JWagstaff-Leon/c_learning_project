@@ -17,8 +17,7 @@ typedef enum
 {
     CHAT_SERVER_EVENT_OPENED      = 1 << 0,
     CHAT_SERVER_EVENT_OPEN_FAILED = 1 << 1,
-    CHAT_SERVER_EVENT_RESET       = 1 << 2,
-    CHAT_SERVER_EVENT_CLOSED      = 1 << 3
+    CHAT_SERVER_EVENT_CLOSED      = 1 << 2
 } eCHAT_SERVER_EVENT_TYPE;
 
 

@@ -33,6 +33,7 @@ typedef enum
 
 typedef struct
 {
+    fGENERIC_ALLOCATOR   allocator;
     fGENERIC_DEALLOCATOR deallocator;
 
     fCHAT_SERVER_USER_CBACK user_cback;

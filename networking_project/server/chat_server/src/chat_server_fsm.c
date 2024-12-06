@@ -8,7 +8,6 @@
 #include "common_types.h"
 #include "message_queue.h"
 
-
 static void init_processing(
     const sCHAT_SERVER_MESSAGE* message,
     sCHAT_SERVER_CBLK*          master_cblk_ptr)
@@ -45,13 +44,6 @@ static void init_processing(
                                                  sizeof(new_message));
             assert(STATUS_SUCCESS == status);
 
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_RESET:
-        {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_SERVER_EVENT_RESET,
-                                        NULL);
             break;
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
@@ -104,16 +96,6 @@ static void open_processing(
                                                  sizeof(new_message));
             assert(STATUS_SUCCESS == status);
 
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_RESET:
-        {
-            chat_server_network_close(&master_cblk_ptr->connections);
-
-            master_cblk_ptr->state = CHAT_SERVER_STATE_INIT;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_SERVER_EVENT_RESET,
-                                        NULL);
             break;
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
@@ -208,7 +190,7 @@ void* chat_server_process_thread_entry(
         status = message_queue_get(master_cblk_ptr->message_queue,
                                    &message,
                                    sizeof(message));
-        assert(STATUS_SUCCESS != status);
+        assert(STATUS_SUCCESS == status);
         dispatch_message(&message, master_cblk_ptr);
     }
 

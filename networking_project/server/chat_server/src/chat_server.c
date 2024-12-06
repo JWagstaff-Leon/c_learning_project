@@ -12,7 +12,6 @@
 #include "common_types.h"
 #include "message_queue.h"
 
-
 // Function Implementations ----------------------------------------------------
 
 static eSTATUS init_cblk(
@@ -28,17 +27,21 @@ static eSTATUS init_cblk(
 
 
 static eSTATUS init_msg_queue(
-    MESSAGE_QUEUE_ID* message_queue_ptr)
+    MESSAGE_QUEUE_ID*    message_queue_ptr,
+    fGENERIC_ALLOCATOR   allocator,
+    fGENERIC_DEALLOCATOR deallocator)
 {
     eSTATUS status;
 
     assert(NULL != message_queue_ptr);
+    assert(NULL != allocator);
+    assert(NULL != deallocator);
 
     status = message_queue_create(message_queue_ptr,
                                   CHAT_SERVER_MSG_QUEUE_SIZE,
                                   sizeof(sCHAT_SERVER_MESSAGE),
-                                  malloc,
-                                  free);
+                                  allocator,
+                                  deallocator);
 
     return status;
 }
@@ -75,10 +78,14 @@ eSTATUS chat_server_create(
         return status;
     }
 
-    new_master_cblk_ptr->user_cback = user_cback;
-    new_master_cblk_ptr->user_arg   = user_arg;
+    new_master_cblk_ptr->allocator   = allocator;
+    new_master_cblk_ptr->deallocator = deallocator;
+    new_master_cblk_ptr->user_cback  = user_cback;
+    new_master_cblk_ptr->user_arg    = user_arg;
 
-    status = init_msg_queue(new_master_cblk_ptr->message_queue);
+    status = init_msg_queue(&new_master_cblk_ptr->message_queue,
+                            allocator,
+                            deallocator);
     if (STATUS_SUCCESS != status)
     {
         deallocator(new_master_cblk_ptr);
@@ -108,25 +115,6 @@ eSTATUS chat_server_open(
     master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
 
     message.type = CHAT_SERVER_MESSAGE_OPEN;
-    status       = message_queue_put(master_cblk_ptr->message_queue,
-                                     &message,
-                                     sizeof(message));
-
-    return status;
-}
-
-
-eSTATUS chat_server_reset(
-    CHAT_SERVER chat_server)
-{
-    eSTATUS              status;
-    sCHAT_SERVER_MESSAGE message;
-    sCHAT_SERVER_CBLK*   master_cblk_ptr;
-
-    assert(NULL != chat_server);
-    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
-
-    message.type = CHAT_SERVER_MESSAGE_RESET;
     status       = message_queue_put(master_cblk_ptr->message_queue,
                                      &message,
                                      sizeof(message));

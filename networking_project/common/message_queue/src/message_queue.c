@@ -6,6 +6,7 @@
 
 #include "common_types.h"
 
+#include <stdio.h>
 
 eSTATUS message_queue_create(
     MESSAGE_QUEUE_ID*    out_message_queue_id,
@@ -106,32 +107,22 @@ func_exit:
 }
 
 
-eSTATUS message_queue_peek(
-    MESSAGE_QUEUE_ID message_queue_id,
-    void* const      message_out_buffer,
-    size_t           out_buffer_size)
+static eSTATUS get_locked_queue_next_msg(
+    sMESSAGE_QUEUE* message_queue,
+    void* const     message_out_buffer,
+    size_t          out_buffer_size)
 {
-    sMESSAGE_QUEUE* message_queue;
-    size_t          current_message_offset;
-    void*           current_message_buffer;
-    eSTATUS         return_status = STATUS_SUCCESS;
-
-    assert(NULL != message_queue_id);
-    assert(NULL != message_out_buffer);
-
-    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
-    pthread_mutex_lock(&message_queue->queue_mutex);
+    size_t current_message_offset;
+    void*  current_message_buffer;
 
     if (out_buffer_size < message_queue->message_size)
     {
-        return_status = STATUS_INVALID_ARG;
-        goto func_exit;
+        return STATUS_INVALID_ARG;
     }
 
     if (message_queue->used_slots <= 0)
     {
-        return_status = STATUS_EMPTY;
-        goto func_exit;
+        return STATUS_EMPTY;
     }
 
     current_message_offset = message_queue->front_index * message_queue->message_size;
@@ -140,12 +131,31 @@ eSTATUS message_queue_peek(
     memcpy(message_out_buffer,
            current_message_buffer,
            message_queue->message_size);
+        
+    return STATUS_SUCCESS;
+}
 
-    return_status = STATUS_SUCCESS;
 
-func_exit:
+eSTATUS message_queue_peek(
+    MESSAGE_QUEUE_ID message_queue_id,
+    void* const      message_out_buffer,
+    size_t           out_buffer_size)
+{
+    sMESSAGE_QUEUE* message_queue;
+    eSTATUS         status = STATUS_SUCCESS;
+
+    assert(NULL != message_queue_id);
+    assert(NULL != message_out_buffer);
+
+    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
+    pthread_mutex_lock(&message_queue->queue_mutex);
+
+    status = get_locked_queue_next_msg(message_queue,
+                                       message_out_buffer,
+                                       out_buffer_size);
+
     pthread_mutex_unlock(&message_queue->queue_mutex);
-    return return_status;
+    return status;
 }
 
     
@@ -158,16 +168,19 @@ eSTATUS message_queue_get(
     eSTATUS         status;
 
     assert(NULL != message_queue_id);
+    message_queue = (sMESSAGE_QUEUE*)message_queue_id;
 
     pthread_mutex_lock(&message_queue->queue_mutex);
+
     while (message_queue->used_slots < 1)
     {
         pthread_cond_wait(&message_queue->queue_cond_var, &message_queue->queue_mutex);
     }
 
-    status = message_queue_peek(message_queue_id,
-                                message_out_buffer,
-                                out_buffer_size);
+    status = get_locked_queue_next_msg(message_queue,
+                                       message_out_buffer,
+                                       out_buffer_size);
+    assert(STATUS_EMPTY != status);
     
     if (STATUS_SUCCESS == status)
     {

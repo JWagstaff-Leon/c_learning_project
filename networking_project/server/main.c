@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "chat_server.h"
 #include "common_types.h"
@@ -29,7 +30,10 @@ typedef enum
 } sMAIN_FSM_STATE;
 
 
-static pthread_mutex_t server_mutex;
+static pthread_mutex_t k_server_mutex;
+static pthread_cond_t  k_server_cond_var;
+
+static eCHAT_SERVER_EVENT_TYPE k_last_event;
 
 
 #define MAIN_MESSAGE_QUEUE_SIZE 8
@@ -55,25 +59,12 @@ void chat_server_cback(
 {
     (void)data;
 
-    if (mask & CHAT_SERVER_EVENT_OPENED)
-    {
-        printf("Server has opened\n");
-    }
+    pthread_mutex_lock(&k_server_mutex);
 
-    if (mask & CHAT_SERVER_EVENT_OPEN_FAILED)
-    {
-        printf("Server open failed\n");
-    }
+    k_last_event = mask;
+    pthread_cond_signal(&k_server_cond_var);
 
-    if (mask & CHAT_SERVER_EVENT_RESET)
-    {
-        printf("Server has reset\n");
-    }
-
-    if (mask & CHAT_SERVER_EVENT_CLOSED)
-    {
-        printf("Server has closed\n");
-    }
+    pthread_mutex_unlock(&k_server_mutex);
 }
 
 
@@ -85,12 +76,8 @@ int main(
     MESSAGE_QUEUE_ID message_queue;
     CHAT_SERVER      server;
 
-    status = message_queue_create(&message_queue,
-                                  MAIN_MESSAGE_QUEUE_SIZE,
-                                  sizeof(sMAIN_MESSAGE),
-                                  malloc,
-                                  free);
-
+    char*   user_input;
+    ssize_t user_input_size;
     status = chat_server_create(&server,
                                 malloc,
                                 free,
@@ -103,7 +90,50 @@ int main(
         return 1;
     }
 
+    pthread_mutex_init(&k_server_mutex, NULL);
+
+    pthread_mutex_lock(&k_server_mutex);
     chat_server_open(server);
+    pthread_cond_wait(&k_server_cond_var, &k_server_mutex);
+
+    switch (k_last_event)
+    {
+        case CHAT_SERVER_EVENT_OPEN_FAILED:
+        {
+            fprintf(stderr, "Server open failed\n");
+            return 1;
+        }
+        case CHAT_SERVER_EVENT_OPENED:
+        {
+            printf("Server has opened\n");
+            break;
+        }
+        case CHAT_SERVER_EVENT_CLOSED:
+        {
+            fprintf(stderr, "Server has closed instead of opening\n");
+            return 1;
+        }
+        default:
+        {
+            fprintf(stderr, "Server has sent an unexpected message when opening\n");
+            return 1;
+        }
+    }
+
+    while (CHAT_SERVER_EVENT_CLOSED != k_last_event)
+    {
+        getline(&user_input, &user_input_size, stdin);
+        if (!strncmp(user_input, "close\n", sizeof("close\n")))
+        {
+            chat_server_close(server);
+            while (CHAT_SERVER_EVENT_CLOSED != k_last_event)
+            {
+                pthread_cond_wait(&k_server_cond_var, &k_server_mutex);
+            }
+            continue;
+        }
+    }
+    pthread_mutex_unlock(&k_server_mutex);
 
     return 0;
 }
