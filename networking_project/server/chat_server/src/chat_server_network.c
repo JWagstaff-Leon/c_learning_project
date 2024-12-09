@@ -131,6 +131,7 @@ static eSTATUS read_from_fd(
     sCHAT_SERVER_CONNECTION_READ_INFO* read_info)
 {
     ssize_t read_bytes;
+    uint32_t flush_bytes;
 
     switch (read_info->state)
     {
@@ -181,7 +182,7 @@ static eSTATUS read_from_fd(
         case CHAT_SERVER_CONNECTION_READ_STATE_HEADER:
         {
             read_bytes = read(fd,
-                              (void*)((size_t)&read_info->buffer + read_info->read_bytes),
+                              (void*)(((uint8_t*)&read_info->buffer) + read_info->read_bytes),
                               CHAT_EVENT_HEADER_SIZE - read_info->read_bytes);
             if (read_bytes < 0)
             {
@@ -215,7 +216,7 @@ static eSTATUS read_from_fd(
         case CHAT_SERVER_CONNECTION_READ_STATE_DATA:
         {
             read_bytes = read(fd,
-                              (void*)((size_t)&read_info->buffer + read_info->read_bytes),
+                              (void*)(((uint8_t*)&read_info->buffer) + read_info->read_bytes),
                               read_info->expected_bytes - read_info->read_bytes);
             if (read_bytes < 0)
             {
@@ -238,9 +239,14 @@ static eSTATUS read_from_fd(
         }
         case CHAT_SERVER_CONNECTION_READ_STATE_FLUSHING:
         {
+            flush_bytes = read_info->expected_bytes - read_info->read_bytes;
+            if (flush_bytes > sizeof(read_info->buffer))
+            {
+                flush_bytes = sizeof(read_info->buffer);
+            }
             read_bytes = read(fd,
                               &read_info->buffer,
-                              sizeof(read_info->buffer));
+                              flush_bytes);
             if (read_bytes > 0)
             {
                 read_info->read_bytes += read_bytes;
@@ -297,10 +303,20 @@ static void add_connection(
     new_connection->pollfd.events = POLLIN | POLLOUT | POLLHUP;
     new_connection->state         = CHAT_SERVER_CONNECTION_STATE_CONNECTED;
 
+    memset(&event_buffer, 0, sizeof(event_buffer));
     event_buffer.event_type = CHAT_EVENT_USER_LIST;
     event_buffer.event_origin = 0;
     event_buffer.event_length = 0;
-    event_buffer.event_data[0] = "A";
+    for (uint32_t connection_index = 1; connection_index < connections->size; connection_index++)
+    {
+        if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == connections->list[connection_index].state)
+        {
+            event_buffer.event_length += snprintf(&event_buffer.event_data[event_buffer.event_length],
+                                                  sizeof(event_buffer.event_data) - event_buffer.event_length,
+                                                  "%s\n",
+                                                  connections->list[connection_index].name);
+        }
+    }
     send(new_connection_fd,
         &event_buffer,
         CHAT_EVENT_HEADER_SIZE,
@@ -361,20 +377,6 @@ eSTATUS chat_server_process_connections_events(
 
         if (CHAT_SERVER_CONNECTION_READ_STATE_DONE == current_connection->read_info.state)
         {
-fprintf(stderr, "Received event\nType = %d\nOrigin = %u\nLength = %u\nData: ",
-current_connection->read_info.buffer.event_type,
-current_connection->read_info.buffer.event_origin,
-current_connection->read_info.buffer.event_length);
-for(uint16_t i = 0; i < current_connection->read_info.buffer.event_length; i++)
-{
-fprintf(stderr, "%02X ", current_connection->read_info.buffer.event_data[i]);
-}
-fprintf(stderr, "\n");
-for(uint16_t i = 0; i < current_connection->read_info.buffer.event_length; i++)
-{
-fprintf(stderr, "%c", current_connection->read_info.buffer.event_data[i]);
-}
-fprintf(stderr, "\n");
             current_connection->read_info.buffer.event_origin = connection_index;
 
             status = STATUS_SUCCESS;
