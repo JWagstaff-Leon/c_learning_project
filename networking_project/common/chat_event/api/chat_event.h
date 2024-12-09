@@ -8,6 +8,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#include "common_types.h"
+
 
 // Constants -------------------------------------------------------------------
 
@@ -46,19 +48,42 @@ typedef enum
 
 typedef struct
 {
-    eCHAT_EVENT_TYPE event_type;
-    uint32_t         event_origin;
+    eCHAT_EVENT_TYPE type;
+    uint32_t         origin;
 
-    uint16_t event_length;
-    uint8_t  event_data[CHAT_EVENT_MAX_LENGTH];
+    uint16_t length;
+    uint8_t  data[CHAT_EVENT_MAX_LENGTH];
 } sCHAT_EVENT;
 
 
-#define CHAT_EVENT_HEADER_SIZE offsetof(sCHAT_EVENT, event_data)
+typedef enum
+{
+    CHAT_EVENT_READER_STATE_NEW,
+    CHAT_EVENT_READER_STATE_HEADER,
+    CHAT_EVENT_READER_STATE_DATA,
+    CHAT_EVENT_READER_STATE_DONE,
+
+    CHAT_EVENT_READER_STATE_FLUSHING,
+    CHAT_EVENT_READER_STATE_FLUSHED
+} eCHAT_EVENT_READER_STATE;
+
+
+typedef struct
+{
+    sCHAT_EVENT event;
+    uint32_t    read_bytes;
+    uint32_t    expected_bytes;
+
+    eCHAT_EVENT_READER_STATE state;
+} sCHAT_EVENT_READER;
+
+#define CHAT_EVENT_HEADER_SIZE offsetof(sCHAT_EVENT, data)
 
 // Functions -------------------------------------------------------------------
 
-
+eSTATUS chat_event_read_from_fd(
+    int                 fd,
+    sCHAT_EVENT_READER* reader);
 
 #ifdef __cplusplus
 }

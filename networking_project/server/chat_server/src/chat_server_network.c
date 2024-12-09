@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "chat_event.h"
 #include "common_types.h"
 
 
@@ -126,145 +127,6 @@ eSTATUS chat_server_network_poll(
 }
 
 
-static eSTATUS read_from_fd(
-    int                                fd,
-    sCHAT_SERVER_CONNECTION_READ_INFO* read_info)
-{
-    ssize_t read_bytes;
-    uint32_t flush_bytes;
-
-    switch (read_info->state)
-    {
-        case CHAT_SERVER_CONNECTION_READ_STATE_NEW:
-        {
-            read_info->expected_bytes = sizeof(read_info->buffer);
-            read_info->read_bytes     = 0;
-            memset(&read_info->buffer,
-                   0,
-                   sizeof(read_info->buffer));
-
-            read_bytes = read(fd,
-                              (void*)(&read_info->buffer),
-                              CHAT_EVENT_HEADER_SIZE);
-            if (read_bytes < 0)
-            {
-                return STATUS_FAILURE;
-            }
-
-            read_info->read_bytes = read_bytes;
-            if (read_info->read_bytes >= CHAT_EVENT_HEADER_SIZE)
-            {
-                read_info->expected_bytes = CHAT_EVENT_HEADER_SIZE + read_info->buffer.event_length;
-                assert(read_info->read_bytes <= read_info->expected_bytes);
-
-                if(read_info->expected_bytes > sizeof(read_info->buffer))
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_FLUSHING;
-                    return STATUS_NO_SPACE;
-                }
-                
-                if (read_info->read_bytes >= read_info->expected_bytes)
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_DONE;
-                }
-                else
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_DATA;
-                }
-            }
-            else
-            {
-                read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_HEADER;
-            }
-
-            break;
-        }
-        case CHAT_SERVER_CONNECTION_READ_STATE_HEADER:
-        {
-            read_bytes = read(fd,
-                              (void*)(((uint8_t*)&read_info->buffer) + read_info->read_bytes),
-                              CHAT_EVENT_HEADER_SIZE - read_info->read_bytes);
-            if (read_bytes < 0)
-            {
-                return STATUS_FAILURE;
-            }
-
-            read_info->read_bytes += read_bytes;
-            if (read_info->read_bytes >= CHAT_EVENT_HEADER_SIZE)
-            {
-                read_info->expected_bytes = CHAT_EVENT_HEADER_SIZE + read_info->buffer.event_length;
-                assert(read_info->read_bytes <= read_info->expected_bytes);
-
-                if(read_info->expected_bytes > sizeof(read_info->buffer))
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_FLUSHING;
-                    return STATUS_NO_SPACE;
-                }
-
-                if (read_info->read_bytes >= read_info->expected_bytes)
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_DONE;
-                }
-                else
-                {
-                    read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_DATA;
-                }
-            }
-
-            break;
-        }
-        case CHAT_SERVER_CONNECTION_READ_STATE_DATA:
-        {
-            read_bytes = read(fd,
-                              (void*)(((uint8_t*)&read_info->buffer) + read_info->read_bytes),
-                              read_info->expected_bytes - read_info->read_bytes);
-            if (read_bytes < 0)
-            {
-                return STATUS_FAILURE;
-            }
-
-            read_info->read_bytes += read_bytes;
-            assert(read_info->read_bytes <= read_info->expected_bytes);
-
-            if (read_info->read_bytes >= read_info->expected_bytes)
-            {
-                read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_DONE;
-            }
-
-            break;
-        }
-        case CHAT_SERVER_CONNECTION_READ_STATE_DONE:
-        {
-            break;
-        }
-        case CHAT_SERVER_CONNECTION_READ_STATE_FLUSHING:
-        {
-            flush_bytes = read_info->expected_bytes - read_info->read_bytes;
-            if (flush_bytes > sizeof(read_info->buffer))
-            {
-                flush_bytes = sizeof(read_info->buffer);
-            }
-            read_bytes = read(fd,
-                              &read_info->buffer,
-                              flush_bytes);
-            if (read_bytes > 0)
-            {
-                read_info->read_bytes += read_bytes;
-            }
-
-            if (read_info->read_bytes >= read_info->expected_bytes)
-            {
-                read_info->state = CHAT_SERVER_CONNECTION_READ_STATE_FLUSHED;
-                return STATUS_SUCCESS;
-            }
-            return STATUS_FAILURE;
-        }
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
 static void add_connection(
     sCHAT_SERVER_CONNECTIONS* connections,
     int                       new_connection_fd)
@@ -277,14 +139,14 @@ static void add_connection(
 
     if (connections->count >= connections->size)
     {
-        event_buffer.event_type   = CHAT_EVENT_CONNECTION_FAILED;
-        event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-        snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", &k_server_full_message[0]);
-        event_buffer.event_length = sizeof(k_server_full_message);
+        event_buffer.type   = CHAT_EVENT_CONNECTION_FAILED;
+        event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+        snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", &k_server_full_message[0]);
+        event_buffer.length = sizeof(k_server_full_message);
 
         send(new_connection_fd,
              &event_buffer,
-             CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+             CHAT_EVENT_HEADER_SIZE + event_buffer.length,
              0);
         close(new_connection_fd);
         return;
@@ -304,17 +166,17 @@ static void add_connection(
     new_connection->state         = CHAT_SERVER_CONNECTION_STATE_CONNECTED;
 
     memset(&event_buffer, 0, sizeof(event_buffer));
-    event_buffer.event_type = CHAT_EVENT_USER_LIST;
-    event_buffer.event_origin = 0;
-    event_buffer.event_length = 0;
+    event_buffer.type   = CHAT_EVENT_USER_LIST;
+    event_buffer.origin = 0;
+    event_buffer.length = 0;
     for (uint32_t connection_index = 1; connection_index < connections->size; connection_index++)
     {
         if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == connections->list[connection_index].state)
         {
-            event_buffer.event_length += snprintf(&event_buffer.event_data[event_buffer.event_length],
-                                                  sizeof(event_buffer.event_data) - event_buffer.event_length,
-                                                  "%s\n",
-                                                  connections->list[connection_index].name);
+            event_buffer.length += snprintf(&event_buffer.data[event_buffer.length],
+                                            sizeof(event_buffer.data) - event_buffer.length,
+                                            "%s\n",
+                                            connections->list[connection_index].name);
         }
     }
     send(new_connection_fd,
@@ -351,14 +213,14 @@ eSTATUS chat_server_process_connections_events(
 
         if (CHAT_SERVER_CONNECTION_STATE_CONNECTED == current_connection->state && current_connection->pollfd.revents & POLLOUT)
         {
-            event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-            event_buffer.event_type   = CHAT_EVENT_USERNAME_REQUEST;
-            snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST]);
-            event_buffer.event_length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST], CHAT_EVENT_MAX_LENGTH - 1);
+            event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+            event_buffer.type   = CHAT_EVENT_USERNAME_REQUEST;
+            snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST]);
+            event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST], CHAT_EVENT_MAX_LENGTH - 1);
 
             send(current_connection->pollfd.fd,
                  &event_buffer,
-                 CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                 CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                  0);
 
             current_connection->state = CHAT_SERVER_CONNECTION_STATE_IN_SETUP;
@@ -367,20 +229,20 @@ eSTATUS chat_server_process_connections_events(
 
         if (current_connection->pollfd.revents & POLLIN)
         {
-            status = read_from_fd(current_connection->pollfd.fd,
-                                  &current_connection->read_info);
+            status = chat_event_read_from_fd(current_connection->pollfd.fd,
+                                             &current_connection->event_reader);
             if (STATUS_SUCCESS != status)
             {
                 continue;
             }
         }
 
-        if (CHAT_SERVER_CONNECTION_READ_STATE_DONE == current_connection->read_info.state)
+        if (CHAT_EVENT_READER_STATE_DONE == current_connection->event_reader.state)
         {
-            current_connection->read_info.buffer.event_origin = connection_index;
+            current_connection->event_reader.event.origin = connection_index;
 
             status = STATUS_SUCCESS;
-            switch(current_connection->read_info.buffer.event_type)
+            switch(current_connection->event_reader.event.type)
             {
                 case CHAT_EVENT_CHAT_MESSAGE:
                 {
@@ -398,8 +260,8 @@ eSTATUS chat_server_process_connections_events(
                             if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == connections->list[send_connection_index].state)
                             {
                                 send(connections->list[send_connection_index].pollfd.fd,
-                                     &current_connection->read_info.buffer,
-                                     CHAT_EVENT_HEADER_SIZE + current_connection->read_info.buffer.event_length,
+                                     &current_connection->event_reader.event,
+                                     CHAT_EVENT_HEADER_SIZE + current_connection->event_reader.event.length,
                                      0);
                             }
                         }
@@ -410,14 +272,14 @@ eSTATUS chat_server_process_connections_events(
                 {
                     if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == current_connection->state)
                     {
-                        event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-                        event_buffer.event_type   = CHAT_EVENT_USERNAME_SUBMIT;
-                        snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", connections->list[0].name);
-                        event_buffer.event_length = strnlen(&event_buffer.event_data[0], CHAT_EVENT_MAX_LENGTH - 1);
+                        event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                        event_buffer.type   = CHAT_EVENT_USERNAME_SUBMIT;
+                        snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", connections->list[0].name);
+                        event_buffer.length = strnlen(&event_buffer.data[0], CHAT_EVENT_MAX_LENGTH - 1);
 
                         send(current_connection->pollfd.fd,
                              &event_buffer,
-                             CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                             CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                              0);
                     }
                     break;
@@ -426,36 +288,36 @@ eSTATUS chat_server_process_connections_events(
                 {
                     if (CHAT_SERVER_CONNECTION_STATE_IN_SETUP == current_connection->state)
                     {
-                        if (current_connection->read_info.buffer.event_length <= CHAT_SERVER_CONNECTION_MAX_NAME_SIZE)
+                        if (current_connection->event_reader.event.length <= CHAT_SERVER_CONNECTION_MAX_NAME_SIZE)
                         {
                             // Compose name accepted message to joining user
-                            event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-                            event_buffer.event_type   = CHAT_EVENT_USERNAME_ACCEPTED;
-                            snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
-                            event_buffer.event_length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED], CHAT_EVENT_MAX_LENGTH - 1);
+                            event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                            event_buffer.type   = CHAT_EVENT_USERNAME_ACCEPTED;
+                            snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
+                            event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED], CHAT_EVENT_MAX_LENGTH - 1);
         
                             send(current_connection->pollfd.fd,
                                  &event_buffer,
-                                 CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                                 CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                                  0);
 
                             snprintf(current_connection->name,
                                      sizeof(current_connection->name),
                                      "%s",
-                                     &current_connection->read_info.buffer.event_data[0]);
+                                     &current_connection->event_reader.event.data[0]);
                                 
                             current_connection->state = CHAT_SERVER_CONNECTION_STATE_ACTIVE;
         
                             // Compose message to active users about joining user
-                            event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-                            event_buffer.event_type   = CHAT_EVENT_USER_JOIN;
+                            event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                            event_buffer.type   = CHAT_EVENT_USER_JOIN;
                             // TODO do this to all snprintf's while applicable:
-                            // Use snprintf return to determine event_length
-                            snprintf(&event_buffer.event_data,
+                            // Use snprintf return to determine event length
+                            snprintf(&event_buffer.data,
                                      CHAT_EVENT_MAX_LENGTH,
                                      "%s",
                                      current_connection->name);
-                            event_buffer.event_length = strnlen(&current_connection->name[0], CHAT_EVENT_MAX_LENGTH - 1);
+                            event_buffer.length = strnlen(&current_connection->name[0], CHAT_EVENT_MAX_LENGTH - 1);
         
                             for (send_connection_index = 1;
                             send_connection_index < connections->size;
@@ -470,21 +332,21 @@ eSTATUS chat_server_process_connections_events(
                                 {
                                     send(connections->list[send_connection_index].pollfd.fd,
                                         &event_buffer,
-                                        CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                                        CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                                         0);
                                 }
                             }
                         }
                         else
                         {
-                            event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-                            event_buffer.event_type   = CHAT_EVENT_USERNAME_REJECTED;
-                            snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", &k_name_too_long_message[0]);
-                            event_buffer.event_length = sizeof(k_name_too_long_message);
+                            event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                            event_buffer.type   = CHAT_EVENT_USERNAME_REJECTED;
+                            snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", &k_name_too_long_message[0]);
+                            event_buffer.length = sizeof(k_name_too_long_message);
         
                             send(current_connection->pollfd.fd,
                                  &event_buffer,
-                                 CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                                 CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                                  0);
                         }
                     }
@@ -510,22 +372,22 @@ eSTATUS chat_server_process_connections_events(
                 }
             }
 
-            if (CHAT_SERVER_CONNECTION_READ_STATE_FLUSHED == current_connection->read_info.state)
+            if (CHAT_EVENT_READER_STATE_FLUSHED == current_connection->event_reader.state)
             {
-                event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-                event_buffer.event_type   = CHAT_EVENT_OVERSIZED_CONTENT;
-                snprintf(&event_buffer.event_data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT]);
-                event_buffer.event_length = strnlen(k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT], CHAT_EVENT_MAX_LENGTH - 1);
+                event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                event_buffer.type   = CHAT_EVENT_OVERSIZED_CONTENT;
+                snprintf(&event_buffer.data, CHAT_EVENT_MAX_LENGTH, "%s", k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT]);
+                event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT], CHAT_EVENT_MAX_LENGTH - 1);
 
                 send(current_connection->pollfd.fd,
                      &event_buffer,
-                     CHAT_EVENT_HEADER_SIZE + event_buffer.event_length,
+                     CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                      0);
             }
             
             if (STATUS_SUCCESS == status)
             {
-                current_connection->read_info.state = CHAT_SERVER_CONNECTION_READ_STATE_NEW;
+                current_connection->event_reader.state = CHAT_EVENT_READER_STATE_NEW;
             }
         }
     }
@@ -562,7 +424,7 @@ static void shutdown_connection(
     {
         send(pollfd.fd,
              event_buffer,
-             CHAT_EVENT_HEADER_SIZE + event_buffer->event_length,
+             CHAT_EVENT_HEADER_SIZE + event_buffer->length,
              0);
     }
 
@@ -583,13 +445,13 @@ static void shutdown_connections(
 
     assert(NULL != connections);
 
-    event_buffer.event_type   = CHAT_EVENT_SERVER_SHUTDOWN;
-    event_buffer.event_origin = CHAT_EVENT_ORIGIN_SERVER;
-    snprintf(&event_buffer.event_data[0],
-             sizeof(event_buffer.event_data),
+    event_buffer.type   = CHAT_EVENT_SERVER_SHUTDOWN;
+    event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+    snprintf(&event_buffer.data[0],
+             sizeof(event_buffer.data),
              "%s",
              k_server_event_canned_messages[CHAT_EVENT_SERVER_SHUTDOWN]);
-    event_buffer.event_length = strnlen(k_server_event_canned_messages[CHAT_EVENT_SERVER_SHUTDOWN], CHAT_EVENT_MAX_LENGTH - 1);
+    event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_SERVER_SHUTDOWN], CHAT_EVENT_MAX_LENGTH - 1);
 
     chat_server_network_poll(connections);
     for (connection_index = 1;

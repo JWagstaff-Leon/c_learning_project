@@ -29,35 +29,12 @@ typedef enum {
 } eCHAT_SERVER_CONNECTION_STATE;
 
 
-typedef enum
-{
-    CHAT_SERVER_CONNECTION_READ_STATE_NEW,
-    CHAT_SERVER_CONNECTION_READ_STATE_HEADER,
-    CHAT_SERVER_CONNECTION_READ_STATE_DATA,
-    CHAT_SERVER_CONNECTION_READ_STATE_DONE,
-
-    CHAT_SERVER_CONNECTION_READ_STATE_FLUSHING,
-    CHAT_SERVER_CONNECTION_READ_STATE_FLUSHED
-} eCHAT_SERVER_CONNECTION_READ_STATE;
-
-
-typedef struct
-{
-    sCHAT_EVENT buffer;
-    uint32_t    read_bytes;
-    uint32_t    expected_bytes;
-
-    eCHAT_SERVER_CONNECTION_READ_STATE state;
-} sCHAT_SERVER_CONNECTION_READ_INFO;
-
-
 typedef struct
 {
     eCHAT_SERVER_CONNECTION_STATE state;
     struct pollfd                 pollfd;
-
-    sCHAT_SERVER_CONNECTION_READ_INFO read_info;
-
+    sCHAT_EVENT_READER            event_reader;
+    
     unsigned char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
 } sCHAT_SERVER_CONNECTION;
 
