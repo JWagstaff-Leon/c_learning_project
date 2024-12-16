@@ -40,7 +40,7 @@ typedef struct
     void*                   user_arg;
 
     eCHAT_SERVER_STATE state;
-    MESSAGE_QUEUE_ID   message_queue;
+    MESSAGE_QUEUE      message_queue;
 
     sCHAT_SERVER_CONNECTIONS connections;
 } sCHAT_SERVER_CBLK;
@@ -48,7 +48,7 @@ typedef struct
 
 // Functions -------------------------------------------------------------------
 
-void* chat_server_process_thread_entry(
+void* chat_server_thread_entry(
     void* arg);
 
 

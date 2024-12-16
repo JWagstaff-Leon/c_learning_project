@@ -17,13 +17,13 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
-typedef void* MESSAGE_QUEUE_ID;
+typedef void* MESSAGE_QUEUE;
 
 
 // Functions -------------------------------------------------------------------
 
 eSTATUS message_queue_create(
-    MESSAGE_QUEUE_ID*    out_message_queue_id,
+    MESSAGE_QUEUE*       out_message_queue,
     size_t               queue_size,
     size_t               message_size,
     fGENERIC_ALLOCATOR   allocator,
@@ -31,25 +31,25 @@ eSTATUS message_queue_create(
 
 
 eSTATUS message_queue_put(
-    MESSAGE_QUEUE_ID  message_queue_id,
+    MESSAGE_QUEUE     message_queue,
     const void* const message,
     size_t            message_size);
 
 
 eSTATUS message_queue_peek(
-    MESSAGE_QUEUE_ID message_queue_id,
-    void* const      message_out_buffer,
-    size_t           out_buffer_size);
+    MESSAGE_QUEUE message_queue,
+    void* const   message_out_buffer,
+    size_t        out_buffer_size);
 
     
 eSTATUS message_queue_get(
-    MESSAGE_QUEUE_ID message_queue_id,
-    void* const      message_out_buffer,
-    size_t           out_buffer_size);
+    MESSAGE_QUEUE message_queue,
+    void* const   message_out_buffer,
+    size_t        out_buffer_size);
 
 
 eSTATUS message_queue_destroy(
-    MESSAGE_QUEUE_ID message_queue_id);
+    MESSAGE_QUEUE message_queue);
 
 #ifdef __cplusplus
 }

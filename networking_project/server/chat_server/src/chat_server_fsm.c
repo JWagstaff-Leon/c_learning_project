@@ -173,7 +173,7 @@ static void fsm_cblk_init(
 }
 
 
-void* chat_server_process_thread_entry(
+void* chat_server_thread_entry(
     void* arg)
 {
     sCHAT_SERVER_CBLK *master_cblk_ptr;
@@ -181,7 +181,7 @@ void* chat_server_process_thread_entry(
     eSTATUS status;
 
     assert(NULL != arg);
-    master_cblk_ptr = (sCHAT_SERVER_CBLK *)arg;
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)arg;
 
     fsm_cblk_init(master_cblk_ptr);
 

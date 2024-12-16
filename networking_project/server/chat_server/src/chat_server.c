@@ -27,7 +27,7 @@ static eSTATUS init_cblk(
 
 
 static eSTATUS init_msg_queue(
-    MESSAGE_QUEUE_ID*    message_queue_ptr,
+    MESSAGE_QUEUE*       message_queue_ptr,
     fGENERIC_ALLOCATOR   allocator,
     fGENERIC_DEALLOCATOR deallocator)
 {
@@ -92,7 +92,7 @@ eSTATUS chat_server_create(
         return status;
     }
 
-    status = create_thread(chat_server_process_thread_entry, new_master_cblk_ptr);
+    status = create_thread(chat_server_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
         deallocator(new_master_cblk_ptr);
