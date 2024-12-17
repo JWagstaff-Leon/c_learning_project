@@ -16,3 +16,7 @@ typedef enum
 
 typedef void* (*fGENERIC_ALLOCATOR)(size_t);
 typedef void (*fGENERIC_DEALLOCATOR)(void*);
+
+typedef void* (*fGENERIC_THREAD_ENTRY) (void*);
+
+typedef eSTATUS (*fGENERIC_THREAD_CREATOR) (fGENERIC_THREAD_ENTRY, void*);

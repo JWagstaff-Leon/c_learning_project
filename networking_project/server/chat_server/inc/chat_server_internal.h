@@ -14,7 +14,6 @@ extern "C" {
 #include "chat_server.h"
 #include "chat_server_connections.h"
 
-#include <pthread.h>
 #include <stdint.h>
 
 #include "common_types.h"

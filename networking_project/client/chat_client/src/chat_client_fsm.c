@@ -2,6 +2,9 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #include "common_types.h"
 #include "chat_client_internal.h"
@@ -21,7 +24,20 @@ static void not_connected_processing(
     {
         case CHAT_CLIENT_MESSAGE_CONNECT:
         {
-            // TODO do the connection
+            status = chat_client_network_open(master_cblk_ptr,
+                                              message->params.connect.address);
+            if (STATUS_SUCCESS != status)
+            {
+                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                            CHAT_CLIENT_EVENT_CONNECT_FAILED,
+                                            NULL);
+                break;
+            }
+
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_INACTIVE;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_CONNECTED,
+                                        NULL);
             break;
         }
         case CHAT_CLIENT_MESSAGE_DISCONNECT:
@@ -34,6 +50,10 @@ static void not_connected_processing(
         case CHAT_CLIENT_MESSAGE_CLOSE:
         {
             // TODO do close
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_CLOSED,
+                                        NULL);
             break;
         }
     }
@@ -53,7 +73,33 @@ static void inactive_processing(
     // REVIEW maybe do a subfsm for this?
     switch (message->type)
     {
-        
+        case CHAT_CLIENT_MESSAGE_SEND_TEXT:
+        {
+            chat_client_network_send_username(master_cblk_ptr->server_connection.fd,
+                                              &message->params.send_text.text[0]);
+            // TODO transiton states or substates to a "waiting for username acceptance"
+            // TODO whatever new (sub)state will call back to the user with the result when determined
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_DISCONNECT:
+        {
+            // TODO do disconnect
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_NOT_CONNECTED;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_DISCONNECTED,
+                                        NULL);
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CLOSE:
+        {
+            // TODO do disconnect
+            // TODO do close
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_CLOSED,
+                                        NULL);
+            break;
+        }
     }
 }
 
@@ -70,7 +116,35 @@ static void active_processing(
 
     switch (message->type)
     {
-        
+        case CHAT_CLIENT_MESSAGE_SEND_TEXT:
+        {
+            status = chat_client_network_send_message(master_cblk_ptr->server_connection.fd,
+                                                      &message->params.send_text.text[0]);
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_POLL:
+        {
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_DISCONNECT:
+        {
+            // TODO do disconnect
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_NOT_CONNECTED;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_DISCONNECTED,
+                                        NULL);
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CLOSE:
+        {
+            // TODO do disconnect
+            // TODO do close
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_CLOSED,
+                                        NULL);
+            break;
+        }
     }
 }
 

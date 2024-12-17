@@ -35,7 +35,7 @@ typedef struct
     struct pollfd                 pollfd;
     sCHAT_EVENT_READER            event_reader;
     
-    unsigned char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
+    char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
 } sCHAT_SERVER_CONNECTION;
 
 

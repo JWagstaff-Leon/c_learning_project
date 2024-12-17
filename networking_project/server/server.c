@@ -40,8 +40,8 @@ static eCHAT_SERVER_EVENT_TYPE k_last_event;
 
 
 eSTATUS create_chat_server_thread(
-    fCHAT_SERVER_THREAD_ENTRY thread_entry,
-    void*                     thread_entry_arg)
+    fGENERIC_THREAD_ENTRY thread_entry,
+    void*                 thread_entry_arg)
 {
     pthread_t unused;
     pthread_create(&unused,
@@ -72,9 +72,9 @@ int main(
     int argc,
     char *argv[])
 {
-    eSTATUS          status;
-    MESSAGE_QUEUE_ID message_queue;
-    CHAT_SERVER      server;
+    eSTATUS       status;
+    MESSAGE_QUEUE message_queue;
+    CHAT_SERVER   server;
 
     char*   user_input;
     ssize_t user_input_size;

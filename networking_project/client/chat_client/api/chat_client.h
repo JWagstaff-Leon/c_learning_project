@@ -6,6 +6,7 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include <cstdint.h>
 
 
 // Constants -------------------------------------------------------------------
@@ -40,8 +41,24 @@ typedef void (*fCHAT_CLIENT_USER_CBACK) (
     sCHAT_CLIENT_CBACK_DATA* data);
 
 
+typedef void* CHAT_CLIENT;
+
+
 // Functions -------------------------------------------------------------------
 
+eSTATUS chat_client_create(
+    CHAT_CLIENT*            out_new_chat_client,
+    fGENERIC_ALLOCATOR      allocator,
+    fGENERIC_DEALLOCATOR    deallocator,
+    fGENERIC_THREAD_CREATOR create_thread,
+    fCHAT_CLIENT_USER_CBACK user_cback,
+    void*                   user_arg);
+
+
+eSTATUS chat_client_connect(
+    CHAT_CLIENT client,
+    const char* address,
+    uint16_t    port);
 
 
 #ifdef __cplusplus

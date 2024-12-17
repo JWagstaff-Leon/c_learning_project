@@ -5,7 +5,6 @@
 #include "chat_server_fsm.h"
 
 #include <assert.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -48,18 +47,16 @@ static eSTATUS init_msg_queue(
 
 
 eSTATUS chat_server_create(
-    CHAT_SERVER*                     out_new_chat_server,
-    fGENERIC_ALLOCATOR               allocator,
-    fGENERIC_DEALLOCATOR             deallocator,
-    fCHAT_SERVER_THREAD_CREATE_CBACK create_thread,
-    fCHAT_SERVER_USER_CBACK          user_cback,
-    void*                            user_arg)
+    CHAT_SERVER*            out_new_chat_server,
+    fGENERIC_ALLOCATOR      allocator,
+    fGENERIC_DEALLOCATOR    deallocator,
+    fGENERIC_THREAD_CREATOR create_thread,
+    fCHAT_SERVER_USER_CBACK user_cback,
+    void*                   user_arg)
 {
     sCHAT_SERVER_CBLK* new_master_cblk_ptr;
+    eSTATUS            status;
     
-    eSTATUS status;
-    int     thread_status;
-
     assert(NULL != allocator);
     assert(NULL != deallocator);
     assert(NULL != user_cback);
@@ -95,6 +92,7 @@ eSTATUS chat_server_create(
     status = create_thread(chat_server_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
+        message_queue_destroy(new_master_cblk_ptr->message_queue);
         deallocator(new_master_cblk_ptr);
         return status;
     }
