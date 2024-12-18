@@ -17,6 +17,7 @@ static eSTATUS init_cblk(
     memset(master_cblk_ptr, 0, sizeof(master_cblk_ptr));
     master_cblk_ptr->state                = CHAT_CLIENT_STATE_NOT_CONNECTED;
     master_cblk_ptr->server_connection.fd = -1;
+    master_cblk_ptr->send_state           = CHAT_CLIENT_SUBFSM_SEND_STATE_READY;
 
     return STATUS_SUCCESS;
 }

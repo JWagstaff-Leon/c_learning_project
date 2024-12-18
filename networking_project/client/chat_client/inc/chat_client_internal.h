@@ -31,6 +31,13 @@ typedef enum
 } eCHAT_CLIENT_STATE;
 
 
+typedef enum
+{
+    CHAT_CLIENT_SUBFSM_SEND_STATE_READY,
+    CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS
+} eCHAT_CLIENT_SUBFSM_SEND_STATE;
+
+
 typedef struct
 {
 
@@ -43,8 +50,11 @@ typedef struct
 
     struct pollfd server_connection;
 
-    eCHAT_CLIENT_STATE state;
-    sCHAT_EVENT_READER incoming_event_reader;
+    eCHAT_CLIENT_STATE             state;
+    eCHAT_CLIENT_SUBFSM_SEND_STATE send_state;
+
+    sCHAT_EVENT_IO* incoming_event_reader;
+    sCHAT_EVENT_IO* outgoing_event_writer;
 } sCHAT_CLIENT_CBLK;
 
 
@@ -58,15 +68,10 @@ eSTATUS chat_client_network_open(
     sCHAT_CLIENT_CBLK* master_cblk_ptr,
     struct sockaddr_in address);
 
+    
+eSTATUS chat_client_network_poll(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr);
 
-eSTATUS chat_client_network_send_username(
-    int               server_fd,
-    const char* const username);
-
-
-eSTATUS chat_client_network_send_message(
-    int               server_fd,
-    const char* const message_text);
 
 #ifdef __cplusplus
 }

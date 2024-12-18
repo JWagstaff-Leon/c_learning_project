@@ -1,8 +1,10 @@
 #include "chat_client_fsm.h"
 
 #include <assert.h>
+#include <poll.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -60,6 +62,51 @@ static void not_connected_processing(
 }
 
 
+static void subfsm_send_processing(
+    const sCHAT_CLIENT_MESSAGE* message,
+    sCHAT_CLIENT_CBLK*          master_cblk_ptr)
+{
+    eSTATUS              status;
+    sCHAT_CLIENT_MESSAGE new_message;
+    sCHAT_EVENT*         outgoing_event;
+
+    assert(NULL != message);
+    assert(NULL != master_cblk_ptr);
+
+    outgoing_event = &master_cblk_ptr->outgoing_event_writer.event;
+
+    switch (master_cblk_ptr->send_state)
+    {
+        case CHAT_CLIENT_SUBFSM_SEND_STATE_READY:
+        {
+            outgoing_event->type   = message->params.send.event_type;
+            outgoing_event->origin = 0;
+            outgoing_event->length = strlen(message->params.send_text.text) + 1;
+            snprintf(&outgoing_event->data[0],
+                     sizeof(outgoing_event->data),
+                     "%s",
+                     message->params.send_text.text);
+
+            master_cblk_ptr->send_state = CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS;
+            // Fallthrough
+        }
+        case CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS:
+        {
+            if (master_cblk_ptr->server_connection.revents & POLLOUT)
+            {
+                status = chat_event_io_write_to_fd(master_cblk_ptr->outgoing_event_writer,
+                                                master_cblk_ptr->server_connection.fd);
+                if (STATUS_INCOMPLETE != status)
+                {
+                    master_cblk_ptr->send_state = CHAT_CLIENT_SUBFSM_SEND_STATE_READY;
+                }
+            }
+            break;
+        }
+    }
+}
+
+
 static void inactive_processing(
     const sCHAT_CLIENT_MESSAGE* message,
     sCHAT_CLIENT_CBLK*          master_cblk_ptr)
@@ -70,16 +117,19 @@ static void inactive_processing(
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
 
-    // REVIEW maybe do a subfsm for this?
     switch (message->type)
     {
-        case CHAT_CLIENT_MESSAGE_SEND_TEXT:
+        case CHAT_CLIENT_MESSAGE_SEND:
         {
-            chat_client_network_send_username(master_cblk_ptr->server_connection.fd,
-                                              &message->params.send_text.text[0]);
-            // TODO transiton states or substates to a "waiting for username acceptance"
-            // TODO whatever new (sub)state will call back to the user with the result when determined
+            memcpy(&new_message, message, sizeof(new_message));
+            new_message.params.send.event_type = CHAT_EVENT_USERNAME_SUBMIT;
+            subfsm_send_processing(&new_message, master_cblk_ptr);
             break;
+        }
+        case CHAT_CLIENT_MESSAGE_POLL:
+        {
+            status = chat_client_network_poll(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
         }
         case CHAT_CLIENT_MESSAGE_DISCONNECT:
         {
@@ -116,10 +166,11 @@ static void active_processing(
 
     switch (message->type)
     {
-        case CHAT_CLIENT_MESSAGE_SEND_TEXT:
+        case CHAT_CLIENT_MESSAGE_SEND:
         {
-            status = chat_client_network_send_message(master_cblk_ptr->server_connection.fd,
-                                                      &message->params.send_text.text[0]);
+            memcpy(&new_message, message, sizeof(new_message));
+            new_message.params.send.event_type = CHAT_EVENT_CHAT_MESSAGE;
+            subfsm_send_processing(&new_message, master_cblk_ptr);
             break;
         }
         case CHAT_CLIENT_MESSAGE_POLL:

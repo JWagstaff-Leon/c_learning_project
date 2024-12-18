@@ -33,7 +33,7 @@ typedef struct
 {
     eCHAT_SERVER_CONNECTION_STATE state;
     struct pollfd                 pollfd;
-    sCHAT_EVENT_READER            event_reader;
+    sCHAT_EVENT_IO                event_reader;
     
     char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
 } sCHAT_SERVER_CONNECTION;

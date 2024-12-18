@@ -13,7 +13,7 @@ extern "C" {
 
 // Constants -------------------------------------------------------------------
 
-#define CHAT_EVENT_MAX_LENGTH 65535
+#define CHAT_EVENT_MAX_DATA_SIZE 1024
 
 #define CHAT_EVENT_ORIGIN_SERVER 0
 
@@ -52,38 +52,41 @@ typedef struct
     uint32_t         origin;
 
     uint16_t length;
-    uint8_t  data[CHAT_EVENT_MAX_LENGTH];
+    uint8_t  data[CHAT_EVENT_MAX_DATA_SIZE];
 } sCHAT_EVENT;
-
-
-typedef enum
-{
-    CHAT_EVENT_READER_STATE_NEW,
-    CHAT_EVENT_READER_STATE_HEADER,
-    CHAT_EVENT_READER_STATE_DATA,
-    CHAT_EVENT_READER_STATE_DONE,
-
-    CHAT_EVENT_READER_STATE_FLUSHING,
-    CHAT_EVENT_READER_STATE_FLUSHED
-} eCHAT_EVENT_READER_STATE;
 
 
 typedef struct
 {
     sCHAT_EVENT event;
-    uint32_t    read_bytes;
-    uint32_t    expected_bytes;
+    uint32_t    processed_bytes;
+    uint32_t    flush_bytes;
+} sCHAT_EVENT_IO;
 
-    eCHAT_EVENT_READER_STATE state;
-} sCHAT_EVENT_READER;
 
 #define CHAT_EVENT_HEADER_SIZE offsetof(sCHAT_EVENT, data)
 
+
 // Functions -------------------------------------------------------------------
 
-eSTATUS chat_event_read_from_fd(
-    int                 fd,
-    sCHAT_EVENT_READER* reader);
+eSTATUS chat_event_io_init(
+    sCHAT_EVENT_IO* chat_event_io);
+
+
+eSTATUS chat_event_io_read_from_fd(
+    sCHAT_EVENT_IO* reader,
+    int             fd);
+
+    
+eSTATUS chat_event_io_extract_read_event(
+    sCHAT_EVENT_IO* restrict reader,
+    sCHAT_EVENT*    restrict out_event);
+
+
+eSTATUS chat_event_io_write_to_fd(
+    sCHAT_EVENT_IO* writer,
+    int             fd);
+
 
 #ifdef __cplusplus
 }

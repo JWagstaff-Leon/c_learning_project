@@ -1,5 +1,6 @@
 #include "chat_client.h"
 #include "chat_client_internal.h"
+#include "chat_client_fsm.h"
 
 #include <arpa/inet.h>
 #include <assert.h>
@@ -42,50 +43,53 @@ eSTATUS chat_client_network_open(
     return STATUS_SUCCESS;
 }
 
-
-eSTATUS chat_client_network_send_username(
-    int               server_fd,
-    const char* const username)
+eSTATUS chat_client_network_poll(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr)
 {
-    sCHAT_EVENT outgoing_event;
+    eSTATUS              status;
+    sCHAT_CLIENT_MESSAGE new_message;
 
-    outgoing_event.type   = CHAT_EVENT_USERNAME_SUBMIT;
-    outgoing_event.origin = 0;
-    outgoing_event.length = strlen(message->params.send_text.text);
-    snprintf(&outgoing_event.data[0],
-             sizeof(outgoing_event.data),
-             "%s",
-             message->params.send_text.text);
-    
-    // FIXME properly buffer this send
-    send(server_fd,
-         &outgoing_event,
-         sizeof(outgoing_event),
-         NULL);
+    assert(NULL != master_cblk_ptr);
 
-    return STATUS_SUCCESS;
-}
+    poll(&master_cblk_ptr->server_connection, 1, 0);
 
+    if (master_cblk_ptr->server_connection.revents & POLLOUT &&
+        CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS == master_cblk_ptr->send_state)
+    {
+        new_message.type = CHAT_CLIENT_MESSAGE_SEND;
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &new_message,
+                                   sizeof((new_message)));
+        assert(STATUS_SUCCESS == status);
+    }
 
-eSTATUS chat_client_network_send_message(
-    int               server_fd,
-    const char* const message_text)
-{
-    sCHAT_EVENT outgoing_event;
+    if (master_cblk_ptr->server_connection.revents & POLLIN)
+    {
+        status = chat_event_io_read_from_fd(&master_cblk_ptr->incoming_event_reader,
+                                            master_cblk_ptr->server_connection.fd);
+        if (STATUS_CLOSED == status)
+        {
+            new_message.type = CHAT_CLIENT_MESSAGE_DISCONNECT;
+            status           = message_queue_put(master_cblk_ptr->message_queue,
+                                                 &new_message,
+                                                 sizeof((new_message)));
+            assert(STATUS_SUCCESS == status);
+            return STATUS_CLOSED;
+        }
+        assert(STATUS_SUCCESS == status || STATUS_INCOMPLETE == status);
 
-    outgoing_event.type   = CHAT_EVENT_CHAT_MESSAGE;
-    outgoing_event.origin = 0;
-    outgoing_event.length = strlen(message->params.send_text.text);
-    snprintf(&outgoing_event.data[0],
-             sizeof(outgoing_event.data),
-             "%s",
-             message->params.send_text.text);
-    
-    // FIXME properly buffer this send
-    send(server_fd,
-         &outgoing_event,
-         sizeof(outgoing_event),
-         NULL);
+        if(STATUS_SUCCESS == status)
+        {
+            new_message.type = CHAT_CLIENT_MESSAGE_INCOMING_EVENT;
+            chat_event_io_extract_read_event(&master_cblk_ptr->incoming_event_reader,
+                                             &new_message.params.incoming_event.event);
+
+            status = message_queue_put(master_cblk_ptr->message_queue,
+                                       &new_message,
+                                       sizeof((new_message)));
+            assert(STATUS_SUCCESS == status);
+        }
+    }
 
     return STATUS_SUCCESS;
 }
