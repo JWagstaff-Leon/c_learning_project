@@ -135,5 +135,6 @@ int main(
     }
     pthread_mutex_unlock(&k_server_mutex);
 
+    // REVIEW do I need to pthread_join the thread?
     return 0;
 }

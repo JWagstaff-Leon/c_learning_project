@@ -56,36 +56,11 @@ typedef struct
 } sCHAT_EVENT;
 
 
-typedef struct
-{
-    sCHAT_EVENT event;
-    uint32_t    processed_bytes;
-    uint32_t    flush_bytes;
-} sCHAT_EVENT_IO;
-
-
 #define CHAT_EVENT_HEADER_SIZE offsetof(sCHAT_EVENT, data)
 
 
 // Functions -------------------------------------------------------------------
 
-eSTATUS chat_event_io_init(
-    sCHAT_EVENT_IO* chat_event_io);
-
-
-eSTATUS chat_event_io_read_from_fd(
-    sCHAT_EVENT_IO* reader,
-    int             fd);
-
-    
-eSTATUS chat_event_io_extract_read_event(
-    sCHAT_EVENT_IO* restrict reader,
-    sCHAT_EVENT*    restrict out_event);
-
-
-eSTATUS chat_event_io_write_to_fd(
-    sCHAT_EVENT_IO* writer,
-    int             fd);
 
 
 #ifdef __cplusplus

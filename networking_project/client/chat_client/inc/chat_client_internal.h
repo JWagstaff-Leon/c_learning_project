@@ -12,6 +12,7 @@ extern "C" {
 #include <poll.h>
 
 #include "chat_event.h"
+#include "chat_event_io.h"
 #include "message_queue.h"
 
 
@@ -48,13 +49,15 @@ typedef struct
     fGENERIC_ALLOCATOR   allocator;
     fGENERIC_DEALLOCATOR deallocator;
 
+    sMODULE_PARAMETERS io_params;
+
     struct pollfd server_connection;
 
     eCHAT_CLIENT_STATE             state;
     eCHAT_CLIENT_SUBFSM_SEND_STATE send_state;
 
-    sCHAT_EVENT_IO incoming_event_reader;
-    sCHAT_EVENT_IO outgoing_event_writer;
+    CHAT_EVENT_IO event_reader;
+    CHAT_EVENT_IO event_writer;
 } sCHAT_CLIENT_CBLK;
 
 

@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "chat_event_io.h"
 #include "common_types.h"
 
 
@@ -283,6 +284,16 @@ void* chat_client_thread_entry(
 
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)arg;
+    
+    // TODO finish this; add asserts
+    status = chat_client_io_create_reader(&master_cblk_ptr->event_reader,
+                                          master_cblk_ptr->io_params,
+                                          NULL, // FIXME make a callback system for this module
+                                          master_cblk_ptr);
+    status = chat_client_io_create_writer(&master_cblk_ptr->event_writer,
+                                          master_cblk_ptr->io_params,
+                                          NULL, // FIXME make a callback system for this module
+                                          master_cblk_ptr);
 
     while (CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)
     {

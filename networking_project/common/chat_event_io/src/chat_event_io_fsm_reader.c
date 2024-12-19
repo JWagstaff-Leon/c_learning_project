@@ -1,5 +1,6 @@
-#include "chat_event.h"
-#include "chat_event_internal.h"
+#include "chat_event_io.h"
+#include "chat_event_io_internal.h"
+#include "chat_event_io_fsm.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -7,24 +8,19 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "chat_event.h"
 #include "common_types.h"
 
-eSTATUS chat_event_io_init(
-    sCHAT_EVENT_IO* chat_event_io)
-{
-    assert(NULL != chat_event_io);
-    memset(chat_event_io, 0, sizeof(sCHAT_EVENT_IO));
-}
 
-
-eSTATUS chat_event_io_read_from_fd(
-    sCHAT_EVENT_IO* reader,
-    int             fd)
+static eSTATUS read_from_fd(
+    sCHAT_EVENT_IO_CBLK* reader,
+    int                  fd)
 {
     ssize_t     read_bytes;
     uint32_t    empty_bytes;
     
     assert(NULL != reader);
+    assert(CHAT_EVENT_IO_READER == reader->type);
 
     if (reader->flush_bytes)
     {
@@ -59,6 +55,7 @@ eSTATUS chat_event_io_read_from_fd(
     {
         reader->flush_bytes     -= reader->processed_bytes;
         reader->processed_bytes  = 0;
+
         return STATUS_INCOMPLETE;
     }
 
@@ -75,6 +72,7 @@ eSTATUS chat_event_io_read_from_fd(
         reader->flush_bytes = sizeof(reader->event) < CHAT_EVENT_HEADER_SIZE + reader->event.length;
         reader->flush_bytes     -= reader->processed_bytes;
         reader->processed_bytes  = 0;
+        
         return STATUS_INCOMPLETE;
     }
 
@@ -82,14 +80,15 @@ eSTATUS chat_event_io_read_from_fd(
 }
 
 
-eSTATUS chat_event_io_extract_read_event(
-    sCHAT_EVENT_IO* restrict reader,
-    sCHAT_EVENT*    restrict out_event)
+static eSTATUS extract_read_event(
+    sCHAT_EVENT_READER* restrict reader,
+    sCHAT_EVENT*        restrict out_event)
 {
     size_t extracted_event_size;
 
     assert(NULL != reader);
     assert(NULL != out_event);
+    assert(CHAT_EVENT_IO_READER == reader->type);
 
     if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE ||
         reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + reader->event.length)
@@ -111,38 +110,9 @@ eSTATUS chat_event_io_extract_read_event(
     return STATUS_SUCCESS;
 }
 
-
-eSTATUS chat_event_io_write_to_fd(
-    sCHAT_EVENT_IO* writer,
-    int             fd)
+void chat_event_io_reader_dispatch_message(
+    sCHAT_EVENT_IO_CBLK    master_cblk_ptr,
+    sCHAT_EVENT_IO_MESSAGE message)
 {
-    ssize_t  written_bytes;
-    uint32_t remaining_bytes;
 
-    assert(NULL != writer);
-
-    remaining_bytes = (CHAT_EVENT_HEADER_SIZE + writer->event.length) - writer->processed_bytes;
-    if(remaining_bytes <= 0)
-    {
-        return STATUS_INVALID_ARG;
-    }
-
-    // Do the write
-    written_bytes = write(fd,
-                          (void*)(&writer->event),
-                          remaining_bytes);
-    if (written_bytes <= 0)
-    {
-        return STATUS_FAILURE;
-    }
-    reader->processed_bytes += written_bytes;
-
-    // Check if the read is done
-    if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + reader->event.length)
-    {
-        return STATUS_INCOMPLETE;
-    }
-
-    writer->processed_bytes = 0;
-    return STATUS_SUCCESS;
 }

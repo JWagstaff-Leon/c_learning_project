@@ -43,5 +43,5 @@ common/message_queue/bin/message_queue.o: common/message_queue/src/message_queue
 
 # Chat event module
 
-common/chat_event/bin/chat_event.o: common/chat_event/src/chat_event.c common/chat_event/api/chat_event.h common/common_types.h
-	gcc -Icommon -Icommon/chat_event/api -c common/chat_event/src/chat_event.c -o common/chat_event/bin/chat_event.o
+common/chat_event/bin/chat_event_io.o: common/chat_event/src/chat_event_io.c common/chat_event/api/chat_event.h common/common_types.h
+	gcc -Icommon -Icommon/chat_event/api -c common/chat_event/src/chat_event_io.c -o common/chat_event/bin/chat_event_io.o

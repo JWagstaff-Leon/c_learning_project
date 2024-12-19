@@ -26,7 +26,7 @@ typedef void sCHAT_SERVER_CBACK_DATA;
 
 typedef void (*fCHAT_SERVER_USER_CBACK) (
     void*                    user_arg,
-    eCHAT_SERVER_EVENT_TYPE  mask,
+    eCHAT_SERVER_EVENT_TYPE  event,
     sCHAT_SERVER_CBACK_DATA* data);
 
 
@@ -41,6 +41,7 @@ typedef void* CHAT_SERVER;
 
 // Functions -------------------------------------------------------------------
 
+// TODO rewrite this with sMODULE_PARAMETERS
 eSTATUS chat_server_create(
     CHAT_SERVER*            out_new_chat_server,
     fGENERIC_ALLOCATOR      allocator,

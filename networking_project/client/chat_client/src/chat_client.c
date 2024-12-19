@@ -49,21 +49,26 @@ static eSTATUS init_msg_queue(
 
 eSTATUS chat_client_create(
     CHAT_CLIENT*            out_new_client,
-    fGENERIC_ALLOCATOR      allocator,
-    fGENERIC_DEALLOCATOR    deallocator,
-    fGENERIC_THREAD_CREATOR create_thread,
+    sMODULE_PARAMETERS      chat_client_params,
+    sMODULE_PARAMETERS      chat_client_io_params,
     fCHAT_CLIENT_USER_CBACK user_cback,
     void*                   user_arg)
 {
     sCHAT_CLIENT_CBLK* new_master_cblk_ptr;
     eSTATUS            status;
 
-    assert(NULL != allocator);
-    assert(NULL != deallocator);
+    assert(NULL != chat_client_params.thread_creator);
+    assert(NULL != chat_client_params.allocator);
+    assert(NULL != chat_client_params.deallocator);
+
+    assert(NULL != chat_client_io_params.thread_creator);
+    assert(NULL != chat_client_io_params.allocator);
+    assert(NULL != chat_client_io_params.deallocator);
+
     assert(NULL != user_cback);
     assert(NULL != out_new_client);
 
-    new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)allocator(sizeof(sCHAT_CLIENT_CBLK));
+    new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)chat_client_params.allocator(sizeof(sCHAT_CLIENT_CBLK));
     if (NULL == new_master_cblk_ptr)
     {
         return STATUS_ALLOC_FAILED;
@@ -72,18 +77,19 @@ eSTATUS chat_client_create(
     status = init_cblk(new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        deallocator(new_master_cblk_ptr);
+        chat_client_params.deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    new_master_cblk_ptr->allocator   = allocator;
-    new_master_cblk_ptr->deallocator = deallocator;
+    new_master_cblk_ptr->allocator   = chat_client_params.allocator;
+    new_master_cblk_ptr->deallocator = chat_client_params.deallocator;
     new_master_cblk_ptr->user_cback  = user_cback;
     new_master_cblk_ptr->user_arg    = user_arg;
+    new_master_cblk_ptr->io_params   = chat_client_io_params;
 
     status = init_msg_queue(&new_master_cblk_ptr->message_queue,
-                            allocator,
-                            deallocator);
+                            chat_client_params.allocator,
+                            chat_client_params.deallocator);
     if (STATUS_SUCCESS != status)
     {
         deallocator(new_master_cblk_ptr);
