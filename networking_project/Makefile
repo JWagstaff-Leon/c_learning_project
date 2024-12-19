@@ -26,9 +26,14 @@ client/bin/chat_client: client/client.c common/chat_event/api/chat_event.h
 
 # Chat client module
 
-client/chat_client/bin/chat_client_fsm.o: client/chat_client/src/client_fsm.c client/chat_client/inc/client_internal.h
-	gcc -Iclient/chat_client/inc -Icommon client/chat_client/src/chat_client_fsm.c
+client/chat_client/bin/chat_client.o: client/chat_client/src/chat_client.c client/chat_client/api/chat_client.h client/chat_client/inc/chat_client_internal.h client/chat_client/inc/chat_client_fsm.h common/common_types.h common/message_queue/api/message_queue.h
+	gcc -Iclient/chat_client/api -Iclient/chat_client/inc -Icommon/ -Icommon/message_queue/api
 
+client/chat_client/bin/chat_client_fsm.o: client/chat_client/src/chat_client_fsm.c client/chat_client/api/chat_client.h client/chat_client/inc/chat_client_internal.h
+	gcc -Iclient/chat_client/api -Iclient/chat_client/inc -Icommon client/chat_client/src/chat_client_fsm.c -o client/chat_client/bin/chat_client_fsm.o
+
+client/chat_client/bin/chat_client_network.o: client/chat_client/src/chat_client_fsm.c client/chat_client/api/chat_client.h client/chat_client/inc/chat_client_internal.h
+	gcc -Iclient/chat_client/api -Iclient/chat_client/inc -Icommon client/chat_client/src/chat_client_network.c -o client/chat_client/bin/chat_client_network.o
 
 # Message queue module
 

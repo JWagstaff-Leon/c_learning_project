@@ -20,7 +20,8 @@ extern "C" {
 typedef enum
 {
     CHAT_CLIENT_MESSAGE_CONNECT,
-    CHAT_CLIENT_MESSAGE_SEND,
+    CHAT_CLIENT_MESSAGE_SEND_NEW,
+    CHAT_CLIENT_MESSAGE_SEND_CONTINUE,
     CHAT_CLIENT_MESSAGE_POLL,
     CHAT_CLIENT_MESSAGE_INCOMING_EVENT,
     CHAT_CLIENT_MESSAGE_DISCONNECT,
@@ -38,7 +39,7 @@ typedef struct
 {
     char             text[CHAT_EVENT_MAX_DATA_SIZE];
     eCHAT_EVENT_TYPE event_type;
-} sCHAT_CLIENT_SEND_PARAMS;
+} sCHAT_CLIENT_SEND_NEW_PARAMS;
 
 
 typedef struct
@@ -50,7 +51,7 @@ typedef struct
 typedef union
 {
     sCHAT_CLIENT_CONNECT_PARAMS        connect;
-    sCHAT_CLIENT_SEND_PARAMS           send;
+    sCHAT_CLIENT_SEND_NEW_PARAMS       send_new;
     sCHAT_CLIENT_INCOMING_EVENT_PARAMS incoming_event;
 } uCHAT_CLIENT_MESSAGE_PARAMS;
 

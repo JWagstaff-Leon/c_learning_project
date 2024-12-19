@@ -1,3 +1,5 @@
+#include "chat_client.h"
+#include "chat_client_internal.h"
 #include "chat_client_fsm.h"
 
 #include <assert.h>
@@ -9,7 +11,6 @@
 #include <sys/socket.h>
 
 #include "common_types.h"
-#include "chat_client_internal.h"
 
 
 static void not_connected_processing(
@@ -51,7 +52,6 @@ static void not_connected_processing(
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
         {
-            // TODO do close
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_CLOSED,
@@ -79,13 +79,13 @@ static void subfsm_send_processing(
     {
         case CHAT_CLIENT_SUBFSM_SEND_STATE_READY:
         {
-            outgoing_event->type   = message->params.send.event_type;
+            outgoing_event->type   = message->params.send_new.event_type;
             outgoing_event->origin = 0;
-            outgoing_event->length = strlen(message->params.send_text.text) + 1;
+            outgoing_event->length = strlen(message->params.send_new.text) + 1;
             snprintf(&outgoing_event->data[0],
                      sizeof(outgoing_event->data),
                      "%s",
-                     message->params.send_text.text);
+                     message->params.send_new.text);
 
             master_cblk_ptr->send_state = CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS;
             // Fallthrough
@@ -95,10 +95,13 @@ static void subfsm_send_processing(
             if (master_cblk_ptr->server_connection.revents & POLLOUT)
             {
                 status = chat_event_io_write_to_fd(master_cblk_ptr->outgoing_event_writer,
-                                                master_cblk_ptr->server_connection.fd);
+                                                   master_cblk_ptr->server_connection.fd);
                 if (STATUS_INCOMPLETE != status)
                 {
                     master_cblk_ptr->send_state = CHAT_CLIENT_SUBFSM_SEND_STATE_READY;
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CLIENT_EVENT_SEND_FINISHED,
+                                                NULL);
                 }
             }
             break;
@@ -119,10 +122,25 @@ static void inactive_processing(
 
     switch (message->type)
     {
-        case CHAT_CLIENT_MESSAGE_SEND:
+        case CHAT_CLIENT_MESSAGE_SEND_NEW:
         {
+            if (CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS == master_cblk_ptr->send_state)
+            {
+                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                            CHAT_CLIENT_EVENT_SEND_REJECTED,
+                                            NULL);
+                break;
+            }
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_SEND_STARTED,
+                                        NULL);
+
             memcpy(&new_message, message, sizeof(new_message));
-            new_message.params.send.event_type = CHAT_EVENT_USERNAME_SUBMIT;
+            new_message.params.send_new.event_type = CHAT_EVENT_USERNAME_SUBMIT;
+            // Fallthrough
+        }
+        case CHAT_CLIENT_MESSAGE_SEND_CONTINUE:
+        {
             subfsm_send_processing(&new_message, master_cblk_ptr);
             break;
         }
@@ -130,10 +148,19 @@ static void inactive_processing(
         {
             status = chat_client_network_poll(master_cblk_ptr);
             assert(STATUS_SUCCESS == status);
+
+            new_message.type = CHAT_CLIENT_MESSAGE_POLL;
+            status           = message_queue_put(master_cblk_ptr->message_queue,
+                                                 &new_message,
+                                                 sizeof(new_message));
+            assert(STATUS_SUCCESS == status);
+            break;
         }
         case CHAT_CLIENT_MESSAGE_DISCONNECT:
         {
-            // TODO do disconnect
+            status = chat_client_network_disconnect(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_NOT_CONNECTED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_DISCONNECTED,
@@ -142,8 +169,9 @@ static void inactive_processing(
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
         {
-            // TODO do disconnect
-            // TODO do close
+            status = chat_client_network_disconnect(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_CLOSED,
@@ -166,20 +194,30 @@ static void active_processing(
 
     switch (message->type)
     {
-        case CHAT_CLIENT_MESSAGE_SEND:
+        case CHAT_CLIENT_MESSAGE_SEND_NEW:
         {
             memcpy(&new_message, message, sizeof(new_message));
-            new_message.params.send.event_type = CHAT_EVENT_CHAT_MESSAGE;
+            new_message.params.send_new.event_type = CHAT_EVENT_CHAT_MESSAGE;
             subfsm_send_processing(&new_message, master_cblk_ptr);
             break;
         }
         case CHAT_CLIENT_MESSAGE_POLL:
         {
+            status = chat_client_network_poll(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
+
+            new_message.type = CHAT_CLIENT_MESSAGE_POLL;
+            status           = message_queue_put(master_cblk_ptr->message_queue,
+                                                 &new_message,
+                                                 sizeof(new_message));
+            assert(STATUS_SUCCESS == status);
             break;
         }
         case CHAT_CLIENT_MESSAGE_DISCONNECT:
         {
-            // TODO do disconnect
+            status = chat_client_network_disconnect(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_NOT_CONNECTED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_DISCONNECTED,
@@ -188,31 +226,15 @@ static void active_processing(
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
         {
-            // TODO do disconnect
-            // TODO do close
+            status = chat_client_network_disconnect(master_cblk_ptr);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_CLOSED,
                                         NULL);
             break;
         }
-    }
-}
-
-
-static void disconnecting_processing(
-    const sCHAT_CLIENT_MESSAGE* message,
-    sCHAT_CLIENT_CBLK*          master_cblk_ptr)
-{
-    eSTATUS              status;
-    sCHAT_CLIENT_MESSAGE new_message;
-
-    assert(NULL != message);
-    assert(NULL != master_cblk_ptr);
-
-    switch (message->type)
-    {
-
     }
 }
 
@@ -239,11 +261,6 @@ static void dispatch_message(
         case CHAT_CLIENT_STATE_ACTIVE:
         {
             active_processing(message, master_cblk_ptr);
-            break;
-        }
-        case CHAT_CLIENT_STATE_DISCONNECTING:
-        {
-            disconnecting_processing(message, master_cblk_ptr);
             break;
         }
         case CHAT_CLIENT_STATE_CLOSED:

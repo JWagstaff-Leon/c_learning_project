@@ -188,6 +188,7 @@ static void add_connection(
 }
 
 
+// TODO rewrite this with new CHAT_EVENT_IO functionality
 eSTATUS chat_server_process_connections_events(
     sCHAT_SERVER_CONNECTIONS* connections)
 {
@@ -233,7 +234,7 @@ eSTATUS chat_server_process_connections_events(
                                                 current_connection->pollfd.fd);
             if (STATUS_CLOSED == status)
             {
-                
+
                 continue;
             }
             else if (STATUS_SUCCESS != status)

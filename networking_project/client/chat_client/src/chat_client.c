@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common_types.h"
+#include "message_queue.h"
+
 
 static eSTATUS init_cblk(
     sCHAT_CLIENT_CBLK *master_cblk_ptr)
@@ -45,7 +48,7 @@ static eSTATUS init_msg_queue(
 
 
 eSTATUS chat_client_create(
-    CHAT_CLIENT*            out_new_chat_client,
+    CHAT_CLIENT*            out_new_client,
     fGENERIC_ALLOCATOR      allocator,
     fGENERIC_DEALLOCATOR    deallocator,
     fGENERIC_THREAD_CREATOR create_thread,
@@ -58,7 +61,7 @@ eSTATUS chat_client_create(
     assert(NULL != allocator);
     assert(NULL != deallocator);
     assert(NULL != user_cback);
-    assert(NULL != out_new_chat_client);
+    assert(NULL != out_new_client);
 
     new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)allocator(sizeof(sCHAT_CLIENT_CBLK));
     if (NULL == new_master_cblk_ptr)
@@ -95,7 +98,7 @@ eSTATUS chat_client_create(
         return status;
     }
 
-    *out_new_chat_client = new_master_cblk_ptr;
+    *out_new_client = new_master_cblk_ptr;
     return STATUS_SUCCESS;
 }
 
@@ -161,7 +164,7 @@ eSTATUS chat_client_send_text(
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
 
-    message.type = CHAT_CLIENT_MESSAGE_SEND_TEXT;
+    message.type = CHAT_CLIENT_MESSAGE_SEND_NEW;
     string_copy_status = snprintf(&message.params.send_text.text[0],
                                   sizeof(message.params.send_text.text),
                                   "%s",

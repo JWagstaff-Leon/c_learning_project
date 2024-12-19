@@ -26,7 +26,6 @@ typedef enum
     CHAT_CLIENT_STATE_NOT_CONNECTED,
     CHAT_CLIENT_STATE_INACTIVE,
     CHAT_CLIENT_STATE_ACTIVE,
-    CHAT_CLIENT_STATE_DISCONNECTING,
     CHAT_CLIENT_STATE_CLOSED
 } eCHAT_CLIENT_STATE;
 
@@ -53,8 +52,8 @@ typedef struct
     eCHAT_CLIENT_STATE             state;
     eCHAT_CLIENT_SUBFSM_SEND_STATE send_state;
 
-    sCHAT_EVENT_IO* incoming_event_reader;
-    sCHAT_EVENT_IO* outgoing_event_writer;
+    sCHAT_EVENT_IO incoming_event_reader;
+    sCHAT_EVENT_IO outgoing_event_writer;
 } sCHAT_CLIENT_CBLK;
 
 
@@ -70,6 +69,10 @@ eSTATUS chat_client_network_open(
 
     
 eSTATUS chat_client_network_poll(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr);
+
+    
+eSTATUS chat_client_network_disconnect(
     sCHAT_CLIENT_CBLK* master_cblk_ptr);
 
 

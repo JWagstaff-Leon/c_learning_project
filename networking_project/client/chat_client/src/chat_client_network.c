@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "common_types.h"
 
@@ -56,7 +57,7 @@ eSTATUS chat_client_network_poll(
     if (master_cblk_ptr->server_connection.revents & POLLOUT &&
         CHAT_CLIENT_SUBFSM_SEND_STATE_IN_PROGRESS == master_cblk_ptr->send_state)
     {
-        new_message.type = CHAT_CLIENT_MESSAGE_SEND;
+        new_message.type = CHAT_CLIENT_MESSAGE_SEND_CONTINUE;
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &new_message,
                                    sizeof((new_message)));
@@ -90,6 +91,26 @@ eSTATUS chat_client_network_poll(
             assert(STATUS_SUCCESS == status);
         }
     }
+
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS chat_client_network_disconnect(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr)
+{
+    assert(NULL != master_cblk_ptr);
+
+    poll(&master_cblk_ptr->server_connection, 1, 0);
+    if (master_cblk_ptr->server_connection.revents & POLLOUT)
+    {
+        write(master_cblk_ptr->server_conncetion.fd,
+              &master_cblk_ptr->outgoing_event_writer.event,
+              sizeof(master_cblk_ptr->outgoing_event_writer.event));
+    }
+
+    close(master_cblk_ptr->server_connection.fd);
+    master_cblk_ptr->server_connection.fd = -1;
 
     return STATUS_SUCCESS;
 }
