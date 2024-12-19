@@ -122,6 +122,7 @@ eSTATUS chat_client_connect(
     message.type                            = CHAT_CLIENT_MESSAGE_CONNECT;
     message.params.connect.address.sin_port = htons(port);
 
+    // FIXME use proper IPv6 struct
     message.params.connect.address.sin_family = AF_INET;
     address_conversion_status                 = inet_pton(AF_INET,
                                                           address,
@@ -165,8 +166,8 @@ eSTATUS chat_client_send_text(
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
 
     message.type = CHAT_CLIENT_MESSAGE_SEND_NEW;
-    string_copy_status = snprintf(&message.params.send_text.text[0],
-                                  sizeof(message.params.send_text.text),
+    string_copy_status = snprintf(&message.params.send_new.text[0],
+                                  sizeof(message.params.send_new.text),
                                   "%s",
                                   text);
     if(string_copy_status < 0)

@@ -48,7 +48,7 @@ static void init_processing(
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
         {
-            chat_server_network_close(master_cblk_ptr);
+            chat_server_network_close(&master_cblk_ptr->connections);
 
             status = message_queue_destroy(master_cblk_ptr->message_queue);
             assert(STATUS_SUCCESS == status);
@@ -155,10 +155,7 @@ static void fsm_cblk_init(
 {
     uint32_t connection_index;
     sCHAT_SERVER_CONNECTION* connections_list = calloc(8, sizeof(sCHAT_SERVER_CONNECTION));
-    if (NULL == connections_list)
-    {
-        return NULL;
-    }
+    assert(NULL != connections_list);
 
     master_cblk_ptr->connections.list  = connections_list;
     master_cblk_ptr->connections.count = 0;

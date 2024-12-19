@@ -4,6 +4,8 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <netinet/in.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -29,7 +31,7 @@ eSTATUS chat_client_network_open(
 
     master_cblk_ptr->server_connection.fd = new_fd;
     connect_status = connect(master_cblk_ptr->server_connection.fd,
-                             address,
+                             (struct sockaddr*)&address,
                              sizeof(address));
     if (connect_status < 0)
     {
@@ -104,7 +106,7 @@ eSTATUS chat_client_network_disconnect(
     poll(&master_cblk_ptr->server_connection, 1, 0);
     if (master_cblk_ptr->server_connection.revents & POLLOUT)
     {
-        write(master_cblk_ptr->server_conncetion.fd,
+        write(master_cblk_ptr->server_connection.fd,
               &master_cblk_ptr->outgoing_event_writer.event,
               sizeof(master_cblk_ptr->outgoing_event_writer.event));
     }

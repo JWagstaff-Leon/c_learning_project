@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 #define BASE_ERROR_VALUE -1
 
 typedef enum

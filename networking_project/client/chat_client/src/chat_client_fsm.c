@@ -94,7 +94,7 @@ static void subfsm_send_processing(
         {
             if (master_cblk_ptr->server_connection.revents & POLLOUT)
             {
-                status = chat_event_io_write_to_fd(master_cblk_ptr->outgoing_event_writer,
+                status = chat_event_io_write_to_fd(&master_cblk_ptr->outgoing_event_writer,
                                                    master_cblk_ptr->server_connection.fd);
                 if (STATUS_INCOMPLETE != status)
                 {
@@ -283,8 +283,6 @@ void* chat_client_thread_entry(
 
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)arg;
-
-    fsm_cblk_init(master_cblk_ptr);
 
     while (CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)
     {

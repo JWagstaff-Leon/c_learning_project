@@ -8,6 +8,7 @@ extern "C" {
 
 #include "chat_client.h"
 
+#include <netinet/in.h>
 #include <poll.h>
 
 #include "chat_event.h"

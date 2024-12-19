@@ -127,6 +127,7 @@ eSTATUS chat_server_network_poll(
 }
 
 
+// TODO rewrite this with new CHAT_EVENT_IO functionality
 static void add_connection(
     sCHAT_SERVER_CONNECTIONS* connections,
     int                       new_connection_fd)
@@ -141,7 +142,7 @@ static void add_connection(
     {
         event_buffer.type   = CHAT_EVENT_CONNECTION_FAILED;
         event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
-        snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_server_full_message[0]);
+        snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_server_full_message[0]);
         event_buffer.length = sizeof(k_server_full_message);
 
         send(new_connection_fd,
@@ -156,7 +157,7 @@ static void add_connection(
     {
         if (CHAT_SERVER_CONNECTION_STATE_DISCONNECTED == connections->list[connection_slot].state)
         {
-            new_connection = &connections->list[connection_slot].state;
+            new_connection = &connections->list[connection_slot];
             break;
         }
     }
@@ -216,7 +217,7 @@ eSTATUS chat_server_process_connections_events(
         {
             event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
             event_buffer.type   = CHAT_EVENT_USERNAME_REQUEST;
-            snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST]);
+            snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST]);
             event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_REQUEST], CHAT_EVENT_MAX_DATA_SIZE - 1);
 
             send(current_connection->pollfd.fd,
@@ -280,7 +281,7 @@ eSTATUS chat_server_process_connections_events(
                     {
                         event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
                         event_buffer.type   = CHAT_EVENT_USERNAME_SUBMIT;
-                        snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", connections->list[0].name);
+                        snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", connections->list[0].name);
                         event_buffer.length = strnlen(&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
 
                         send(current_connection->pollfd.fd,
@@ -299,7 +300,7 @@ eSTATUS chat_server_process_connections_events(
                             // Compose name accepted message to joining user
                             event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
                             event_buffer.type   = CHAT_EVENT_USERNAME_ACCEPTED;
-                            snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
+                            snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
                             event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED], CHAT_EVENT_MAX_DATA_SIZE - 1);
         
                             send(current_connection->pollfd.fd,
@@ -319,7 +320,7 @@ eSTATUS chat_server_process_connections_events(
                             event_buffer.type   = CHAT_EVENT_USER_JOIN;
                             // TODO do this to all snprintf's while applicable:
                             // Use snprintf return to determine event length
-                            snprintf(&event_buffer.data,
+                            snprintf((char*)&event_buffer.data[0],
                                      CHAT_EVENT_MAX_DATA_SIZE,
                                      "%s",
                                      current_connection->name);
@@ -347,7 +348,7 @@ eSTATUS chat_server_process_connections_events(
                         {
                             event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
                             event_buffer.type   = CHAT_EVENT_USERNAME_REJECTED;
-                            snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_name_too_long_message[0]);
+                            snprintf((char*)&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_name_too_long_message[0]);
                             event_buffer.length = sizeof(k_name_too_long_message);
         
                             send(current_connection->pollfd.fd,
@@ -382,7 +383,7 @@ eSTATUS chat_server_process_connections_events(
             {
                 event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
                 event_buffer.type   = CHAT_EVENT_OVERSIZED_CONTENT;
-                snprintf(&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT]);
+                snprintf((char*)&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT]);
                 event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_OVERSIZED_CONTENT], CHAT_EVENT_MAX_DATA_SIZE - 1);
 
                 send(current_connection->pollfd.fd,
