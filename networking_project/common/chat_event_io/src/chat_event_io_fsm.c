@@ -3,6 +3,7 @@
 #include "chat_event_io_fsm.h"
 
 #include <assert.h>
+#include <unistd.h>
 
 #include "message_queue.h"
 
@@ -39,6 +40,7 @@ void* chat_event_io_thread_entry(
         }
     }
 
+    close(master_cblk_ptr->notify_fd);
     message_queue_destroy(master_cblk_ptr->message_queue);
     master_cblk_ptr->deallocator(master_cblk_ptr);
     return NULL;

@@ -96,7 +96,7 @@ eSTATUS chat_client_create(
         return status;
     }
 
-    status = create_thread(chat_client_thread_entry, new_master_cblk_ptr);
+    status = chat_client_params.thread_creator(chat_client_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
         message_queue_destroy(new_master_cblk_ptr->message_queue);

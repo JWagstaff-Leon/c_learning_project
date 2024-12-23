@@ -2,6 +2,7 @@
 #include "message_queue_internal.h"
 
 #include <assert.h>
+#include <pthread.h>
 #include <string.h>
 
 #include "common_types.h"
@@ -174,6 +175,7 @@ eSTATUS message_queue_get(
 
     while (message_queue->used_slots < 1)
     {
+        // TODO make this use a timeout
         pthread_cond_wait(&message_queue->queue_cond_var, &message_queue->queue_mutex);
     }
 

@@ -9,6 +9,7 @@ extern "C" {
 #include "chat_event_io.h"
 #include "chat_event_io_fsm.h"
 
+#include <poll.h>
 #include <stdint.h>
 
 #include "chat_event.h"
@@ -16,6 +17,7 @@ extern "C" {
 
 // Constants -------------------------------------------------------------------
 
+#define CHAT_EVENT_IO_MESSAGE_QUEUE_SIZE 32
 
 
 // Types -----------------------------------------------------------------------
@@ -40,11 +42,13 @@ typedef struct
     eCHAT_EVENT_IO_STATE state;
     MESSAGE_QUEUE        message_queue;
 
+    fCHAT_EVENT_IO_USER_CBACK user_cback;
+    void*                     user_arg;
+
     fGENERIC_ALLOCATOR   allocator;
     fGENERIC_DEALLOCATOR deallocator;
 
     eCHAT_EVENT_IO_MODE mode;
-    int                 fd;
 
     sCHAT_EVENT event;
     uint32_t    processed_bytes;
@@ -55,6 +59,10 @@ typedef struct
 // Functions -------------------------------------------------------------------
 
 void* chat_event_io_thread_entry(
+    void* arg);
+
+
+void* chat_event_io_network_thread_entry(
     void* arg);
 
 
