@@ -17,7 +17,9 @@ extern "C" {
 
 typedef enum 
 {
-    NETWORK_WATCHER_EVENT_READ_READY
+    NETWORK_WATCHER_EVENT_READ_READY,
+    NETWORK_WATCHER_EVENT_CANCELED,
+    NETWORK_WATCHER_EVENT_CLOSED
 } eNETWORK_WATCHER_EVENT_TYPE;
 
 
@@ -25,13 +27,19 @@ typedef struct
 {
     struct pollfd* pollfds;
     nfds_t         nfds;
-} sNETWORK_WATCHER_CBACK_DATA;
+}sNETWORK_WATCHER_CBACK_READ_READY_DATA;
+
+
+typedef union
+{
+    sNETWORK_WATCHER_CBACK_READ_READY_DATA read_ready;
+} uNETWORK_WATCHER_CBACK_DATA;
 
 
 typedef void (fNETWORK_WATCHER_USER_CBACK*) (
     void*                        arg,
     eNETWORK_WATCHER_EVENT_TYPE  event,
-    sNETWORK_WATCHER_CBACK_DATA* data);
+    uNETWORK_WATCHER_CBACK_DATA* data);
 
 
 typedef void* NETWORK_WATCHER;

@@ -16,7 +16,8 @@ extern "C" {
 #include <stdint.h>
 
 #include "chat_event.h"
-
+#include "chat_event_io.h"
+#include "network_watcher.h"
 
 
 // Types -----------------------------------------------------------------------
@@ -33,9 +34,12 @@ typedef struct
 {
     eCHAT_SERVER_CONNECTION_STATE state;
     struct pollfd                 pollfd;
-    sCHAT_EVENT_IO                event_reader;
-    sCHAT_EVENT_IO                event_writer;
-    
+
+    CHAT_EVENT_IO event_reader;
+    CHAT_EVENT_IO event_writer;
+
+    NETWORK_WATCHER network_watcher;
+
     char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
 } sCHAT_SERVER_CONNECTION;
 

@@ -48,17 +48,7 @@ static void init_processing(
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
         {
-            chat_server_network_close(&master_cblk_ptr->connections);
-
-            status = message_queue_destroy(master_cblk_ptr->message_queue);
-            assert(STATUS_SUCCESS == status);
-
-            free(master_cblk_ptr->connections.list);
-
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_SERVER_EVENT_CLOSED,
-                                        NULL);
             break;
         }
         default:
@@ -106,9 +96,6 @@ static void open_processing(
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_SERVER_EVENT_CLOSED,
-                                        NULL);
             break;
         }
         default:
@@ -156,6 +143,7 @@ static void fsm_cblk_init(
     uint32_t connection_index;
     sCHAT_SERVER_CONNECTION* connections_list = calloc(8, sizeof(sCHAT_SERVER_CONNECTION));
     assert(NULL != connections_list);
+    assert(NULL != master_cblk_ptr);
 
     master_cblk_ptr->connections.list  = connections_list;
     master_cblk_ptr->connections.count = 0;
@@ -167,6 +155,33 @@ static void fsm_cblk_init(
     {
         master_cblk_ptr->connections.list[connection_index] = k_blank_user;
     }
+}
+
+
+static void fsm_cblk_close(
+    sCHAT_SERVER_CBLK* master_cblk_ptr)
+{
+    eSTATUS status;
+    fCHAT_SERVER_USER_CBACK user_cback;
+    void*                   user_arg;
+
+    assert(NULL != master_cblk_ptr);
+
+    chat_server_network_close(&master_cblk_ptr->connections);
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    free(master_cblk_ptr->connections.list);
+
+    user_cback = master_cblk_ptr->user_cback;
+    user_arg   = master_cblk_ptr->user_arg;
+
+    master_cblk_ptr->deallocator(master_cblk_ptr);
+
+    user_cback(user_arg,
+               CHAT_SERVER_EVENT_CLOSED,
+               NULL);
 }
 
 
@@ -191,6 +206,6 @@ void* chat_server_thread_entry(
         dispatch_message(&message, master_cblk_ptr);
     }
 
-    master_cblk_ptr->deallocator(master_cblk_ptr);
+    fsm_cblk_close(master_cblk_ptr);
     return NULL;
 }

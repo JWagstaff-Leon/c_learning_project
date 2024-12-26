@@ -31,13 +31,13 @@ typedef enum
 } eCHAT_CLIENT_EVENT_TYPE;
 
 
-typedef void sCHAT_CLIENT_CBACK_DATA;
+typedef void uCHAT_CLIENT_CBACK_DATA;
 
 
 typedef void (*fCHAT_CLIENT_USER_CBACK) (
     void*                    user_arg,
     eCHAT_CLIENT_EVENT_TYPE  event,
-    sCHAT_CLIENT_CBACK_DATA* data);
+    uCHAT_CLIENT_CBACK_DATA* data);
 
 
 typedef void* CHAT_CLIENT;

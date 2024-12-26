@@ -55,7 +55,7 @@ eSTATUS create_chat_server_thread(
 void chat_server_cback(
     void*                    user_arg,
     eCHAT_SERVER_EVENT_TYPE  mask,
-    sCHAT_SERVER_CBACK_DATA* data)
+    uCHAT_SERVER_CBACK_DATA* data)
 {
     (void)data;
 

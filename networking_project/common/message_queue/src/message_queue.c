@@ -61,9 +61,9 @@ eSTATUS message_queue_create(
 
 
 eSTATUS message_queue_put(
-    MESSAGE_QUEUE     message_queue,
-    const void* const message,
-    size_t            message_size)
+    MESSAGE_QUEUE message_queue,
+    const void*   message,
+    size_t        message_size)
 {
     sMESSAGE_QUEUE* message_queue;
     size_t          current_message_index;
@@ -110,7 +110,7 @@ func_exit:
 
 static eSTATUS get_locked_queue_next_msg(
     sMESSAGE_QUEUE* message_queue,
-    void* const     message_out_buffer,
+    void*           message_out_buffer,
     size_t          out_buffer_size)
 {
     size_t current_message_offset;
@@ -139,7 +139,7 @@ static eSTATUS get_locked_queue_next_msg(
 
 eSTATUS message_queue_peek(
     MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
+    void*         message_out_buffer,
     size_t        out_buffer_size)
 {
     sMESSAGE_QUEUE* message_queue;
@@ -162,7 +162,7 @@ eSTATUS message_queue_peek(
     
 eSTATUS message_queue_get(
     MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
+    void*         message_out_buffer,
     size_t        out_buffer_size)
 {
     sMESSAGE_QUEUE* message_queue;

@@ -28,7 +28,7 @@ typedef enum
 {
     PIPE_END_READ  = 0,
     PIPE_END_WRITE = 1
-} ePIPE_END
+} ePIPE_END;
 
 
 typedef struct

@@ -54,9 +54,6 @@ static void not_connected_processing(
         case CHAT_CLIENT_MESSAGE_CLOSE:
         {
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_CLOSED,
-                                        NULL);
             break;
         }
     }
@@ -174,9 +171,6 @@ static void inactive_processing(
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_CLOSED,
-                                        NULL);
             break;
         }
     }
@@ -231,9 +225,6 @@ static void active_processing(
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_CLOSED,
-                                        NULL);
             break;
         }
     }
@@ -241,8 +232,8 @@ static void active_processing(
 
 
 static void dispatch_message(
-    const sCHAT_CLIENT_MESSAGE* message,
-    sCHAT_CLIENT_CBLK*          master_cblk_ptr)
+    sCHAT_CLIENT_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENT_MESSAGE* message)
 {
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
@@ -275,12 +266,32 @@ static void dispatch_message(
 }
 
 
+static void fsm_cblk_close(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr)
+{
+    fCHAT_CLIENT_USER_CBACK user_cback;
+    void*                   user_arg;
+
+    assert(NULL != master_cblk_ptr);
+
+    user_cback = master_cblk_ptr->user_cback;
+    user_arg   = master_cblk_ptr->user_arg;
+
+    master_cblk_ptr->deallocator(master_cblk_ptr);
+    
+    user_cback(user_arg,
+               CHAT_CLIENT_EVENT_CLOSED,
+               NULL);
+}
+
+
 void* chat_client_thread_entry(
     void* arg)
 {
     sCHAT_CLIENT_CBLK *master_cblk_ptr;
     sCHAT_CLIENT_MESSAGE message;
     eSTATUS status;
+
 
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)arg;
@@ -301,9 +312,9 @@ void* chat_client_thread_entry(
                                    &message,
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
-        dispatch_message(&message, master_cblk_ptr);
+        dispatch_message(master_cblk_ptr, &message);
     }
 
-    master_cblk_ptr->deallocator(master_cblk_ptr);
+    fsm_cblk_close(master_cblk_ptr);
     return NULL;
 }

@@ -31,20 +31,20 @@ eSTATUS message_queue_create(
 
 
 eSTATUS message_queue_put(
-    MESSAGE_QUEUE     message_queue,
-    const void* const message,
-    size_t            message_size);
+    MESSAGE_QUEUE message_queue,
+    const void*   message,
+    size_t        message_size);
 
 
 eSTATUS message_queue_peek(
     MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
+    void*         message_out_buffer,
     size_t        out_buffer_size);
 
     
 eSTATUS message_queue_get(
     MESSAGE_QUEUE message_queue,
-    void* const   message_out_buffer,
+    void*         message_out_buffer,
     size_t        out_buffer_size);
 
 
