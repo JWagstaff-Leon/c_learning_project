@@ -58,6 +58,8 @@ void* network_watcher_thread_entry(
     void* arg);
 
 
+// TODO add means of changing the fds
+
 #ifdef __cplusplus
 }
 #endif

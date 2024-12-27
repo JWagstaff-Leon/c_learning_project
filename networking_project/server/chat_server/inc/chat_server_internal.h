@@ -6,6 +6,8 @@ extern "C" {
 
 // Defines ---------------------------------------------------------------------
 
+#define CHAT_SERVER_MAX_CONNECTIONS 8
+
 #define CHAT_SERVER_MSG_QUEUE_SIZE 32
 
 
@@ -18,6 +20,7 @@ extern "C" {
 
 #include "common_types.h"
 #include "message_queue.h"
+#include "network_watcher.h"
 
 
 // Types -----------------------------------------------------------------------
@@ -42,6 +45,7 @@ typedef struct
     MESSAGE_QUEUE      message_queue;
 
     sCHAT_SERVER_CONNECTIONS connections;
+    NETWORK_WATCHER          network_watcher;
 } sCHAT_SERVER_CBLK;
 
 
@@ -60,7 +64,8 @@ eSTATUS chat_server_network_poll(
 
 
 eSTATUS chat_server_process_connections_events(
-    sCHAT_SERVER_CONNECTIONS* connections);
+    sCHAT_SERVER_CONNECTIONS* connections,
+    fGENERIC_ALLOCATOR        allocator);
 
 
 void chat_server_network_close(

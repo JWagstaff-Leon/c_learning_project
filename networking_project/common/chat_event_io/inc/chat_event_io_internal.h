@@ -10,6 +10,7 @@ extern "C" {
 #include "chat_event_io_fsm.h"
 
 #include <poll.h>
+#include <pthread.h>
 #include <stdint.h>
 
 #include "chat_event.h"
@@ -26,8 +27,7 @@ typedef enum
 {
     CHAT_EVENT_IO_STATE_READY,
     CHAT_EVENT_IO_STATE_IN_PROGRESS,
-    CHAT_EVENT_IO_STATE_FLUSHING,
-    CHAT_EVENT_IO_STATE_CLOSED
+    CHAT_EVENT_IO_STATE_FLUSHING
 } eCHAT_EVENT_IO_STATE;
 
 
@@ -39,30 +39,27 @@ typedef struct
     eCHAT_EVENT_IO_MODE mode;
     int                 fd;
 
-    fCHAT_EVENT_IO_USER_CBACK user_cback;
-    void*                     user_arg;
-
-    fGENERIC_ALLOCATOR   allocator;
-    fGENERIC_DEALLOCATOR deallocator;
-
     sCHAT_EVENT event;
     uint32_t    processed_bytes;
     uint32_t    flush_bytes;
+
+    pthread_mutex_t mutex;
 } sCHAT_EVENT_IO_CBLK;
 
 
 // Functions -------------------------------------------------------------------
 
-void* chat_event_io_thread_entry(
-    void* arg);
-
-
-void chat_event_io_reader_dispatch_message(
+eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_operation_entry(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
-void chat_event_io_writer_dispatch_message(
+eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
+    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    const sCHAT_EVENT_IO_MESSAGE* message);
+
+
+eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_writer_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 

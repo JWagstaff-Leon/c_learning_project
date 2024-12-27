@@ -116,6 +116,8 @@ eSTATUS chat_client_connect(
 {
     sCHAT_CLIENT_CBLK*   master_cblk_ptr;
     sCHAT_CLIENT_MESSAGE message;
+    struct sockaddr_in*  sin_ptr;
+    struct sockaddr_in6* sin6_ptr;
 
     eSTATUS status;
     int     address_conversion_status;
@@ -124,17 +126,31 @@ eSTATUS chat_client_connect(
     assert(NULL != address);
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
+    message.type    = CHAT_CLIENT_MESSAGE_CONNECT;
 
-    message.type                            = CHAT_CLIENT_MESSAGE_CONNECT;
-    message.params.connect.address.sin_port = htons(port);
-
-    // FIXME use proper IPv6 struct
-    message.params.connect.address.sin_family = AF_INET;
-    address_conversion_status                 = inet_pton(AF_INET,
-                                                          address,
-                                                          &message.params.connect.address.sin_addr);
-    if (0 == address_conversion_status)
+    sin_ptr = (struct sockaddr_in*)&message.params.connect.address;
+    address_conversion_status = inet_pton(AF_INET,
+                                          address,
+                                          &message.params.connect.address.sin_addr);
+    if (address_conversion_status < 0)
     {
+        return STATUS_INVALID_ARG;
+    }
+    if (address_conversion_status > 0)
+    {
+        ((struct sockaddr_in*)&message.params.connect.address)->sin_family = AF_INET;
+        ((struct sockaddr_in*)&message.params.connect.address)->sin_port = htons(port);
+
+        memset((struct sockaddr_in*)&message.params.connect.address)->sin_zero,
+            0,
+            sizeof(((struct sockaddr_in*)&message.params.connect.address)->sin_zero);
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                &message,
+                                sizeof(message));
+        return status;
+    }
+
         message.params.connect.address.sin_family = AF_INET6;
         address_conversion_status                 = inet_pton(AF_INET6,
                                                               address,
@@ -143,11 +159,55 @@ eSTATUS chat_client_connect(
         {
             return STATUS_INVALID_ARG;
         }
+{
+    sCHAT_CLIENT_CBLK*   master_cblk_ptr;
+    sCHAT_CLIENT_MESSAGE message;
+    struct sockaddr_in*  sin_ptr;
+    struct sockaddr_in6* sin6_ptr;
+
+    eSTATUS status;
+    int     address_conversion_status;
+
+    assert(NULL != client);
+    assert(NULL != address);
+
+    master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
+    message.type    = CHAT_CLIENT_MESSAGE_CONNECT;
+
+    sin_ptr  = (struct sockaddr_in*)&message.params.connect.address;
+    sin6_ptr = (struct sockaddr_in6*)&message.params.connect.address;
+    address_conversion_status = inet_pton(AF_INET,
+                                          address,
+                                          sin_ptr->sin_addr);
+    if (address_conversion_status < 0)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    if (address_conversion_status > 0)
+    {
+        sin_ptr->sin_family = AF_INET;
+        sin_ptr->sin_port = htons(port);
+
+        memset(sin_ptr->sin_zero,
+            0,
+            sizeof(sin_ptr->sin_zero));
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                &message,
+                                sizeof(message));
+        return status;
     }
 
-    memset(message.params.connect.address.sin_zero,
-           0,
-           sizeof(message.params.connect.address.sin_zero));
+    address_conversion_status = inet_pton(AF_INET6,
+                                          address,
+                                          sin6_ptr->in6_addr);
+    if (address_conversion_status <= 0)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    sin6_ptr->in6_family = AF_INET6;
+    sin6_ptr->sin6_port  = htons(port);
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

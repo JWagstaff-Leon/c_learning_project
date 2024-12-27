@@ -31,7 +31,7 @@ typedef enum
 
 typedef struct
 {
-    struct sockaddr_in address;
+    struct sockaddr_storage address;
 } sCHAT_CLIENT_CONNECT_PARAMS;
 
 

@@ -2,6 +2,7 @@
 #include "chat_event_io_internal.h"
 #include "chat_event_io_fsm.h"
 
+#include <arpa/inet.h>
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -48,13 +49,13 @@ static eSTATUS do_read(
         return STATUS_INCOMPLETE;
     }
 
-    if (sizeof(reader->event) < CHAT_EVENT_HEADER_SIZE + reader->event.length)
+    if (sizeof(reader->event) < CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length))
     {
-        reader->flush_bytes = CHAT_EVENT_HEADER_SIZE + reader->event.length;
+        reader->flush_bytes = CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length);
         return STATUS_NO_SPACE;
     }
 
-    if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + reader->event.length)
+    if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length))
     {
         return STATUS_INCOMPLETE;
     }
@@ -63,28 +64,30 @@ static eSTATUS do_read(
 }
 
 
-// FIXME add endianness conversions
 static eSTATUS extract_read_event(
     sCHAT_EVENT_IO_CBLK* restrict reader,
     sCHAT_EVENT*         restrict out_event)
 {
-    size_t extracted_event_size;
+    uint32_t extracted_event_size;
 
     assert(NULL != reader);
     assert(NULL != out_event);
     assert(CHAT_EVENT_IO_MODE_READER == reader->mode);
 
     if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE ||
-        reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + reader->event.length)
+        reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length))
     {
         return STATUS_INCOMPLETE;
     }
 
-    extracted_event_size = CHAT_EVENT_HEADER_SIZE + reader->event.length;
+    out_event->type   = ntohl(reader->event.type);
+    out_event->origin = ntohl(reader->event.origin);
+    out_event->length = ntohs(reader->event.length);
 
-    memcpy(out_event,
-           &reader->event,
-           extracted_event_size);
+    extracted_event_size  = CHAT_EVENT_HEADER_SIZE + out_event->length;
+    memcpy(out_event->data,
+           &reader->event.data,
+           out_event->length);
 
     reader->processed_bytes -= extracted_event_size;
     memmove(&(uint8_t*)(&reader->event)[0],
@@ -131,12 +134,12 @@ static eSTATUS do_flush(
 }
 
 
-static void ready_processing(
+static sCHAT_EVENT_IO_RESULT ready_processing(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eSTATUS                   status;
-    uCHAT_EVENT_IO_CBACK_DATA cback_data;
+    eSTATUS               status;
+    sCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != master_cblk_ptr);
     assert(NULL != message);
@@ -151,42 +154,33 @@ static void ready_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    status = extract_read_event(master_cblk_ptr, &cback_data.read_finished.read_event);
+                    status = extract_read_event(master_cblk_ptr, &result.data.read_finished.read_event);
                     assert(STATUS_SUCCESS == status);
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_READ_FINISHED,
-                                                &cback_data);
-                    master_cblk_ptr->processed_bytes = 0;
-                    break;
+                    
+                    result.event = CHAT_EVENT_IO_EVENT_READ_FINISHED;
+                    return result;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_INCOMPLETE,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
+                    return result;
                 }
                 case STATUS_CLOSED:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FD_CLOSED,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_FD_CLOSED;
+                    return result;
                 }
                 case STATUS_FAILURE:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FALIED,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_FAILED;
+                    return result;
                 }
                 case STATUS_NO_SPACE:
                 {
                     master_cblk_ptr->state = CHAT_EVENT_IO_STATE_FLUSHING;
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FLUSH_REQUIRED,
-                                                &cback_data);
-                    break;
+
+                    result.event = CHAT_EVENT_IO_EVENT_FLUSH_REQUIRED;
+                    return result;
                 }
                 default:
                 {
@@ -196,12 +190,12 @@ static void ready_processing(
             }
             break;
         }
-        case CHAT_EVENT_IO_MESSAGE_TYPE_CLOSE:
-        {
-            master_cblk_ptr->state = CHAT_EVENT_IO_STATE_CLOSED;
-            break;
-        }
     }
+
+    // Should not get here
+    assert(0);
+    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
+    return result;
 }
 
 
@@ -209,7 +203,8 @@ static void flushing_processing(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eSTATUS status;
+    eSTATUS               status;
+    sCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != master_cblk_ptr);
     assert(NULL != message);
@@ -223,31 +218,23 @@ static void flushing_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FLUSH_FINISHED,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_FLUSH_FINISHED;
+                    return result;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_INCOMPLETE,
-                                                &cback_data);
-                    break;
+                    reuslt.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
+                    return result;
                 }
                 case STATUS_CLOSED:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FD_CLOSED,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_FD_CLOSED;
+                    return result;
                 }
                 case STATUS_FAILURE:
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_EVENT_IO_EVENT_FALIED,
-                                                &cback_data);
-                    break;
+                    result.event = CHAT_EVENT_IO_EVENT_FAILED;
+                    return result;
                 }
                 default:
                 {
@@ -257,20 +244,21 @@ static void flushing_processing(
             }
             break;
         }
-        case CHAT_EVENT_IO_MESSAGE_TYPE_CLOSE:
-        {
-            master_cblk_ptr->state = CHAT_EVENT_IO_STATE_CLOSED;
-            break;
-        }
     }
+
+    // Should not get here
+    assert(0);
+    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
+    return result;
 }
 
 
-void chat_event_io_reader_dispatch_message(
+eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     sCHAT_EVENT_IO_MESSAGE new_message;
+    sCHAT_EVENT_IO_RESULT  result;
 
     assert(NULL != master_cblk_ptr);
     assert(NULL != message);
@@ -279,10 +267,8 @@ void chat_event_io_reader_dispatch_message(
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER:
         {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_EVENT_IO_EVENT_CANT_POPULATE_READER,
-                                        NULL);
-            return;
+            result.event = CHAT_EVENT_IO_EVENT_CANT_POPULATE_READER;
+            return result;
         }
     }
 
@@ -290,19 +276,21 @@ void chat_event_io_reader_dispatch_message(
     {
         case CHAT_EVENT_IO_STATE_READY:
         {
-            ready_processing(master_cblk_ptr, message);
-            break;
+            return ready_processing(master_cblk_ptr, message);
         }
         case CHAT_EVENT_IO_STATE_FLUSHING:
         {
-            flushing_processing(master_cblk_ptr, message);
-            break;
+            return flushing_processing(master_cblk_ptr, message);
         }
-        case CHAT_EVENT_IO_STATE_CLOSED:
         default:
         {
             // Should never get here
             assert(0);
         }
     }
+
+    // Should never get here
+    assert(0);
+    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
+    return result;
 }

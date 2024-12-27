@@ -37,7 +37,7 @@ static void init_processing(
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_SERVER_EVENT_OPENED,
                                         NULL);
-          
+
             new_message.type = CHAT_SERVER_MESSAGE_POLL;
             status           = message_queue_put(master_cblk_ptr->message_queue,
                                                  &new_message,
@@ -77,7 +77,8 @@ static void open_processing(
             status = chat_server_network_poll(&master_cblk_ptr->connections);
             assert(STATUS_SUCCESS == status);
 
-            status = chat_server_process_connections_events(&master_cblk_ptr->connections);
+            status = chat_server_process_connections_events(&master_cblk_ptr->connections,
+                                                            master_cblk_ptr->allocator);
             assert(STATUS_SUCCESS == status);
 
             new_message.type = CHAT_SERVER_MESSAGE_POLL;
@@ -140,10 +141,12 @@ static void dispatch_message(
 static void fsm_cblk_init(
     sCHAT_SERVER_CBLK *master_cblk_ptr)
 {
-    uint32_t connection_index;
-    sCHAT_SERVER_CONNECTION* connections_list = calloc(8, sizeof(sCHAT_SERVER_CONNECTION));
-    assert(NULL != connections_list);
+    uint32_t                 connection_index;
+    sCHAT_SERVER_CONNECTION* connections_list;
     assert(NULL != master_cblk_ptr);
+
+    connections_list = master_cblk_ptr->allocator(CHAT_SERVER_MAX_CONNECTIONS * sizeof(sCHAT_SERVER_CONNECTION));
+    assert(NULL != connections_list);
 
     master_cblk_ptr->connections.list  = connections_list;
     master_cblk_ptr->connections.count = 0;

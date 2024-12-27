@@ -4,6 +4,7 @@
 #include "chat_event_io_network_fsm.h"
 
 #include <assert.h>
+#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -14,21 +15,29 @@
 static void init_cblk(
     sCHAT_EVENT_IO_CBLK* master_cblk_ptr)
 {
-    int fd_index;
-
     assert(NULL != master_cblk_ptr);
     memset(master_cblk_ptr, 0, sizeof(sCHAT_EVENT_IO_CBLK));
     master_cblk_ptr->state = CHAT_EVENT_IO_STATE_READY;
+
+    pthread_mutex_init(master_cblk_ptr->mutex, NULL);
+}
+
+
+static void close_cblk(
+    sCHAT_EVENT_IO_CBLK* master_cblk_ptr)
+{
+    assert(NULL != master_cblk_ptr);
+
+    pthread_mutex_destroy(master_cblk_ptr->mutex);
+    master_cblk_ptr->deallocator(master_cblk_ptr);
 }
 
 
 eSTATUS chat_event_io_create(
     CHAT_EVENT_IO*            out_new_chat_event_io,
-    sMODULE_PARAMETERS        chat_event_io_params,
+    fGENERIC_ALLOCATOR        allocator,
     eCHAT_EVENT_IO_MODE       mode,
-    int                       fd,
-    fCHAT_EVENT_IO_USER_CBACK user_cback,
-    void*                     user_arg)
+    int                       fd)
 {
     sCHAT_EVENT_IO_CBLK*         new_chat_event_io;
 
@@ -36,90 +45,63 @@ eSTATUS chat_event_io_create(
     sCHAT_EVENT_IO_MESSAGE message;
 
     assert(NULL != out_new_chat_event_io);
-    assert(NULL != user_cback);
+    assert(NULL != allocator);
 
-    assert(NULL != chat_event_io_params.allocator);
-    assert(NULL != chat_event_io_params.deallocator);
-    assert(NULL != chat_event_io_params.thread_creator);
-
-    new_chat_event_io = (sCHAT_EVENT_IO_CBLK*)chat_event_io_params.allocator(sizeof(sCHAT_EVENT_IO_CBLK));
+    new_chat_event_io = (sCHAT_EVENT_IO_CBLK*)allocator(sizeof(sCHAT_EVENT_IO_CBLK));
     if (NULL == new_chat_event_io)
     {
         return STATUS_ALLOC_FAILED;
     }
 
     init_cblk(new_chat_event_io);
-
-    status = message_queue_create(&new_chat_event_io->message_queue,
-                                  CHAT_EVENT_IO_MESSAGE_QUEUE_SIZE,
-                                  sizeof(sCHAT_EVENT_IO_MESSAGE),
-                                  chat_event_io_params.allocator,
-                                  chat_event_io_params.deallocator);
-    if (STATUS_SUCCESS != status)
-    {
-        chat_event_io_params.deallocator(new_chat_event_io);
-        return status;
-    }
-
-    new_chat_event_io->mode        = mode;
-    new_chat_event_io->fd          = fd;
-    new_chat_event_io->allocator   = chat_event_io_params.allocator;
-    new_chat_event_io->deallocator = chat_event_io_params.deallocator;
-    new_chat_event_io->user_cback  = user_cback;
-    new_chat_event_io->user_arg    = user_arg;
-
-    status = chat_event_io_params.thread_creator(chat_event_io_thread_entry, new_chat_event_io);
-    if (STATUS_SUCCESS != status)
-    {
-        message_queue_destroy(new_chat_event_io->message_queue);
-        chat_event_io_params.deallocator(new_chat_event_io);
-        return status;
-    }
+    new_chat_event_io->mode = mode;
+    new_chat_event_io->fd   = fd;
 
     *out_new_chat_event_io = (void*)new_chat_event_io;
     return STATUS_SUCCESS;
 }
 
 
-eSTATUS chat_event_io_populate_writer(
+sCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
     CHAT_EVENT_IO      chat_event_io_writer,
     const sCHAT_EVENT* event)
 {
     sCHAT_EVENT_IO_CBLK*   master_cblk_ptr;
-    eSTATUS                status;
     sCHAT_EVENT_IO_MESSAGE message;
+    sCHAT_EVENT_IO_RESULT  result;
     
     assert(NULL != chat_event_io_writer);
     assert(NULL != event);
 
+    if (event->length > CHAT_EVENT_MAX_DATA_SIZE)
+    {
+        result.event = CHAT_EVENT_IO_EVENT_POPULATE_FAILED;
+        return result;
+    }
+
     master_cblk_ptr = (sCHAT_EVENT_IO_CBLK*)chat_event_io_writer;
 
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
+    message.type = CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER;
+    memcpy(&message.params.populate_writer.event,
+           event,
+           sizeof(message.params.populate_writer.event));
     
-    return STATUS_SUCCESS;
+    return chat_event_io_operation_entry(master_cblk_ptr, &message);
 }
 
 
-eSTATUS chat_event_io_do_operation(
-    CHAT_EVENT_IO chat_event_io)
+sCHAT_EVENT_IO_RESULT chat_event_io_do_operation(
+    CHAT_EVENT_IO chat_event_io,
+    sCHAT_EVENT*  out_event)
 {
     sCHAT_EVENT_IO_CBLK*   master_cblk_ptr;
     sCHAT_EVENT_IO_MESSAGE message;
-    eSTATUS                status;
 
     assert(NULL != chat_event_io);
     master_cblk_ptr = (sCHAT_EVENT_IO_CBLK*)chat_event_io;
 
-    message.type              = CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE;
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-    assert(STATUS_SUCCESS == status);
-
-    return STATUS_SUCCESS;
+    message.type = CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE;
+    return chat_event_io_operation_entry(master_cblk_ptr, &message);
 }
 
 
@@ -127,18 +109,10 @@ eSTATUS chat_event_io_close(
     CHAT_EVENT_IO chat_event_io)
 {
     sCHAT_EVENT_IO_CBLK*   master_cblk_ptr;
-    sCHAT_EVENT_IO_MESSAGE message;
-    eSTATUS                status;
-
+    
     assert(NULL != chat_event_io);
     master_cblk_ptr = (sCHAT_EVENT_IO_CBLK*)chat_event_io;
-
-    message.type = CHAT_EVENT_IO_MESSAGE_TYPE_CLOSE;
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-    assert(STATUS_SUCCESS == status);
-
+    
+    close_cblk(master_cblk_ptr);
     return STATUS_SUCCESS;
 }

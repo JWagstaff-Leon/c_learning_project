@@ -296,14 +296,15 @@ void* chat_client_thread_entry(
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)arg;
     
+    // FIXME use the new chat_event_io_create
     // TODO finish this; add asserts
     status = chat_client_io_create_reader(&master_cblk_ptr->event_reader,
                                           master_cblk_ptr->io_params,
-                                          NULL, // FIXME make a callback system for this module
+                                          NULL,
                                           master_cblk_ptr);
     status = chat_client_io_create_writer(&master_cblk_ptr->event_writer,
                                           master_cblk_ptr->io_params,
-                                          NULL, // FIXME make a callback system for this module
+                                          NULL,
                                           master_cblk_ptr);
 
     while (CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)

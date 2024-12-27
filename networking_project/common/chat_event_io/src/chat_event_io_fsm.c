@@ -8,59 +8,41 @@
 #include "message_queue.h"
 
 
-static void fsm_cblk_close(
-    sCHAT_EVENT_IO_CBLK* master_cblk_ptr)
+sCHAT_EVENT_IO_RESULT chat_event_io_operation_entry(
+    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    fCHAT_EVENT_IO_USER_CBACK user_cback;
-    void*                     user_arg;
+    sCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != master_cblk_ptr);
+    assert(NULL != message);
 
-    message_queue_destroy(master_cblk_ptr->message_queue);
+    pthread_mutex_lock(master_cblk_ptr->mutex);
 
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    master_cblk_ptr->deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               CHAT_EVENT_IO_EVENT_CLOSED,
-               NULL);
-}
-
-
-void* chat_event_io_thread_entry(
-    void* arg)
-{
-    sCHAT_EVENT_IO_CBLK*      master_cblk_ptr;
-    sCHAT_EVENT_IO_MESSAGE    message;
-    eSTATUS                   status;
-
-    assert(NULL != arg);
-    master_cblk_ptr = (sCHAT_EVENT_IO_CBLK*)arg;
-
-    while (CHAT_EVENT_IO_STATE_CLOSED != master_cblk_ptr->state)
+    switch (master_cblk_ptr->mode)
     {
-        status = message_queue_get(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-
-        switch (master_cblk_ptr->mode)
+        case CHAT_EVENT_IO_MODE_READER:
         {
-            case CHAT_EVENT_IO_MODE_READER:
-            {
-                chat_event_io_reader_dispatch_message(master_cblk_ptr, &message);
-                break;
-            }
-            case CHAT_EVENT_IO_MODE_WRITER:
-            {
-                chat_event_io_writer_dispatch_message(master_cblk_ptr, &message);
-                break;
-            }
+            result = chat_event_io_reader_dispatch_message(master_cblk_ptr, &message);
+            goto func_exit;
+        }
+        case CHAT_EVENT_IO_MODE_WRITER:
+        {
+            result = chat_event_io_writer_dispatch_message(master_cblk_ptr, &message);
+            goto func_exit;
+        }
+        default:
+        {
+            // Should never get here
+            assert(0);
         }
     }
 
-    fsm_cblk_close(master_cblk_ptr);
-    return NULL;
+    // Should never get here
+    assert(0);
+    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
+
+func_exit:
+    pthread_mutex_unlock(master_cblk_ptr->mutex);
+    return result;
 }

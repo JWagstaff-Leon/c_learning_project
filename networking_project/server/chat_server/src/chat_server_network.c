@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "chat_event.h"
+#include "chat_event_io.h"
 #include "common_types.h"
 
 
@@ -129,12 +130,13 @@ eSTATUS chat_server_network_poll(
 
 static void add_connection(
     sCHAT_SERVER_CONNECTIONS* connections,
-    int                       new_connection_fd)
+    int                       new_connection_fd,
+    fGENERIC_ALLOCATOR        allocator)
 {
     sCHAT_EVENT              event_buffer;
     sCHAT_SERVER_CONNECTION* new_connection = NULL;
     int                      print_status;
-    
+
     assert(NULL != connections);
 
     if (connections->count >= connections->size)
@@ -164,16 +166,24 @@ static void add_connection(
     new_connection->pollfd.fd     = new_connection_fd;
     new_connection->pollfd.events = POLLIN | POLLOUT | POLLHUP;
     new_connection->state         = CHAT_SERVER_CONNECTION_STATE_CONNECTED;
-    chat_event_io_init(&new_connection->event_reader);
-    chat_event_io_init(&new_connection->event_writer);
+
+    chat_event_io_create(&new_connection->event_reader,
+                         allocator,
+                         CHAT_EVENT_IO_MODE_READER,
+                         new_connection_fd);
+
+    chat_event_io_create(&new_connection->event_writer,
+                         allocator,
+                         CHAT_EVENT_IO_MODE_WRITER,
+                         new_connection_fd);
 
     connections->count += 1;
 }
 
 
-// FIXME rewrite this with new CHAT_EVENT_IO functionality
 eSTATUS chat_server_process_connections_events(
-    sCHAT_SERVER_CONNECTIONS* connections)
+    sCHAT_SERVER_CONNECTIONS* connections,
+    fGENERIC_ALLOCATOR        allocator)
 {
     eSTATUS     status;
     sCHAT_EVENT event_buffer;
@@ -285,7 +295,7 @@ eSTATUS chat_server_process_connections_events(
                                 event_buffer.type   = CHAT_EVENT_USERNAME_ACCEPTED;
                                 snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
                                 event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED], CHAT_EVENT_MAX_DATA_SIZE - 1);
-            
+
                                 send(current_connection->pollfd.fd,
                                     &event_buffer,
                                     CHAT_EVENT_HEADER_SIZE + event_buffer.length,
@@ -295,9 +305,9 @@ eSTATUS chat_server_process_connections_events(
                                         sizeof(current_connection->name),
                                         "%s",
                                         &current_connection->event_reader.event.data[0]);
-                                    
+
                                 current_connection->state = CHAT_SERVER_CONNECTION_STATE_ACTIVE;
-            
+
                                 // Compose message to active users about joining user
                                 event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
                                 event_buffer.type   = CHAT_EVENT_USER_JOIN;
@@ -308,7 +318,7 @@ eSTATUS chat_server_process_connections_events(
                                         "%s",
                                         current_connection->name);
                                 event_buffer.length = strnlen(&current_connection->name[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
-            
+
                                 for (send_connection_index = 1;
                                 send_connection_index < connections->size;
                                 send_connection_index++)
@@ -317,7 +327,7 @@ eSTATUS chat_server_process_connections_events(
                                     {
                                         continue;
                                     }
-            
+
                                     if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == connections->list[send_connection_index].state)
                                     {
                                         send(connections->list[send_connection_index].pollfd.fd,
@@ -333,7 +343,7 @@ eSTATUS chat_server_process_connections_events(
                                 event_buffer.type   = CHAT_EVENT_USERNAME_REJECTED;
                                 snprintf((char*)&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_name_too_long_message[0]);
                                 event_buffer.length = sizeof(k_name_too_long_message);
-            
+
                                 send(current_connection->pollfd.fd,
                                     &event_buffer,
                                     CHAT_EVENT_HEADER_SIZE + event_buffer.length,
@@ -346,7 +356,7 @@ eSTATUS chat_server_process_connections_events(
                     {
                         break;
                     }
-                    
+
                     // All these are no-op if sent to the server
                     case CHAT_EVENT_UNDEFINED:
                     case CHAT_EVENT_CONNECTION_FAILED:
@@ -364,12 +374,12 @@ eSTATUS chat_server_process_connections_events(
             }
         }
 
-       
+
         {
             current_connection->event_reader.event.origin = connection_index;
 
             status = STATUS_SUCCESS;
-            
+
 
             if (CHAT_EVENT_READER_STATE_FLUSHED == current_connection->event_reader.state)
             {
@@ -383,7 +393,7 @@ eSTATUS chat_server_process_connections_events(
                      CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                      0);
             }
-            
+
             if (STATUS_SUCCESS == status)
             {
                 current_connection->event_reader.state = CHAT_EVENT_READER_STATE_NEW;
@@ -400,7 +410,7 @@ eSTATUS chat_server_process_connections_events(
                                      SOCK_NONBLOCK);
         if (new_connection_fd >= 0)
         {
-            add_connection(connections, new_connection_fd);
+            add_connection(connections, new_connection_fd, allocator);
         }
     }
 
@@ -427,6 +437,9 @@ static void shutdown_connection(
              CHAT_EVENT_HEADER_SIZE + event_buffer->length,
              0);
     }
+
+    chat_event_io_close(connections->list[connection_index].event_reader);
+    chat_event_io_close(connections->list[connection_index].event_writer);
 
     close(pollfd.fd);
 
