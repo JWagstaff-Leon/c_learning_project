@@ -137,25 +137,42 @@ static eSTATUS get_locked_queue_next_msg(
 }
 
 
+size_t message_queue_get_count(
+    MESSAGE_QUEUE message_queue)
+{
+    sMESSAGE_QUEUE* message_queue_ptr;
+    size_t          count;
+
+    assert(NULL != message_queue);
+    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
+
+    pthread_mutex_lock(message_queue_ptr->queue_mutex);
+    count = message_queue_ptr->used_slots;
+    pthread_mutex_unlock(message_queue_ptr->queue_mutex);
+    
+    return count;
+}
+
+
 eSTATUS message_queue_peek(
     MESSAGE_QUEUE message_queue,
     void*         message_out_buffer,
     size_t        out_buffer_size)
 {
-    sMESSAGE_QUEUE* message_queue;
+    sMESSAGE_QUEUE* message_queue_ptr;
     eSTATUS         status = STATUS_SUCCESS;
 
     assert(NULL != message_queue);
     assert(NULL != message_out_buffer);
 
-    message_queue = (sMESSAGE_QUEUE*)message_queue;
-    pthread_mutex_lock(&message_queue->queue_mutex);
+    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
+    pthread_mutex_lock(&message_queue_ptr->queue_mutex);
 
-    status = get_locked_queue_next_msg(message_queue,
+    status = get_locked_queue_next_msg(message_queue_ptr,
                                        message_out_buffer,
                                        out_buffer_size);
 
-    pthread_mutex_unlock(&message_queue->queue_mutex);
+    pthread_mutex_unlock(&message_queue_ptr->queue_mutex);
     return status;
 }
 
@@ -165,34 +182,33 @@ eSTATUS message_queue_get(
     void*         message_out_buffer,
     size_t        out_buffer_size)
 {
-    sMESSAGE_QUEUE* message_queue;
+    sMESSAGE_QUEUE* message_queue_ptr;
     eSTATUS         status;
 
     assert(NULL != message_queue);
-    message_queue = (sMESSAGE_QUEUE*)message_queue;
+    message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
 
-    pthread_mutex_lock(&message_queue->queue_mutex);
+    pthread_mutex_lock(&message_queue_ptr->queue_mutex);
 
-    while (message_queue->used_slots < 1)
+    while (message_queue_ptr->used_slots < 1)
     {
         // TODO make this use a timeout
-        pthread_cond_wait(&message_queue->queue_cond_var, &message_queue->queue_mutex);
+        pthread_cond_wait(&message_queue_ptr->queue_cond_var,
+                          &message_queue_ptr->queue_mutex);
     }
 
-    status = get_locked_queue_next_msg(message_queue,
+    status = get_locked_queue_next_msg(message_queue_ptr,
                                        message_out_buffer,
                                        out_buffer_size);
     assert(STATUS_EMPTY != status);
     
     if (STATUS_SUCCESS == status)
     {
-        message_queue = ((sMESSAGE_QUEUE*)message_queue);
-
-        message_queue->used_slots -= 1;
-        message_queue->front_index = (message_queue->front_index + 1) % message_queue->queue_size;
+        message_queue_ptr->used_slots -= 1;
+        message_queue_ptr->front_index = (message_queue_ptr->front_index + 1) % message_queue_ptr->queue_size;
     }
 
-    pthread_mutex_unlock(&message_queue->queue_mutex);
+    pthread_mutex_unlock(&message_queue_ptr->queue_mutex);
     return status;
 }
 

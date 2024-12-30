@@ -141,6 +141,7 @@ static void dispatch_message(
 static void fsm_cblk_init(
     sCHAT_SERVER_CBLK *master_cblk_ptr)
 {
+    eSTATUS                  status;
     uint32_t                 connection_index;
     sCHAT_SERVER_CONNECTION* connections_list;
     assert(NULL != master_cblk_ptr);
@@ -157,6 +158,12 @@ static void fsm_cblk_init(
          connection_index++)
     {
         master_cblk_ptr->connections.list[connection_index] = k_blank_user;
+        status = message_queue_create(master_cblk_ptr->connections.list[connection_index].message_queue,
+                                      CHAT_SERVER_CONNECTION_MESSAGE_QUEUE_SIZE,
+                                      sizeof(void), // TODO make message
+                                      master_cblk_ptr->allocator,
+                                      master_cblk_ptr->deallocator);
+        assert(STATUS_SUCCESS == status);
     }
 }
 

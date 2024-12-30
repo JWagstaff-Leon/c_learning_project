@@ -6,7 +6,8 @@ extern "C" {
 
 // Defines ---------------------------------------------------------------------
 
-#define CHAT_SERVER_CONNECTION_MAX_NAME_SIZE 65
+#define CHAT_SERVER_CONNECTION_MAX_NAME_SIZE      65
+#define CHAT_SERVER_CONNECTION_MESSAGE_QUEUE_SIZE 32
 
 
 // Includes --------------------------------------------------------------------
@@ -29,8 +30,7 @@ typedef enum {
 } eCHAT_SERVER_CONNECTION_STATE;
 
 
-// TODO make each connection have its own message queue;
-//       avoid threading if possible, but might be simpler
+// TODO add user callback
 typedef struct
 {
     eCHAT_SERVER_CONNECTION_STATE state;

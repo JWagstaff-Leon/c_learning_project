@@ -36,6 +36,10 @@ eSTATUS message_queue_put(
     size_t        message_size);
 
 
+size_t message_queue_get_count(
+    MESSAGE_QUEUE message_queue);
+
+
 eSTATUS message_queue_peek(
     MESSAGE_QUEUE message_queue,
     void*         message_out_buffer,
