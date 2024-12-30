@@ -37,7 +37,6 @@ typedef struct
     MESSAGE_QUEUE        message_queue;
 
     eCHAT_EVENT_IO_MODE mode;
-    int                 fd;
 
     sCHAT_EVENT event;
     uint32_t    processed_bytes;

@@ -45,7 +45,9 @@ typedef struct
     MESSAGE_QUEUE      message_queue;
 
     sCHAT_SERVER_CONNECTIONS connections;
-    NETWORK_WATCHER          network_watcher;
+
+    NETWORK_WATCHER read_network_watcher;
+    NETWORK_WATCHER write_network_watcher;
 } sCHAT_SERVER_CBLK;
 
 

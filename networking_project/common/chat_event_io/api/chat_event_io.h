@@ -68,8 +68,7 @@ typedef void* CHAT_EVENT_IO;
 eSTATUS chat_event_io_create(
     CHAT_EVENT_IO*            out_new_chat_event_io,
     fGENERIC_ALLOCATOR        allocator,
-    eCHAT_EVENT_IO_MODE       mode,
-    int                       fd);
+    eCHAT_EVENT_IO_MODE       mode);
 
 
 sCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
@@ -77,8 +76,9 @@ sCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
     const sCHAT_EVENT* event);
 
 
-sCHAT_EVENT_IO_RESULT chat_event_io_do_operation(
+sCHAT_EVENT_IO_RESULT chat_event_io_do_operation_on_fd(
     CHAT_EVENT_IO chat_event_io,
+    int           fd,
     sCHAT_EVENT*  out_event);
 
 

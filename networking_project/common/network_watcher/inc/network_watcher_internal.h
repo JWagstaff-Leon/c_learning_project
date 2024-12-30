@@ -16,7 +16,6 @@ extern "C" {
 // Constants -------------------------------------------------------------------
 
 #define NETWORK_WATCHER_MESSAGE_QUEUE_SIZE 32
-#define NETWORK_WATCHER_MAX_FD_COUNT       8
 
 #define NETWORK_WATCHER_CANCEL_PIPE_INDEX NETWORK_WATCHER_MAX_FD_COUNT
 #define NETWORK_WATCHER_CLOSE_PIPE_INDEX  NETWORK_WATCHER_MAX_FD_COUNT + 1
@@ -39,7 +38,12 @@ typedef struct
     int cancel_pipe[2];
     int close_pipe[2];
 
-    int fds[NETWORK_WATCHER_MAX_FD_COUNT];
+    struct pollfd* fds;
+    uint32_t       fd_count; // fd count holds the number of network fds; it
+                             // DOES NOT include the 2 extra used for polling
+                             // the control pipes
+
+    uint32_t* connection_indecies;
 
     pthread_mutex_t watch_mutex;
     pthread_cond_t  watch_condvar;
@@ -51,6 +55,8 @@ typedef struct
 
 // Functions -------------------------------------------------------------------
 
+void* network_watcher_thread_entry(
+    void* arg);
 
 
 #ifdef __cplusplus

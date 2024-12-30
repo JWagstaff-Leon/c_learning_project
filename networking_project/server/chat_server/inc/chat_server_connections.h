@@ -30,13 +30,38 @@ typedef enum {
 } eCHAT_SERVER_CONNECTION_STATE;
 
 
+typedef enum
+{
+    CHAT_SERVER_CONNECTION_MESSAGE_SEND_EVENT
+} eCHAT_SERVER_CONNECTION_MESSAGE_TYPE;
+
+
+typedef struct
+{
+    const sCHAT_EVENT* event;
+} sCHAT_SERVER_CONNECTION_SEND_EVENT_PARAMS;
+
+
+typedef union
+{
+    sCHAT_SERVER_CONNECTION_SEND_EVENT_PARAMS send_event;
+} uCHAT_SERVER_CONNECTION_MESSAGE_PARAMS;
+
+
+typedef struct
+{
+    eCHAT_SERVER_CONNECTION_MESSAGE_TYPE   type;
+    uCHAT_SERVER_CONNECTION_MESSAGE_PARAMS params;
+} sCHAT_SERVER_CONNECTION_MESSAGE;
+
+
 // TODO add user callback
 typedef struct
 {
+    int fd;
+
     eCHAT_SERVER_CONNECTION_STATE state;
     MESSAGE_QUEUE                 message_queue;
-
-    struct pollfd pollfd;
 
     CHAT_EVENT_IO event_reader;
     CHAT_EVENT_IO event_writer;
@@ -56,13 +81,9 @@ typedef struct
 // Constants -------------------------------------------------------------------
 
 static const sCHAT_SERVER_CONNECTION k_blank_user = {
-    .name = "",
-    .pollfd = {
-        .fd = -1,
-        .events = 0,
-        .revents = 0
-    },
-    .state = CHAT_SERVER_CONNECTION_STATE_DISCONNECTED
+    .fd = -1,
+    .state = CHAT_SERVER_CONNECTION_STATE_DISCONNECTED,
+    .name = ""
 };
 
 

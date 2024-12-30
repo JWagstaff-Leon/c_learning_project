@@ -6,6 +6,8 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include <stdint.h>
+
 #include "common_types.h"
 
 
@@ -15,9 +17,16 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
+typedef enum
+{
+    NETOWRK_WATCHER_MODE_READ,
+    NETOWRK_WATCHER_MODE_WRITE
+} eNETWORK_WATCHER_MODE;
+
+
 typedef enum 
 {
-    NETWORK_WATCHER_EVENT_READ_READY,
+    NETWORK_WATCHER_EVENT_READY,
     NETWORK_WATCHER_EVENT_CANCELED,
     NETWORK_WATCHER_EVENT_CLOSED
 } eNETWORK_WATCHER_EVENT_TYPE;
@@ -25,21 +34,21 @@ typedef enum
 
 typedef struct
 {
-    struct pollfd* pollfds;
-    nfds_t         nfds;
-}sNETWORK_WATCHER_CBACK_READ_READY_DATA;
+    uint32_t* connection_indecies;
+    uint32_t  index_count;
+}sNETWORK_WATCHER_CBACK_READY_DATA;
 
 
-typedef union
+typedef struct
 {
-    sNETWORK_WATCHER_CBACK_READ_READY_DATA read_ready;
-} uNETWORK_WATCHER_CBACK_DATA;
+    sNETWORK_WATCHER_CBACK_READY_DATA ready;
+} sNETWORK_WATCHER_CBACK_DATA;
 
 
 typedef void (fNETWORK_WATCHER_USER_CBACK*) (
-    void*                        arg,
-    eNETWORK_WATCHER_EVENT_TYPE  event,
-    uNETWORK_WATCHER_CBACK_DATA* data);
+    void*                              arg,
+    eNETWORK_WATCHER_EVENT_TYPE        event,
+    const sNETWORK_WATCHER_CBACK_DATA* data);
 
 
 typedef void* NETWORK_WATCHER;
@@ -49,13 +58,23 @@ typedef void* NETWORK_WATCHER;
 
 eSTATUS network_watcher_create(
     NETWORK_WATCHER*            out_new_network_watcher,
-    sMODULE_PARAMETERS          network_watcher_params,
     fNETWORK_WATCHER_USER_CBACK user_cback,
     void*                       user_arg);
 
 
-void* network_watcher_thread_entry(
-    void* arg);
+eSTATUS network_watcher_start_watch(
+    NETWORK_WATCHER restrict network_watcher,
+    eNETWORK_WATCHER_MODE    mode,
+    int*            restrict fd_list,
+    uint32_t                 fd_count);
+
+
+eSTATUS network_watcher_stop_watch(
+    NETWORK_WATCHER network_watcher);
+
+
+eSTATUS network_watcher_close(
+    NETWORK_WATCHER network_watcher);
 
 
 // TODO add means of changing the fds

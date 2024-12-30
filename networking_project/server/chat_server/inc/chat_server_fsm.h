@@ -6,6 +6,7 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include <stdint.h>
 
 
 // Constants -------------------------------------------------------------------
@@ -19,13 +20,32 @@ typedef enum
     CHAT_SERVER_MESSAGE_OPEN,
     CHAT_SERVER_MESSAGE_CLOSE,
 
-    CHAT_SERVER_MESSAGE_POLL
+    CHAT_SERVER_MESSAGE_READ_READY,
+    CHAT_SERVER_MESSAGE_READ_READY_ALLOC_FAILED,
+
+    CHAT_SERVER_MESSAGE_WRITE_READY,
+    CHAT_SERVER_MESSAGE_WRITE_READY_ALLOC_FAILED
 } eCHAT_SERVER_MESSAGE_TYPE;
+
+
+typedef struct
+{
+    uint32_t* connection_indecies;
+    uint32_t  index_count;
+} sCHAT_SERVER_READ_READY_PARAMS;
+
+
+typedef struct
+{
+    uint32_t* connection_indecies;
+    uint32_t  index_count;
+} sCHAT_SERVER_WRITE_READY_PARAMS;
 
 
 typedef union
 {
-    void *placeholder;
+    sCHAT_SERVER_READ_READY_PARAMS  read_ready;
+    sCHAT_SERVER_WRITE_READY_PARAMS write_ready;
 } uCHAT_SERVER_MESSAGE_PARAMS;
 
 

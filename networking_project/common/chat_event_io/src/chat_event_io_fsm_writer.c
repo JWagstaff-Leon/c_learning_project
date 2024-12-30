@@ -14,7 +14,8 @@
 
 
 static eSTATUS do_write(
-    sCHAT_EVENT_IO_CBLK* writer)
+    sCHAT_EVENT_IO_CBLK* writer,
+    int                  fd)
 {
     ssize_t  written_bytes;
     uint32_t remaining_bytes;
@@ -28,7 +29,7 @@ static eSTATUS do_write(
         return STATUS_SUCCESS;
     }
 
-    written_bytes = write(writer->fd,
+    written_bytes = write(fd,
                           (void*)(&writer->event),
                           remaining_bytes);
     if (written_bytes <= 0)
@@ -72,7 +73,8 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_write(master_cblk_ptr);
+            status = do_write(master_cblk_ptr,
+                              message->params.operate.fd);
             switch (status)
             {
                 case STATUS_SUCCESS:

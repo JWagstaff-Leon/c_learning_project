@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stddef.h>
 
 #define BASE_ERROR_VALUE -1
+
 
 typedef enum
 {
@@ -19,16 +19,18 @@ typedef enum
     STATUS_INVALID_STATE  = BASE_ERROR_VALUE - 8
 } eSTATUS;
 
-typedef void* (*fGENERIC_ALLOCATOR)(size_t);
-typedef void (*fGENERIC_DEALLOCATOR)(void*);
 
 typedef void* (*fGENERIC_THREAD_ENTRY) (void*);
 
-typedef eSTATUS (*fGENERIC_THREAD_CREATOR) (fGENERIC_THREAD_ENTRY, void*);
 
-typedef struct
-{
-    fGENERIC_THREAD_CREATOR thread_creator;
-    fGENERIC_ALLOCATOR      allocator;
-    fGENERIC_DEALLOCATOR    deallocator;
-} sMODULE_PARAMETERS;
+void* generic_allocator(
+    size_t bytes);
+
+
+void generic_deallocator(
+    void* ptr);
+
+
+eSTATUS generic_create_thread(
+    fGENERIC_THREAD_ENTRY thread_entry,
+    void* arg);

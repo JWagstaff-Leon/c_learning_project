@@ -9,38 +9,26 @@
 static bool do_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
-    struct pollfd fds[NETWORK_WATCHER_MAX_FD_COUNT + 2];
-    int           fd_index;
-    uint8_t       read_buffer[128];
+    uint32_t fd_index;
+    uint8_t  read_buffer[128];
 
-    uNETWORK_WATCHER_CBACK_DATA cback_data;
-    cback_data.read_ready.pollfds = &fds[0];
-    cback_data.read_ready.nfds    = NETWORK_WATCHER_MAX_FD_COUNT;
+    sNETWORK_WATCHER_CBACK_DATA cback_data;
 
     assert(NULL != master_cblk_ptr);
 
-    for (fd_index = 0; fd_index < NETWORK_WATCHER_MAX_FD_COUNT; fd_index++)
-    {
-        fds[fd_index].fd     = master_cblk_ptr->fds[fd_index];
-        fds[fd_index].events = POLLIN;
-    }
-    fds[NETWORK_WATCHER_CANCEL_PIPE_INDEX].fd     = master_cblk_ptr->cancel_pipe[PIPE_END_READ];
-    fds[NETWORK_WATCHER_CANCEL_PIPE_INDEX].events = POLLIN;
-
-    fds[NETWORK_WATCHER_CLOSE_PIPE_INDEX].fd     = master_cblk_ptr->close_pipe[PIPE_END_READ];
-    fds[NETWORK_WATCHER_CLOSE_PIPE_INDEX].events = POLLIN;
-
-    poll(fds, NETWORK_WATCHER_MAX_FD_COUNT + 2, -1);
+    poll(master_cblk_ptr->fds,
+         master_cblk_ptr->fd_count + 2,
+         -1);
 
     // Check if the close pipe has been written to
-    if (fds[NETWORK_WATCHER_CLOSE_PIPE_INDEX].revents & POLLIN)
+    if (master_cblk_ptr->fds[master_cblk_ptr->fd_count + 1].revents & POLLIN)
     {
         master_cblk_ptr->open = false;
         return false;
     }
 
     // Check if the cancel pipe has been written to
-    if (fds[NETWORK_WATCHER_CANCEL_PIPE_INDEX].revents & POLLIN)
+    if (master_cblk_ptr->fds[master_cblk_ptr->fd_count].revents & POLLIN)
     {
         // Consume the whole buffer
         while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
@@ -53,18 +41,25 @@ static bool do_watch(
         return false;
     }
 
-    for (fd_index = 0; fd_index < NETWORK_WATCHER_MAX_FD_COUNT; fd_index++)
+    cback_data.ready.connection_indecies = master_cblk_ptr->connection_indecies;
+    cback_data.ready.index_count         = 0;
+
+    for (fd_index = 0; fd_index < master_cblk_ptr->fd_count; fd_index++)
     {
-        if (fds[fd_index].revents & POLLIN)
+        if (master_cblk_ptr->fds[fd_index].revents & (POLLIN | POLLOUT))
         {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        NETWORK_WATCHER_EVENT_READ_READY,
-                                        &cback_data);
-            return false;
+            assert(cback_data.ready.index_count < master_cblk_ptr->fd_count);
+            master_cblk_ptr->connection_indecies[cback_data.ready.index_count++] = fd_index;
         }
     }
-
-    return true;
+    
+    if (cback_data.ready.index_count > 0)
+    {
+        master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                    NETWORK_WATCHER_EVENT_READY,
+                                    &cback_data);
+    }
+    return cback_data.ready.index_count > 0;
 }
 
 
@@ -99,24 +94,28 @@ static void fsm_cblk_close(
 void* network_watcher_thread_entry(
     void* arg)
 {
-    sNETWORK_WATCHER_CBLK*      master_cblk_ptr;
-    sNETWORK_WATCHER_MESSAGE    message;
-    eSTATUS                     status;
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+    eSTATUS                status;
 
     assert(NULL != arg);
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)arg;
     
     pthread_mutex_lock(master_cblk_ptr->watch_mutex);
+
+    master_cblk_ptr->open = true;
     while (master_cblk_ptr->open)
     {
         pthread_cond_wait(master_cblk_ptr->watch_condvar,
                           master_cblk_ptr->watch_mutex);
-
-        while (master_cblk_ptr->watching && master_cblk_ptr->open)
+        do
         {
             master_cblk_ptr->watching = do_watch();
-        }
+        } while (master_cblk_ptr->watching && master_cblk_ptr->open);
+
+        generic_deallocator(master_cblk_ptr->fds);
+        generic_deallocator(master_cblk_ptr->connection_indecies);
     }
+
     pthread_mutex_unlock(master_cblk_ptr->watch_mutex);
 
     fsm_cblk_close(master_cblk_ptr);

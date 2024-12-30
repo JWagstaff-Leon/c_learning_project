@@ -8,6 +8,149 @@
 #include "common_types.h"
 #include "message_queue.h"
 
+
+static void process_complete_event(
+    const sCHAT_EVENT*        event,
+    sCHAT_SERVER_CONNECTIONS* connections)
+{
+    uint32_t                        send_connection_index;
+    eSTATUS                         status;
+    sCHAT_SERVER_CONNECTION_MESSAGE message;
+
+    assert(NULL != event);
+
+    switch(event->type)
+    {
+        case CHAT_EVENT_CHAT_MESSAGE:
+        {
+            if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == current_connection->state)
+            {
+                for (send_connection_index = 1;
+                     send_connection_index < connections->size;
+                     send_connection_index++)
+                {
+                    if (send_connection_index == event->origin)
+                    {
+                        continue;
+                    }
+
+                    message.type                    = CHAT_SERVER_CONNECTION_MESSAGE_SEND_EVENT;
+                    message.params.send_event.event = event;
+
+                    status = message_queue_put(connections->list[send_connection_index].message_queue,
+                                               message,
+                                               sizeof(message));
+                    assert(STATUS_SUCCESS == status);
+                }
+            }
+            break;
+        }
+        case CHAT_EVENT_USERNAME_REQUEST:
+        {
+            if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == current_connection->state)
+            {
+                event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                event_buffer.type   = CHAT_EVENT_USERNAME_SUBMIT;
+                snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", connections->list[0].name);
+                event_buffer.length = strnlen(&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
+
+                send(current_connection->pollfd.fd,
+                     &event_buffer,
+                     CHAT_EVENT_HEADER_SIZE + event_buffer.length,
+                     0);
+            }
+            break;
+        }
+        case CHAT_EVENT_USERNAME_SUBMIT:
+        {
+            if (CHAT_SERVER_CONNECTION_STATE_IN_SETUP == current_connection->state)
+            {
+                if (current_connection->event_reader.event.length <= CHAT_SERVER_CONNECTION_MAX_NAME_SIZE)
+                {
+                    // Compose name accepted message to joining user
+                    event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                    event_buffer.type   = CHAT_EVENT_USERNAME_ACCEPTED;
+                    snprintf((char*)&event_buffer.data[0], CHAT_EVENT_MAX_DATA_SIZE, "%s", k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED]);
+                    event_buffer.length = strnlen(k_server_event_canned_messages[CHAT_EVENT_USERNAME_ACCEPTED], CHAT_EVENT_MAX_DATA_SIZE - 1);
+
+                    send(current_connection->pollfd.fd,
+                         &event_buffer,
+                         CHAT_EVENT_HEADER_SIZE + event_buffer.length,
+                         0);
+
+                    snprintf(current_connection->name,
+                             sizeof(current_connection->name),
+                             "%s",
+                             &current_connection->event_reader.event.data[0]);
+
+                    current_connection->state = CHAT_SERVER_CONNECTION_STATE_ACTIVE;
+
+                    // Compose message to active users about joining user
+                    event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                    event_buffer.type   = CHAT_EVENT_USER_JOIN;
+                    // TODO do this to all snprintf's while applicable:
+                    // Use snprintf return to determine event length
+                    snprintf((char*)&event_buffer.data[0],
+                             CHAT_EVENT_MAX_DATA_SIZE,
+                             "%s",
+                             current_connection->name);
+                    event_buffer.length = strnlen(&current_connection->name[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
+
+                    for (send_connection_index = 1;
+                         send_connection_index < connections->size;
+                         send_connection_index++)
+                    {
+                        if (send_connection_index == connection_index)
+                        {
+                            continue;
+                        }
+
+                        if (CHAT_SERVER_CONNECTION_STATE_ACTIVE == connections->list[send_connection_index].state)
+                        {
+                            send(connections->list[send_connection_index].pollfd.fd,
+                                 &event_buffer,
+                                 CHAT_EVENT_HEADER_SIZE + event_buffer.length,
+                                 0);
+                        }
+                    }
+                }
+                else
+                {
+                    event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
+                    event_buffer.type   = CHAT_EVENT_USERNAME_REJECTED;
+                    snprintf((char*)&event_buffer.data, CHAT_EVENT_MAX_DATA_SIZE, "%s", &k_name_too_long_message[0]);
+                    event_buffer.length = sizeof(k_name_too_long_message);
+
+                    send(current_connection->pollfd.fd,
+                         &event_buffer,
+                         CHAT_EVENT_HEADER_SIZE + event_buffer.length,
+                         0);
+                }
+            }
+            break;
+        }
+        case CHAT_EVENT_USER_LIST:
+        {
+            break;
+        }
+
+        // All these are no-op if sent to the server
+        case CHAT_EVENT_UNDEFINED:
+        case CHAT_EVENT_CONNECTION_FAILED:
+        case CHAT_EVENT_OVERSIZED_CONTENT:
+        case CHAT_EVENT_USERNAME_ACCEPTED:
+        case CHAT_EVENT_USERNAME_REJECTED:
+        case CHAT_EVENT_SERVER_SHUTDOWN:
+        case CHAT_EVENT_USER_JOIN:
+        case CHAT_EVENT_USER_LEAVE:
+        default:
+        {
+            break;
+        }
+    }
+}
+
+
 static void init_processing(
     const sCHAT_SERVER_MESSAGE* message,
     sCHAT_SERVER_CBLK*          master_cblk_ptr)
@@ -37,13 +180,6 @@ static void init_processing(
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_SERVER_EVENT_OPENED,
                                         NULL);
-
-            new_message.type = CHAT_SERVER_MESSAGE_POLL;
-            status           = message_queue_put(master_cblk_ptr->message_queue,
-                                                 &new_message,
-                                                 sizeof(new_message));
-            assert(STATUS_SUCCESS == status);
-
             break;
         }
         case CHAT_SERVER_MESSAGE_CLOSE:
@@ -67,25 +203,39 @@ static void open_processing(
     eSTATUS              status;
     sCHAT_SERVER_MESSAGE new_message;
 
+    sCHAT_EVENT              event_buffer;
+    sCHAT_SERVER_CONNECTION* relevant_connection;
+    sCHAT_EVENT_IO_RESULT    chat_event_io_result;
+
     assert(NULL != message);
     assert(NULL != master_cblk_ptr);
 
     switch (message->type)
     {
-        case CHAT_SERVER_MESSAGE_POLL:
+        case CHAT_SERVER_MESSAGE_READ_READY:
         {
-            status = chat_server_network_poll(&master_cblk_ptr->connections);
-            assert(STATUS_SUCCESS == status);
-
-            status = chat_server_process_connections_events(&master_cblk_ptr->connections,
-                                                            master_cblk_ptr->allocator);
-            assert(STATUS_SUCCESS == status);
-
-            new_message.type = CHAT_SERVER_MESSAGE_POLL;
-            status           = message_queue_put(master_cblk_ptr->message_queue,
-                                                 &new_message,
-                                                 sizeof(new_message));
-            assert(STATUS_SUCCESS == status);
+            relevant_connection = master_cblk_ptr->connections.list[message->params.read_ready.connection_index];
+            chat_event_io_result = chat_event_io_do_operation_on_fd(&relevant_connection->event_reader,
+                                                                    relevant_connection->fd,
+                                                                    &event_buffer);
+            switch (chat_event_io_result.event)
+            {
+                case CHAT_EVENT_IO_EVENT_READ_FINISHED:
+                {
+                    event_buffer.origin = message->params.read_ready.connection_index;
+                    process_complete_event(&event_buffer);
+                    break;
+                }
+                case CHAT_EVENT_IO_EVENT_FD_CLOSED:
+                {
+                    // TODO respond to a close
+                }
+                case CHAT_EVENT_IO_EVENT_FAILED:
+                {
+                    // TODO respond to a failure
+                }
+                // REVIEW should this respond to flushing conditions?
+            }
 
             break;
         }
@@ -144,6 +294,7 @@ static void fsm_cblk_init(
     eSTATUS                  status;
     uint32_t                 connection_index;
     sCHAT_SERVER_CONNECTION* connections_list;
+    sCHAT_SERVER_CONNECTION* current_connection;
     assert(NULL != master_cblk_ptr);
 
     connections_list = master_cblk_ptr->allocator(CHAT_SERVER_MAX_CONNECTIONS * sizeof(sCHAT_SERVER_CONNECTION));
@@ -157,10 +308,22 @@ static void fsm_cblk_init(
          connection_index < master_cblk_ptr->connections.size;
          connection_index++)
     {
-        master_cblk_ptr->connections.list[connection_index] = k_blank_user;
-        status = message_queue_create(master_cblk_ptr->connections.list[connection_index].message_queue,
+        current_connection  = &connections_list[connection_index];
+        *current_connection = k_blank_user;
+
+        status = chat_event_io_create(&current_connection->event_reader,
+                                      master_cblk_ptr->allocator,
+                                      CHAT_EVENT_IO_MODE_READER);
+        assert(STATUS_SUCCESS == status);
+
+        status = chat_event_io_create(&current_connection->event_writer,
+                                      master_cblk_ptr->allocator,
+                                      CHAT_EVENT_IO_MODE_WRITER);
+        assert(STATUS_SUCCESS == status);
+
+        status = message_queue_create(&current_connection->message_queue,
                                       CHAT_SERVER_CONNECTION_MESSAGE_QUEUE_SIZE,
-                                      sizeof(void), // TODO make message
+                                      sizeof(sCHAT_SERVER_CONNECTION_MESSAGE),
                                       master_cblk_ptr->allocator,
                                       master_cblk_ptr->deallocator);
         assert(STATUS_SUCCESS == status);

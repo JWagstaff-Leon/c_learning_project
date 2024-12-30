@@ -82,7 +82,7 @@ eSTATUS chat_server_network_open(
     }
 
     status = listen(listen_socket,
-                    16);
+                    16); // REVIEW change this to something dynamic?
     if(status < 0)
     {
         close(listen_socket);
@@ -166,16 +166,6 @@ static void add_connection(
     new_connection->pollfd.fd     = new_connection_fd;
     new_connection->pollfd.events = POLLIN | POLLOUT | POLLHUP;
     new_connection->state         = CHAT_SERVER_CONNECTION_STATE_CONNECTED;
-
-    chat_event_io_create(&new_connection->event_reader,
-                         allocator,
-                         CHAT_EVENT_IO_MODE_READER,
-                         new_connection_fd);
-
-    chat_event_io_create(&new_connection->event_writer,
-                         allocator,
-                         CHAT_EVENT_IO_MODE_WRITER,
-                         new_connection_fd);
 
     connections->count += 1;
 }

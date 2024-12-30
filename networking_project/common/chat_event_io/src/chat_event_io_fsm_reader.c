@@ -14,7 +14,8 @@
 
 
 static eSTATUS do_read(
-    sCHAT_EVENT_IO_CBLK* reader)
+    sCHAT_EVENT_IO_CBLK* reader,
+    int                  fd)
 {
     ssize_t     read_bytes;
     uint32_t    empty_bytes;
@@ -31,7 +32,7 @@ static eSTATUS do_read(
     }
 
     buffer_tail = (void*)((uint8_t*)&reader->event + reader->processed_bytes);
-    read_bytes = read(reader->fd,
+    read_bytes = read(fd,
                       buffer_tail,
                       empty_bytes);
     if (read_bytes < 0)
@@ -99,7 +100,8 @@ static eSTATUS extract_read_event(
 
 
 static eSTATUS do_flush(
-    sCHAT_EVENT_IO_CBLK* reader)
+    sCHAT_EVENT_IO_CBLK* reader,
+    int                  fd)
 {
     ssize_t     read_bytes;
     uint32_t    bytes_to_flush;
@@ -110,7 +112,7 @@ static eSTATUS do_flush(
     bytes_to_flush = (reader->flush_bytes - reader->processed_bytes) > sizeof(reader->event) ?
                          sizeof(reader->event) : (reader->flush_bytes - reader->processed_bytes);
 
-    read_bytes = read(reader->fd,
+    read_bytes = read(fd,
                       (void*)(&reader->event),
                       bytes_to_flush);
     if (read_bytes < 0)
@@ -148,7 +150,8 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_read(master_cblk_ptr);
+            status = do_read(master_cblk_ptr,
+                             message->params.operate.fd);
 
             switch (status)
             {
@@ -190,6 +193,12 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
             }
             break;
         }
+        case CHAT_EVENT_IO_MESSAGE_TYPE_RESET:
+        {
+            memset(&master_cblk_ptr->event,
+                   0,
+                   sizeof(master_cblk_ptr->event));
+        }
     }
 
     // Should not get here
@@ -213,7 +222,8 @@ static void flushing_processing(
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_flush(master_cblk_ptr);
+            status = do_flush(master_cblk_ptr,
+                              message->params.operate.fd);
             switch (status)
             {
                 case STATUS_SUCCESS:
