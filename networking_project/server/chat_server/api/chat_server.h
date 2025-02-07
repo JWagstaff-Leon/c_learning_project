@@ -41,12 +41,8 @@ typedef void* CHAT_SERVER;
 
 // Functions -------------------------------------------------------------------
 
-// TODO rewrite this with sMODULE_PARAMETERS
 eSTATUS chat_server_create(
     CHAT_SERVER*            out_new_chat_server,
-    fGENERIC_ALLOCATOR      allocator,
-    fGENERIC_DEALLOCATOR    deallocator,
-    fGENERIC_THREAD_CREATOR create_thread,
     fCHAT_SERVER_USER_CBACK user_cback,
     void*                   user_arg);
 

@@ -20,13 +20,6 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_EVENT_IO_MODE_READER,
-    CHAT_EVENT_IO_MODE_WRITER
-} eCHAT_EVENT_IO_MODE;
-
-
-typedef enum
-{
     CHAT_EVENT_IO_EVENT_READ_FINISHED        = 1 <<  0,
     CHAT_EVENT_IO_EVENT_WRITE_FINISHED       = 1 <<  1,
     CHAT_EVENT_IO_EVENT_INCOMPLETE           = 1 <<  2,
@@ -66,9 +59,7 @@ typedef void* CHAT_EVENT_IO;
 // Functions -------------------------------------------------------------------
 
 eSTATUS chat_event_io_create(
-    CHAT_EVENT_IO*            out_new_chat_event_io,
-    fGENERIC_ALLOCATOR        allocator,
-    eCHAT_EVENT_IO_MODE       mode);
+    CHAT_EVENT_IO* out_new_chat_event_io);
 
 
 sCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
@@ -76,15 +67,18 @@ sCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
     const sCHAT_EVENT* event);
 
 
-sCHAT_EVENT_IO_RESULT chat_event_io_do_operation_on_fd(
+sCHAT_EVENT_IO_RESULT chat_event_io_read_from_fd(
     CHAT_EVENT_IO chat_event_io,
-    int           fd,
-    sCHAT_EVENT*  out_event);
+    int           fd);
+
+    
+sCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
+    CHAT_EVENT_IO      chat_event_io,
+    int                fd);
 
 
 eSTATUS chat_event_io_close(
-    CHAT_EVENT_IO        chat_event_io,
-    fGENERIC_DEALLOCATOR deallocator);
+    CHAT_EVENT_IO chat_event_io);
 
 
 #ifdef __cplusplus

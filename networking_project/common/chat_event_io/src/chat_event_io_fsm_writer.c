@@ -14,14 +14,13 @@
 
 
 static eSTATUS do_write(
-    sCHAT_EVENT_IO_CBLK* writer,
-    int                  fd)
+    sCHAT_EVENT_IO_OPERATOR* writer,
+    int                      fd)
 {
     ssize_t  written_bytes;
     uint32_t remaining_bytes;
 
     assert(NULL != writer);
-    assert(CHAT_EVENT_IO_MODE_WRITER == writer->mode);
 
     remaining_bytes = (CHAT_EVENT_HEADER_SIZE + ntohs(writer->event.length)) - writer->processed_bytes;
     if(remaining_bytes == 0)
@@ -48,23 +47,23 @@ static eSTATUS do_write(
 
 
 static sCHAT_EVENT_IO_RESULT omni_processing(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
     sCHAT_EVENT_IO_RESULT result;
 
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != writer);
     assert(NULL != message);
 
     switch (message->type)
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER:
         {
-            master_cblk_ptr->event.type   = htonl(message->params.populate_writer.event.type);
-            master_cblk_ptr->event.origin = htonl(message->params.populate_writer.event.origin);
-            master_cblk_ptr->event.length = htons(message->params.populate_writer.event.length);
-            memcpy(&master_cblk_ptr->event.data[0],
+            writer->event.type   = htonl(message->params.populate_writer.event.type);
+            writer->event.origin = htonl(message->params.populate_writer.event.origin);
+            writer->event.length = htons(message->params.populate_writer.event.length);
+            memcpy(&writer->event.data[0],
                    message->params.populate_writer.event.data,
                    message->params.populate_writer.event.length);
 
@@ -73,21 +72,21 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_write(master_cblk_ptr,
+            status = do_write(writer,
                               message->params.operate.fd);
             switch (status)
             {
                 case STATUS_SUCCESS:
                 {
-                    master_cblk_ptr->state = CHAT_EVENT_IO_STATE_READY;
-                    master_cblk_ptr->processed_bytes = 0;
+                    writer->state = CHAT_EVENT_IO_STATE_READY;
+                    writer->processed_bytes = 0;
 
                     result.event = CHAT_EVENT_IO_EVENT_WRITE_FINISHED;
                     return result;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    master_cblk_ptr->state = CHAT_EVENT_IO_STATE_IN_PROGRESS;
+                    writer->state = CHAT_EVENT_IO_STATE_IN_PROGRESS;
 
                     result.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
                     return result;
@@ -108,6 +107,7 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
             break;
         }
     }
+
     // Should not get here
     assert(0);
     result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
@@ -117,28 +117,28 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
 
 
 eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_writer_dispatch_message(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     sCHAT_EVENT_IO_RESULT result;
     
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != writer);
     assert(NULL != message);
 
-    switch (master_cblk_ptr->state)
+    switch (writer->state)
     {
         case CHAT_EVENT_IO_STATE_READY:
         case CHAT_EVENT_IO_STATE_IN_PROGRESS:
         {
-            return omni_processing(master_cblk_ptr, message);
+            return omni_processing(writer, message);
         }
         case CHAT_EVENT_IO_STATE_FLUSHING:
-        default:
         {
             // Should never get here
             assert(0);
         }
     }
+
     // Should never get here
     assert(0);
     result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;

@@ -26,21 +26,15 @@ static eSTATUS init_cblk(
 
 
 static eSTATUS init_msg_queue(
-    MESSAGE_QUEUE*       message_queue_ptr,
-    fGENERIC_ALLOCATOR   allocator,
-    fGENERIC_DEALLOCATOR deallocator)
+    MESSAGE_QUEUE* message_queue_ptr)
 {
     eSTATUS status;
 
     assert(NULL != message_queue_ptr);
-    assert(NULL != allocator);
-    assert(NULL != deallocator);
 
     status = message_queue_create(message_queue_ptr,
-                                  CHAT_SERVER_MSG_QUEUE_SIZE,
-                                  sizeof(sCHAT_SERVER_MESSAGE),
-                                  allocator,
-                                  deallocator);
+                                  CHAT_SERVER_MESSAGE_QUEUE_SIZE,
+                                  sizeof(sCHAT_SERVER_MESSAGE));
 
     return status;
 }
@@ -48,21 +42,16 @@ static eSTATUS init_msg_queue(
 
 eSTATUS chat_server_create(
     CHAT_SERVER*            out_new_chat_server,
-    fGENERIC_ALLOCATOR      allocator,
-    fGENERIC_DEALLOCATOR    deallocator,
-    fGENERIC_THREAD_CREATOR create_thread,
     fCHAT_SERVER_USER_CBACK user_cback,
     void*                   user_arg)
 {
     sCHAT_SERVER_CBLK* new_master_cblk_ptr;
     eSTATUS            status;
     
-    assert(NULL != allocator);
-    assert(NULL != deallocator);
     assert(NULL != user_cback);
     assert(NULL != out_new_chat_server);
 
-    new_master_cblk_ptr = (sCHAT_SERVER_CBLK*)allocator(sizeof(sCHAT_SERVER_CBLK));
+    new_master_cblk_ptr = (sCHAT_SERVER_CBLK*)generic_allocator(sizeof(sCHAT_SERVER_CBLK));
     if (NULL == new_master_cblk_ptr)
     {
         return STATUS_ALLOC_FAILED;
@@ -71,29 +60,25 @@ eSTATUS chat_server_create(
     status = init_cblk(new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        deallocator(new_master_cblk_ptr);
+        generic_deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    new_master_cblk_ptr->allocator   = allocator;
-    new_master_cblk_ptr->deallocator = deallocator;
-    new_master_cblk_ptr->user_cback  = user_cback;
-    new_master_cblk_ptr->user_arg    = user_arg;
+    new_master_cblk_ptr->user_cback = user_cback;
+    new_master_cblk_ptr->user_arg   = user_arg;
 
-    status = init_msg_queue(&new_master_cblk_ptr->message_queue,
-                            allocator,
-                            deallocator);
+    status = init_msg_queue(&new_master_cblk_ptr->message_queue);
     if (STATUS_SUCCESS != status)
     {
-        deallocator(new_master_cblk_ptr);
+        generic_deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    status = create_thread(chat_server_thread_entry, new_master_cblk_ptr);
+    status = generic_create_thread(chat_server_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
         message_queue_destroy(new_master_cblk_ptr->message_queue);
-        deallocator(new_master_cblk_ptr);
+        generic_deallocator(new_master_cblk_ptr);
         return status;
     }
     

@@ -25,9 +25,7 @@ typedef void* MESSAGE_QUEUE;
 eSTATUS message_queue_create(
     MESSAGE_QUEUE*       out_message_queue,
     size_t               queue_size,
-    size_t               message_size,
-    fGENERIC_ALLOCATOR   allocator,
-    fGENERIC_DEALLOCATOR deallocator);
+    size_t               message_size);
 
 
 eSTATUS message_queue_put(

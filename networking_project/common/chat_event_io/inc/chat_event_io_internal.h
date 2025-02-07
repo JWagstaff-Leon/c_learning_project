@@ -34,15 +34,17 @@ typedef enum
 typedef struct
 {
     eCHAT_EVENT_IO_STATE state;
-    MESSAGE_QUEUE        message_queue;
-
-    eCHAT_EVENT_IO_MODE mode;
 
     sCHAT_EVENT event;
     uint32_t    processed_bytes;
     uint32_t    flush_bytes;
+} sCHAT_EVENT_IO_OPERATOR;
 
-    pthread_mutex_t mutex;
+
+typedef struct
+{
+    sCHAT_EVENT_IO_OPERATOR reader;
+    sCHAT_EVENT_IO_OPERATOR writer;
 } sCHAT_EVENT_IO_CBLK;
 
 

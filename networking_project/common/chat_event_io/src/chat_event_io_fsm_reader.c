@@ -14,15 +14,14 @@
 
 
 static eSTATUS do_read(
-    sCHAT_EVENT_IO_CBLK* reader,
-    int                  fd)
+    sCHAT_EVENT_IO_OPERATOR* reader,
+    int                      fd)
 {
     ssize_t     read_bytes;
     uint32_t    empty_bytes;
     void*       buffer_tail;
 
     assert(NULL != reader);
-    assert(CHAT_EVENT_IO_MODE_READER == reader->mode);
 
     empty_bytes = sizeof(reader->event) - reader->processed_bytes;
 
@@ -66,14 +65,13 @@ static eSTATUS do_read(
 
 
 static eSTATUS extract_read_event(
-    sCHAT_EVENT_IO_CBLK* restrict reader,
-    sCHAT_EVENT*         restrict out_event)
+    sCHAT_EVENT_IO_OPERATOR* restrict reader,
+    sCHAT_EVENT*             restrict out_event)
 {
     uint32_t extracted_event_size;
 
     assert(NULL != reader);
     assert(NULL != out_event);
-    assert(CHAT_EVENT_IO_MODE_READER == reader->mode);
 
     if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE ||
         reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length))
@@ -85,7 +83,7 @@ static eSTATUS extract_read_event(
     out_event->origin = ntohl(reader->event.origin);
     out_event->length = ntohs(reader->event.length);
 
-    extracted_event_size  = CHAT_EVENT_HEADER_SIZE + out_event->length;
+    extracted_event_size = CHAT_EVENT_HEADER_SIZE + out_event->length;
     memcpy(out_event->data,
            &reader->event.data,
            out_event->length);
@@ -100,17 +98,17 @@ static eSTATUS extract_read_event(
 
 
 static eSTATUS do_flush(
-    sCHAT_EVENT_IO_CBLK* reader,
-    int                  fd)
+    sCHAT_EVENT_IO_OPERATOR* reader,
+    int                      fd)
 {
     ssize_t     read_bytes;
     uint32_t    bytes_to_flush;
 
     assert(NULL != reader);
-    assert(CHAT_EVENT_IO_MODE_READER == reader->mode);
 
-    bytes_to_flush = (reader->flush_bytes - reader->processed_bytes) > sizeof(reader->event) ?
-                         sizeof(reader->event) : (reader->flush_bytes - reader->processed_bytes);
+    bytes_to_flush = (reader->flush_bytes - reader->processed_bytes) > sizeof(reader->event)
+                         ? sizeof(reader->event)
+                         : (reader->flush_bytes - reader->processed_bytes);
 
     read_bytes = read(fd,
                       (void*)(&reader->event),
@@ -137,27 +135,27 @@ static eSTATUS do_flush(
 
 
 static sCHAT_EVENT_IO_RESULT ready_processing(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
     sCHAT_EVENT_IO_RESULT result;
 
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != reader);
     assert(NULL != message);
 
     switch (message->type)
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_read(master_cblk_ptr,
+            status = do_read(reader,
                              message->params.operate.fd);
 
             switch (status)
             {
                 case STATUS_SUCCESS:
                 {
-                    status = extract_read_event(master_cblk_ptr, &result.data.read_finished.read_event);
+                    status = extract_read_event(reader, &result.data.read_finished.read_event);
                     assert(STATUS_SUCCESS == status);
                     
                     result.event = CHAT_EVENT_IO_EVENT_READ_FINISHED;
@@ -180,7 +178,7 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
                 }
                 case STATUS_NO_SPACE:
                 {
-                    master_cblk_ptr->state = CHAT_EVENT_IO_STATE_FLUSHING;
+                    reader->state = CHAT_EVENT_IO_STATE_FLUSHING;
 
                     result.event = CHAT_EVENT_IO_EVENT_FLUSH_REQUIRED;
                     return result;
@@ -193,12 +191,6 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
             }
             break;
         }
-        case CHAT_EVENT_IO_MESSAGE_TYPE_RESET:
-        {
-            memset(&master_cblk_ptr->event,
-                   0,
-                   sizeof(master_cblk_ptr->event));
-        }
     }
 
     // Should not get here
@@ -209,20 +201,20 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
 
 
 static void flushing_processing(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
     sCHAT_EVENT_IO_RESULT result;
 
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != reader);
     assert(NULL != message);
     
     switch (message->type)
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
-            status = do_flush(master_cblk_ptr,
+            status = do_flush(reader,
                               message->params.operate.fd);
             switch (status)
             {
@@ -264,33 +256,23 @@ static void flushing_processing(
 
 
 eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    sCHAT_EVENT_IO_MESSAGE new_message;
     sCHAT_EVENT_IO_RESULT  result;
 
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != reader);
     assert(NULL != message);
 
-    switch (message->type)
-    {
-        case CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER:
-        {
-            result.event = CHAT_EVENT_IO_EVENT_CANT_POPULATE_READER;
-            return result;
-        }
-    }
-
-    switch (master_cblk_ptr->state)
+    switch (reader->state)
     {
         case CHAT_EVENT_IO_STATE_READY:
         {
-            return ready_processing(master_cblk_ptr, message);
+            return ready_processing(reader, message);
         }
         case CHAT_EVENT_IO_STATE_FLUSHING:
         {
-            return flushing_processing(master_cblk_ptr, message);
+            return flushing_processing(reader, message);
         }
         default:
         {

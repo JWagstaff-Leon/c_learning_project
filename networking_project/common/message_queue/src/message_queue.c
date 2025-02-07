@@ -12,36 +12,30 @@
 eSTATUS message_queue_create(
     MESSAGE_QUEUE*       out_message_queue,
     size_t               queue_size,
-    size_t               message_size,
-    fGENERIC_ALLOCATOR   allocator,
-    fGENERIC_DEALLOCATOR deallocator)
+    size_t               message_size)
 {
     sMESSAGE_QUEUE* new_message_queue_ptr;
     void*           new_queue_buffer;
     size_t          new_queue_buffer_size;
 
-    assert(NULL != allocator);
-    assert(NULL != deallocator);
     assert(NULL != out_message_queue);
 
     new_queue_buffer_size = queue_size * message_size;
-    new_queue_buffer = allocator(new_queue_buffer_size);
+    new_queue_buffer = generic_allocator(new_queue_buffer_size);
     if (NULL == new_queue_buffer)
     {
         return STATUS_ALLOC_FAILED;
     }
 
-    new_message_queue_ptr = (sMESSAGE_QUEUE*)allocator(sizeof(sMESSAGE_QUEUE));
+    new_message_queue_ptr = (sMESSAGE_QUEUE*)generic_allocator(sizeof(sMESSAGE_QUEUE));
     if (NULL == new_message_queue_ptr)
     {
-        deallocator(new_queue_buffer);
+        generic_deallocator(new_queue_buffer);
         return STATUS_ALLOC_FAILED;
     }
 
     memset(new_message_queue_ptr, 0, sizeof(sMESSAGE_QUEUE));
     memset(new_queue_buffer, 0, new_queue_buffer_size);
-
-    new_message_queue_ptr->deallocator  = deallocator;
 
     new_message_queue_ptr->queue_buffer = new_queue_buffer;
     
@@ -223,8 +217,8 @@ eSTATUS message_queue_destroy(
 
     pthread_mutex_destroy(&message_queue->queue_mutex);
     pthread_cond_destroy(&message_queue->queue_cond_var);
-    message_queue->deallocator(message_queue->queue_buffer);
+    generic_deallocator(message_queue->queue_buffer);
 
-    message_queue->deallocator(message_queue);
+    generic_deallocator(message_queue);
     return STATUS_SUCCESS;
 }

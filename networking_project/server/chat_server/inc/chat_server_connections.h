@@ -18,14 +18,15 @@ extern "C" {
 
 #include "chat_event.h"
 #include "chat_event_io.h"
+#include "message_queue.h"
 
 
 // Types -----------------------------------------------------------------------
 
 typedef enum {
     CHAT_SERVER_CONNECTION_STATE_DISCONNECTED,
-    CHAT_SERVER_CONNECTION_STATE_CONNECTED,
-    CHAT_SERVER_CONNECTION_STATE_IN_SETUP,
+    CHAT_SERVER_CONNECTION_STATE_INIT,
+    CHAT_SERVER_CONNECTION_STATE_SETUP,
     CHAT_SERVER_CONNECTION_STATE_ACTIVE
 } eCHAT_SERVER_CONNECTION_STATE;
 
@@ -55,18 +56,13 @@ typedef struct
 } sCHAT_SERVER_CONNECTION_MESSAGE;
 
 
-// TODO add user callback
 typedef struct
 {
-    int fd;
-
+    int                           fd;
+    CHAT_EVENT_IO                 io;
     eCHAT_SERVER_CONNECTION_STATE state;
-    MESSAGE_QUEUE                 message_queue;
-
-    CHAT_EVENT_IO event_reader;
-    CHAT_EVENT_IO event_writer;
-
-    char name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
+    char                          name[CHAT_SERVER_CONNECTION_MAX_NAME_SIZE];
+    MESSAGE_QUEUE                 event_buffer;
 } sCHAT_SERVER_CONNECTION;
 
 
@@ -81,14 +77,44 @@ typedef struct
 // Constants -------------------------------------------------------------------
 
 static const sCHAT_SERVER_CONNECTION k_blank_user = {
-    .fd = -1,
-    .state = CHAT_SERVER_CONNECTION_STATE_DISCONNECTED,
-    .name = ""
+    .fd           = -1,
+    .io           = NULL,
+    .state        = CHAT_SERVER_CONNECTION_STATE_DISCONNECTED,
+    .name         = "",
+    .event_buffer = NULL
 };
 
 
 // Functions -------------------------------------------------------------------
 
+eSTATUS chat_server_connections_new_connection(
+    sCHAT_SERVER_CONNECTIONS* connections,
+    int                       connection_fd);
+
+
+eSTATUS chat_server_connections_get_readable(
+    sCHAT_SERVER_CONNECTIONS* connections,
+    int*                      out_indecies,
+    uint32_t*                 out_indecies_count);
+
+    
+eSTATUS chat_server_connections_get_writeable(
+    sCHAT_SERVER_CONNECTIONS* connections,
+    int*                      out_indecies,
+    uint32_t*                 out_indecies_count);
+
+
+eSTATUS chat_server_connection_queue_event(
+    sCHAT_SERVER_CONNECTION* connection,
+    const sCHAT_EVENT*       event);
+
+
+eSTATUS chat_server_connection_do_read(
+    sCHAT_SERVER_CONNECTION* connection);
+
+    
+eSTATUS chat_server_connection_do_write(
+    sCHAT_SERVER_CONNECTION* connection);
 
 
 #ifdef __cplusplus

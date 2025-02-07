@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "chat_connection.h"
 #include "chat_event.h"
 #include "chat_event_io.h"
 #include "common_types.h"
@@ -36,63 +37,135 @@ static const char k_server_full_message[]   = "Server is full";
 static const char k_name_too_long_message[] = "Username is too long";
 
 
-eSTATUS chat_server_network_open(
-    sCHAT_SERVER_CONNECTION* connection)
+eSTATUS chat_server_network_start_network_watch(
+    sCHAT_SERVER_CBLK* master_cblk_ptr)
 {
-    int status;
+    eSTATUS status;
 
-    int listen_socket;
+    status = network_watcher_start_watch(master_cblk_ptr->read_network_watcher,
+                                         NETWORK_WATCHER_MODE_READ,
+                                         master_cblk_ptr->connections,
+                                         sizeof(master_cblk_ptr->connections[0]),
+                                         offsetof(sCHAT_SERVER_CONNECTION, connection),
+                                         master_cblk_ptr->max_connections);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    status = network_watcher_start_watch(master_cblk_ptr->write_network_watcher,
+                                         NETWORK_WATCHER_MODE_WRITE,
+                                         master_cblk_ptr->connections,
+                                         sizeof(master_cblk_ptr->connections[0]),
+                                         offsetof(sCHAT_SERVER_CONNECTION, connection),
+                                         master_cblk_ptr->max_connections);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS chat_server_network_stop_network_watch(
+    sCHAT_SERVER_CBLK* master_cblk_ptr)
+{
+    eSTATUS status;
+
+    status = network_watcher_stop_watch(master_cblk_ptr->read_network_watcher);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    status = network_watcher_stop_watch(master_cblk_ptr->write_network_watcher);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS chat_server_network_open(
+    sCHAT_SERVER_CBLK* master_cblk_ptr)
+{
+    eSTATUS status;
+    int     std_lib_status;
+
+    int listen_socket_fd;
     int opt_value = 1;
 
     struct sockaddr_in address;
 
-    assert(NULL != connection);
+    assert(NULL != master_cblk_ptr);
+    assert(master_cblk_ptr->max_connections > 0);
 
-    listen_socket = socket(AF_INET,
-                           SOCK_STREAM,
-                           0);
-    if (listen_socket < 0)
+    listen_socket_fd = socket(AF_INET,
+                              SOCK_STREAM,
+                              0);
+    if (listen_socket_fd < 0)
     {
         return STATUS_FAILURE;
     }
 
-    status = setsockopt(listen_socket,
-                        SOL_SOCKET,
-                        SO_REUSEADDR | SO_REUSEPORT,
-                        &opt_value,
-                        sizeof(opt_value));
-    if (0 != status)
+    status = chat_connection_create(&master_cblk_ptr->connections[0].connection,
+                                    listen_socket_fd);
+    if (STATUS_SUCCESS != status)
     {
-        close(listen_socket);
-        return STATUS_FAILURE;
+        goto post_socket_open_fail;
     }
 
-    address.sin_family = AF_INET;
+    std_lib_status = setsockopt(listen_socket_fd,
+                                SOL_SOCKET,
+                                SO_REUSEADDR | SO_REUSEPORT,
+                                &opt_value,
+                                sizeof(opt_value));
+    if (0 != std_lib_status)
+    {
+        status = STATUS_FAILURE;
+        goto post_chat_connection_create_fail;
+    }
+
+    address.sin_family      = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(8080);
+    address.sin_port        = htons(8080);
     memset(address.sin_zero, 0, sizeof(address.sin_zero));
 
-    status = bind(listen_socket,
-                  (struct sockaddr *)&address,
-                  sizeof(address));
-    if (status < 0)
+    std_lib_status = bind(listen_socket_fd,
+                          (struct sockaddr *)&address,
+                          sizeof(address));
+    if (std_lib_status < 0)
     {
-        close(listen_socket);
-        return STATUS_FAILURE;
+        status = STATUS_FAILURE;
+        goto post_chat_connection_create_fail;
     }
 
-    status = listen(listen_socket,
-                    16); // REVIEW change this to something dynamic?
-    if(status < 0)
+    std_lib_status = listen(listen_socket_fd,
+                            16); // REVIEW change this to something dynamic?
+    if(std_lib_status < 0)
     {
-        close(listen_socket);
-        return STATUS_FAILURE;
+        status = STATUS_FAILURE;
+        goto post_chat_connection_create_fail;
     }
 
-    connection->pollfd.fd     = listen_socket;
-    connection->pollfd.events = POLLIN;
+    status = chat_server_network_start_network_watch(master_cblk_ptr);
+    if (STATUS_SUCCESS != status)
+    {
+        goto post_chat_connection_create_fail;
+    }
 
     return STATUS_SUCCESS;
+
+post_chat_connection_create_fail:
+    chat_connection_close(master_cblk_ptr->connections[0].connection);
+
+post_socket_open_fail:
+    close(listen_socket_fd);
+
+    return status;
 }
 
 

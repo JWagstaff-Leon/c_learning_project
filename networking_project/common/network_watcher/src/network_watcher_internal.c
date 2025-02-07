@@ -10,7 +10,7 @@ static bool do_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
     uint32_t fd_index;
-    uint8_t  read_buffer[128];
+    uint8_t  flush_buffer[128];
 
     sNETWORK_WATCHER_CBACK_DATA cback_data;
 
@@ -23,6 +23,11 @@ static bool do_watch(
     // Check if the close pipe has been written to
     if (master_cblk_ptr->fds[master_cblk_ptr->fd_count + 1].revents & POLLIN)
     {
+        // Flush the whole pipe
+        while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
+                    (void*)&flush_buffer[0],
+                    sizeof(flush_buffer))
+               > 0);
         master_cblk_ptr->open = false;
         return false;
     }
@@ -30,10 +35,10 @@ static bool do_watch(
     // Check if the cancel pipe has been written to
     if (master_cblk_ptr->fds[master_cblk_ptr->fd_count].revents & POLLIN)
     {
-        // Consume the whole buffer
+        // Flush the whole pipe
         while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
-                    (void*)&read_buffer[0],
-                    sizeof(read_buffer))
+                    (void*)&flush_buffer[0],
+                    sizeof(flush_buffer))
                > 0);
         master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                     NETWORK_WATCHER_EVENT_CANCELED,
@@ -52,7 +57,7 @@ static bool do_watch(
             master_cblk_ptr->connection_indecies[cback_data.ready.index_count++] = fd_index;
         }
     }
-    
+
     if (cback_data.ready.index_count > 0)
     {
         master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -68,7 +73,7 @@ static void fsm_cblk_close(
 {
     fNETWORK_WATCHER_USER_CBACK user_cback;
     void*                       user_arg;
-    
+
     assert(NULL != master_cblk_ptr);
 
     pthread_cond_destroy(master_cblk_ptr->watch_condvar);
@@ -80,11 +85,14 @@ static void fsm_cblk_close(
     close(master_cblk_ptr->close_pipe[PIPE_END_WRITE]);
     close(master_cblk_ptr->close_pipe[PIPE_END_READ]);
 
+    generic_deallocator(master_cblk_ptr->fds);
+    generic_deallocator(master_cblk_ptr->connection_indecies);
+
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
     master_cblk_ptr->deallocator(master_cblk_ptr);
-    
+
     user_cback(user_arg,
                NETWORK_WATCHER_EVENT_CLOSED,
                NULL);
@@ -99,7 +107,7 @@ void* network_watcher_thread_entry(
 
     assert(NULL != arg);
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)arg;
-    
+
     pthread_mutex_lock(master_cblk_ptr->watch_mutex);
 
     master_cblk_ptr->open = true;
@@ -111,9 +119,6 @@ void* network_watcher_thread_entry(
         {
             master_cblk_ptr->watching = do_watch();
         } while (master_cblk_ptr->watching && master_cblk_ptr->open);
-
-        generic_deallocator(master_cblk_ptr->fds);
-        generic_deallocator(master_cblk_ptr->connection_indecies);
     }
 
     pthread_mutex_unlock(master_cblk_ptr->watch_mutex);

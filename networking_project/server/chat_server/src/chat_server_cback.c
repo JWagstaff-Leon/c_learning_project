@@ -23,21 +23,14 @@ void chat_server_network_watcher_read_cback(
 
     if (event & NETWORK_WATCHER_EVENT_READY)
     {
-
-        message.params.read_ready.index_count = data->ready.index_count;
+        message.params.read_ready.index_count         = data->ready.index_count;
         message.params.read_ready.connection_indecies = generic_allocator(sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
+        assert(NULL != message.params.read_ready.connection_indecies);
 
-        if (NULL != message.params.read_ready.connection_indecies)
-        {
-            message.type = CHAT_SERVER_MESSAGE_READ_READY;
-            memcpy(&message.params.read_ready.connection_indecies[0],
-                   &data->ready.connection_indecies[0],
-                   sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-        }
-        else
-        {
-            message.type = CHAT_SERVER_MESSAGE_READ_READY_ALLOC_FAILED;
-        }
+        message.type = CHAT_SERVER_MESSAGE_READ_READY;
+        memcpy(&message.params.read_ready.connection_indecies[0],
+               &data->ready.connection_indecies[0],
+               sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    message,
@@ -62,20 +55,15 @@ void chat_server_network_watcher_write_cback(
     if (event & NETWORK_WATCHER_EVENT_READY)
     {
 
-        message.params.read_ready.index_count = data->ready.index_count;
+        message.params.read_ready.index_count         = data->ready.index_count;
         message.params.read_ready.connection_indecies = generic_allocator(sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
 
-        if (NULL != message.params.read_ready.connection_indecies)
-        {
-            message.type = CHAT_SERVER_MESSAGE_WRITE_READY;
-            memcpy(&message.params.write_ready.connection_indecies[0],
-                   &data->ready.connection_indecies[0],
-                   sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-        }
-        else
-        {
-            message.type = CHAT_SERVER_MESSAGE_WRITE_READY_ALLOC_FAILED;
-        }
+        assert(NULL != message.params.read_ready.connection_indecies);
+        
+        message.type = CHAT_SERVER_MESSAGE_WRITE_READY;
+        memcpy(&message.params.write_ready.connection_indecies[0],
+               &data->ready.connection_indecies[0],
+               sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    message,

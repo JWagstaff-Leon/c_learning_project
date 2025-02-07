@@ -19,12 +19,12 @@ extern "C" {
 
 typedef enum
 {
-    NETOWRK_WATCHER_MODE_READ,
-    NETOWRK_WATCHER_MODE_WRITE
+    NETWORK_WATCHER_MODE_READ,
+    NETWORK_WATCHER_MODE_WRITE
 } eNETWORK_WATCHER_MODE;
 
 
-typedef enum 
+typedef enum
 {
     NETWORK_WATCHER_EVENT_READY,
     NETWORK_WATCHER_EVENT_CANCELED,
@@ -59,14 +59,15 @@ typedef void* NETWORK_WATCHER;
 eSTATUS network_watcher_create(
     NETWORK_WATCHER*            out_new_network_watcher,
     fNETWORK_WATCHER_USER_CBACK user_cback,
-    void*                       user_arg);
+    void*                       user_arg,
+    uint32_t                    connection_count);
 
 
 eSTATUS network_watcher_start_watch(
-    NETWORK_WATCHER restrict network_watcher,
-    eNETWORK_WATCHER_MODE    mode,
-    int*            restrict fd_list,
-    uint32_t                 fd_count);
+    NETWORK_WATCHER       restrict network_watcher,
+    eNETWORK_WATCHER_MODE          mode,
+    const void*           restrict fd_list,
+    uint32_t                       fd_count);
 
 
 eSTATUS network_watcher_stop_watch(
@@ -76,8 +77,6 @@ eSTATUS network_watcher_stop_watch(
 eSTATUS network_watcher_close(
     NETWORK_WATCHER network_watcher);
 
-
-// TODO add means of changing the fds
 
 #ifdef __cplusplus
 }
