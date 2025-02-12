@@ -54,14 +54,14 @@ eSTATUS chat_server_create(
     new_master_cblk_ptr = (sCHAT_SERVER_CBLK*)generic_allocator(sizeof(sCHAT_SERVER_CBLK));
     if (NULL == new_master_cblk_ptr)
     {
-        return STATUS_ALLOC_FAILED;
+        status = STATUS_ALLOC_FAILED;
+        goto fail_alloc_cblk;
     }
 
     status = init_cblk(new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        generic_deallocator(new_master_cblk_ptr);
-        return status;
+        goto fail_init_cblk;
     }
 
     new_master_cblk_ptr->user_cback = user_cback;
@@ -70,20 +70,33 @@ eSTATUS chat_server_create(
     status = init_msg_queue(&new_master_cblk_ptr->message_queue);
     if (STATUS_SUCCESS != status)
     {
-        generic_deallocator(new_master_cblk_ptr);
-        return status;
+        goto fail_init_msg_queue;
     }
 
     status = generic_create_thread(chat_server_thread_entry, new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        message_queue_destroy(new_master_cblk_ptr->message_queue);
-        generic_deallocator(new_master_cblk_ptr);
-        return status;
+        goto fail_create_thread;
     }
     
     *out_new_chat_server = new_master_cblk_ptr;
-    return STATUS_SUCCESS;
+    status               = STATUS_SUCCESS;
+    goto func_exit;
+
+fail_create_thread:
+    message_queue_destroy(new_master_cblk_ptr->message_queue);
+
+fail_init_msg_queue:
+    // Fallthrough
+
+fail_init_cblk:
+    generic_deallocator(new_master_cblk_ptr);
+
+fail_alloc_cblk:
+    // Fallthrough
+
+func_exit:
+    return status;
 }
 
 

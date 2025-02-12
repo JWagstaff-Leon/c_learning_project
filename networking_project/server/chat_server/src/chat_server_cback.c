@@ -3,71 +3,26 @@
 #include "chat_server_fsm.h"
 
 #include <assert.h>
-#include <string.h>
 
+#include "chat_connections.h"
 #include "common_types.h"
-#include "network_watcher.h"
 
 
-void chat_server_network_watcher_read_cback(
-    void*                              arg,
-    eNETWORK_WATCHER_EVENT_TYPE        event,
-    const sNETWORK_WATCHER_CBACK_DATA* data)
+void chat_server_connections_cback(
+    void*                               user_arg,
+    eCHAT_CONNECTIONS_EVENT_TYPE        event_mask,
+    const uCHAT_CONNECTIONS_CBACK_DATA* data)
 {
     sCHAT_SERVER_CBLK*   master_cblk_ptr;
     sCHAT_SERVER_MESSAGE message;
-    eSTATUS              status;
 
-    assert(NULL != arg);
-    master_cblk_ptr = (sCHAT_SERVER_CBLK*)arg;
+    assert(NULL != user_arg);
+    master_cblk_ptr = user_arg;
 
-    if (event & NETWORK_WATCHER_EVENT_READY)
+    
+
+    if (event_mask & CHAT_CONNECTIONS_EVENT_CLOSED)
     {
-        message.params.read_ready.index_count         = data->ready.index_count;
-        message.params.read_ready.connection_indecies = generic_allocator(sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-        assert(NULL != message.params.read_ready.connection_indecies);
-
-        message.type = CHAT_SERVER_MESSAGE_READ_READY;
-        memcpy(&message.params.read_ready.connection_indecies[0],
-               &data->ready.connection_indecies[0],
-               sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-}
-
-
-void chat_server_network_watcher_write_cback(
-    void*                              arg,
-    eNETWORK_WATCHER_EVENT_TYPE        event,
-    const sNETWORK_WATCHER_CBACK_DATA* data)
-{
-    sCHAT_SERVER_CBLK*   master_cblk_ptr;
-    sCHAT_SERVER_MESSAGE message;
-    eSTATUS              status;
-
-    assert(NULL != arg);
-    master_cblk_ptr = (sCHAT_SERVER_CBLK*)arg;
-
-    if (event & NETWORK_WATCHER_EVENT_READY)
-    {
-
-        message.params.read_ready.index_count         = data->ready.index_count;
-        message.params.read_ready.connection_indecies = generic_allocator(sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-
-        assert(NULL != message.params.read_ready.connection_indecies);
-        
-        message.type = CHAT_SERVER_MESSAGE_WRITE_READY;
-        memcpy(&message.params.write_ready.connection_indecies[0],
-               &data->ready.connection_indecies[0],
-               sizeof(data->ready.connection_indecies[0]) * data->ready.index_count);
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
+        // TODO handle close
     }
 }

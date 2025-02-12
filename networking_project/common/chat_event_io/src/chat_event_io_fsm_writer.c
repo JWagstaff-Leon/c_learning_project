@@ -46,12 +46,12 @@ static eSTATUS do_write(
 }
 
 
-static sCHAT_EVENT_IO_RESULT omni_processing(
+static eCHAT_EVENT_IO_RESULT omni_processing(
     sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
-    sCHAT_EVENT_IO_RESULT result;
+    eCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != writer);
     assert(NULL != message);
@@ -67,7 +67,7 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
                    message->params.populate_writer.event.data,
                    message->params.populate_writer.event.length);
 
-            result.event = CHAT_EVENT_IO_EVENT_POPULATE_SUCCESS;
+            result.event = CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS;
             return result;
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
@@ -78,30 +78,26 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    writer->state = CHAT_EVENT_IO_STATE_READY;
+                    writer->state = CHAT_EVENT_IO_OPERATOR_STATE_READY;
                     writer->processed_bytes = 0;
 
-                    result.event = CHAT_EVENT_IO_EVENT_WRITE_FINISHED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_WRITE_FINISHED;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    writer->state = CHAT_EVENT_IO_STATE_IN_PROGRESS;
+                    writer->state = CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS;
 
-                    result.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_INCOMPLETE;
                 }
                 case STATUS_FAILURE:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FAILED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FAILED;
                 }
                 default:
                 {
                     // Should never get here
                     assert(0);
-                    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_UNDEFINED;
                 }
             }
             break;
@@ -110,29 +106,28 @@ static sCHAT_EVENT_IO_RESULT omni_processing(
 
     // Should not get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 }
     
 
 
-eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_writer_dispatch_message(
+eCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
     sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    sCHAT_EVENT_IO_RESULT result;
+    eCHAT_EVENT_IO_RESULT result;
     
     assert(NULL != writer);
     assert(NULL != message);
 
     switch (writer->state)
     {
-        case CHAT_EVENT_IO_STATE_READY:
-        case CHAT_EVENT_IO_STATE_IN_PROGRESS:
+        case CHAT_EVENT_IO_OPERATOR_STATE_READY:
+        case CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS:
         {
             return omni_processing(writer, message);
         }
-        case CHAT_EVENT_IO_STATE_FLUSHING:
+        case CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING:
         {
             // Should never get here
             assert(0);
@@ -141,6 +136,5 @@ eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_writer_dispatch_message(
 
     // Should never get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 }

@@ -64,39 +64,6 @@ static eSTATUS do_read(
 }
 
 
-static eSTATUS extract_read_event(
-    sCHAT_EVENT_IO_OPERATOR* restrict reader,
-    sCHAT_EVENT*             restrict out_event)
-{
-    uint32_t extracted_event_size;
-
-    assert(NULL != reader);
-    assert(NULL != out_event);
-
-    if (reader->processed_bytes < CHAT_EVENT_HEADER_SIZE ||
-        reader->processed_bytes < CHAT_EVENT_HEADER_SIZE + ntohs(reader->event.length))
-    {
-        return STATUS_INCOMPLETE;
-    }
-
-    out_event->type   = ntohl(reader->event.type);
-    out_event->origin = ntohl(reader->event.origin);
-    out_event->length = ntohs(reader->event.length);
-
-    extracted_event_size = CHAT_EVENT_HEADER_SIZE + out_event->length;
-    memcpy(out_event->data,
-           &reader->event.data,
-           out_event->length);
-
-    reader->processed_bytes -= extracted_event_size;
-    memmove(&(uint8_t*)(&reader->event)[0],
-            &(uint8_t*)(&reader->event)[extracted_event_size],
-            reader->processed_bytes);
-
-    return STATUS_SUCCESS;
-}
-
-
 static eSTATUS do_flush(
     sCHAT_EVENT_IO_OPERATOR* reader,
     int                      fd)
@@ -134,12 +101,11 @@ static eSTATUS do_flush(
 }
 
 
-static sCHAT_EVENT_IO_RESULT ready_processing(
+static eCHAT_EVENT_IO_RESULT ready_processing(
     sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eSTATUS               status;
-    sCHAT_EVENT_IO_RESULT result;
+    eSTATUS status;
 
     assert(NULL != reader);
     assert(NULL != message);
@@ -155,33 +121,25 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    status = extract_read_event(reader, &result.data.read_finished.read_event);
-                    assert(STATUS_SUCCESS == status);
-                    
-                    result.event = CHAT_EVENT_IO_EVENT_READ_FINISHED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_READ_FINISHED;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_INCOMPLETE;
                 }
                 case STATUS_CLOSED:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FD_CLOSED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FD_CLOSED;
                 }
                 case STATUS_FAILURE:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FAILED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FAILED;
                 }
                 case STATUS_NO_SPACE:
                 {
-                    reader->state = CHAT_EVENT_IO_STATE_FLUSHING;
+                    reader->state = CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING;
 
-                    result.event = CHAT_EVENT_IO_EVENT_FLUSH_REQUIRED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FLUSH_REQUIRED;
                 }
                 default:
                 {
@@ -195,8 +153,7 @@ static sCHAT_EVENT_IO_RESULT ready_processing(
 
     // Should not get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 }
 
 
@@ -205,7 +162,7 @@ static void flushing_processing(
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
-    sCHAT_EVENT_IO_RESULT result;
+    eCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != reader);
     assert(NULL != message);
@@ -220,23 +177,19 @@ static void flushing_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FLUSH_FINISHED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FLUSH_FINISHED;
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    reuslt.event = CHAT_EVENT_IO_EVENT_INCOMPLETE;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_INCOMPLETE;
                 }
                 case STATUS_CLOSED:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FD_CLOSED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FD_CLOSED;
                 }
                 case STATUS_FAILURE:
                 {
-                    result.event = CHAT_EVENT_IO_EVENT_FAILED;
-                    return result;
+                    return CHAT_EVENT_IO_RESULT_FAILED;
                 }
                 default:
                 {
@@ -250,27 +203,26 @@ static void flushing_processing(
 
     // Should not get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 }
 
 
-eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
+eCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
     sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    sCHAT_EVENT_IO_RESULT  result;
+    eCHAT_EVENT_IO_RESULT  result;
 
     assert(NULL != reader);
     assert(NULL != message);
 
     switch (reader->state)
     {
-        case CHAT_EVENT_IO_STATE_READY:
+        case CHAT_EVENT_IO_OPERATOR_STATE_READY:
         {
             return ready_processing(reader, message);
         }
-        case CHAT_EVENT_IO_STATE_FLUSHING:
+        case CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING:
         {
             return flushing_processing(reader, message);
         }
@@ -283,6 +235,5 @@ eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
 
     // Should never get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 }

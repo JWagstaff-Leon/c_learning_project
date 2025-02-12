@@ -25,15 +25,15 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_EVENT_IO_STATE_READY,
-    CHAT_EVENT_IO_STATE_IN_PROGRESS,
-    CHAT_EVENT_IO_STATE_FLUSHING
-} eCHAT_EVENT_IO_STATE;
+    CHAT_EVENT_IO_OPERATOR_STATE_READY,
+    CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS,
+    CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING
+} eCHAT_EVENT_IO_OPERATOR_STATE;
 
 
 typedef struct
 {
-    eCHAT_EVENT_IO_STATE state;
+    eCHAT_EVENT_IO_OPERATOR_STATE state;
 
     sCHAT_EVENT event;
     uint32_t    processed_bytes;
@@ -50,17 +50,22 @@ typedef struct
 
 // Functions -------------------------------------------------------------------
 
-eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_operation_entry(
+eCHAT_EVENT_IO_RESULT chat_event_io_operation_entry(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
-eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_reader_dispatch_message(
+eCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
+    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    const sCHAT_EVENT_IO_MESSAGE* message);
+    
+
+eCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
-eCHAT_EVENT_IO_EVENT_TYPE chat_event_io_writer_dispatch_message(
+eCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 

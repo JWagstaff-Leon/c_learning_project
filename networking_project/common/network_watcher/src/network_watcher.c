@@ -112,7 +112,7 @@ func_exit:
 eSTATUS network_watcher_start_watch(
     NETWORK_WATCHER       restrict network_watcher,
     eNETWORK_WATCHER_MODE          mode,
-    const void*           restrict fd_list,
+    const int*            restrict fd_list,
     uint32_t                       fd_count)
 {
     sNETWORK_WATCHER_CBLK* master_cblk_ptr;

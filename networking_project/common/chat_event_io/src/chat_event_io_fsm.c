@@ -8,12 +8,10 @@
 #include "message_queue.h"
 
 
-sCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
+eCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    sCHAT_EVENT_IO_RESULT result;
-
     assert(NULL != master_cblk_ptr);
     assert(NULL != message);
 
@@ -46,7 +44,6 @@ sCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
 
     // Should never get here
     assert(0);
-    result.event = CHAT_EVENT_IO_EVENT_UNDEFINED;
-    return result;
+    return CHAT_EVENT_IO_RESULT_UNDEFINED;
 
 }

@@ -12,7 +12,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "chat_connection.h"
 #include "chat_event.h"
 #include "chat_event_io.h"
 #include "common_types.h"
@@ -42,12 +41,28 @@ eSTATUS chat_server_network_start_network_watch(
 {
     eSTATUS status;
 
+    assert(NULL != master_cblk_ptr);
+
+    status = chat_server_connections_get_readable(&master_cblk_ptr->connections,
+                                                  master_cblk_ptr->read_fd_buffer,
+                                                  master_cblk_ptr->connections.size);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    status = chat_server_connections_get_writeable(&master_cblk_ptr->connections,
+                                                   master_cblk_ptr->write_fd_buffer,
+                                                   master_cblk_ptr->connections.size);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
     status = network_watcher_start_watch(master_cblk_ptr->read_network_watcher,
                                          NETWORK_WATCHER_MODE_READ,
-                                         master_cblk_ptr->connections,
-                                         sizeof(master_cblk_ptr->connections[0]),
-                                         offsetof(sCHAT_SERVER_CONNECTION, connection),
-                                         master_cblk_ptr->max_connections);
+                                         master_cblk_ptr->read_fd_buffer,
+                                         master_cblk_ptr->connections.size);
     if (STATUS_SUCCESS != status)
     {
         return status;
@@ -55,10 +70,8 @@ eSTATUS chat_server_network_start_network_watch(
 
     status = network_watcher_start_watch(master_cblk_ptr->write_network_watcher,
                                          NETWORK_WATCHER_MODE_WRITE,
-                                         master_cblk_ptr->connections,
-                                         sizeof(master_cblk_ptr->connections[0]),
-                                         offsetof(sCHAT_SERVER_CONNECTION, connection),
-                                         master_cblk_ptr->max_connections);
+                                         master_cblk_ptr->write_fd_buffer,
+                                         master_cblk_ptr->connections.size);
     if (STATUS_SUCCESS != status)
     {
         return status;
@@ -169,38 +182,6 @@ post_socket_open_fail:
 }
 
 
-eSTATUS chat_server_network_poll(
-    sCHAT_SERVER_CONNECTIONS* connections)
-{
-    assert(NULL != connections);
-
-    // TODO make this static as part of connections struct OR use allocator?
-    struct pollfd *fds = calloc(connections->size,
-                                sizeof(struct pollfd));
-    if (NULL == fds)
-    {
-        return STATUS_ALLOC_FAILED;
-    }
-
-    for (int connection = 0; connection < connections->size; connection++)
-    {
-        fds[connection] = connections->list[connection].pollfd;
-    }
-
-
-
-    poll(fds, connections->size, 0);
-
-    for (int connection = 0; connection < connections->size; connection++)
-    {
-        connections->list[connection].pollfd = fds[connection];
-    }
-
-    free(fds);
-    return STATUS_SUCCESS;
-}
-
-
 static void add_connection(
     sCHAT_SERVER_CONNECTIONS* connections,
     int                       new_connection_fd,
@@ -268,7 +249,7 @@ eSTATUS chat_server_process_connections_events(
     {
         current_connection = &connections->list[connection_index];
 
-        if (CHAT_SERVER_CONNECTION_STATE_CONNECTED == current_connection->state && current_connection->pollfd.revents & POLLOUT)
+        if (CHAT_SERVER_CONNECTION_STATE_INIT == current_connection->state && current_connection->pollfd.revents & POLLOUT)
         {
             event_buffer.origin = CHAT_EVENT_ORIGIN_SERVER;
             event_buffer.type   = CHAT_EVENT_USERNAME_REQUEST;
@@ -280,7 +261,7 @@ eSTATUS chat_server_process_connections_events(
                  CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                  0);
 
-            current_connection->state = CHAT_SERVER_CONNECTION_STATE_IN_SETUP;
+            current_connection->state = CHAT_SERVER_CONNECTION_STATE_SETUP;
             continue;
         }
 
