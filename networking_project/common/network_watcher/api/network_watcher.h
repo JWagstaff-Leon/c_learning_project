@@ -60,7 +60,12 @@ eSTATUS network_watcher_create(
     NETWORK_WATCHER*            out_new_network_watcher,
     fNETWORK_WATCHER_USER_CBACK user_cback,
     void*                       user_arg,
-    uint32_t                    connection_count);
+    uint32_t                    fd_count);
+
+
+eSTATUS network_watcher_resize(
+    NETWORK_WATCHER* network_watcher,
+    uint32_t         new_fd_count);
 
 
 eSTATUS network_watcher_start_watch(

@@ -43,8 +43,6 @@ typedef struct
                              // DOES NOT include the 2 extra used for polling
                              // the control pipes
 
-    uint32_t* connection_indecies;
-
     pthread_mutex_t watch_mutex;
     pthread_cond_t  watch_condvar;
 

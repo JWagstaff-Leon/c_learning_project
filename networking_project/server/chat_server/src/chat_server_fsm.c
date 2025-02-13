@@ -13,7 +13,7 @@
 #include "message_queue.h"
 
 
-static void process_complete_event_from(
+static void process_event_from(
     sCHAT_SERVER_CONNECTIONS* connections,
     uint32_t                  from_connection_index,
     const sCHAT_EVENT*        event)
@@ -240,113 +240,9 @@ static void open_processing(
 
     switch (message->type)
     {
-        case CHAT_SERVER_MESSAGE_READ_READY:
-        {
-            for (result_index = 0; result_index < message->params.read_ready.index_count; result_index++)
-            {
-                connection_index    = message->params.read_ready.connection_indecies[result_index];
-                relevant_connection = &master_cblk_ptr->connections.list[connection_index];
-
-                chat_event_io_result = chat_event_io_read_from_fd(relevant_connection->io,
-                                                                  relevant_connection->fd);
-                switch (chat_event_io_result.event)
-                {
-                    case CHAT_EVENT_IO_RESULT_READ_FINISHED:
-                    {
-                        do
-                        {
-                            chat_event_io_result = chat_event_io_extract_read_event(relevant_connection->io,
-                                                                                    &event_buffer);
-                            if (CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED & chat_event_io_result)
-                            {
-                                process_complete_event_from(&master_cblk_ptr->connections,
-                                                            connection_index,
-                                                            &event_buffer);
-                            }
-                        } while (CHAT_EVENT_IO_RESULT_EXTRACT_MORE & chat_event_io_result);
-                        break;
-                    }
-                    case CHAT_EVENT_IO_RESULT_FD_CLOSED:
-                    {
-                        // TODO respond to a close
-                    }
-                    case CHAT_EVENT_IO_RESULT_FAILED:
-                    {
-                        // TODO respond to a failure
-                    }
-                    // REVIEW should this respond to flushing conditions?
-                }
-            }
-
-            for (connection_index = 0, fd_index = 0;
-                 connection_index < master_cblk_ptr->connections.size && fd_index < sizeof(fds_list) / sizeof(fds_list[0]),
-                 connection_index++)
-            {
-                if (CHAT_SERVER_CONNECTION_STATE_DISCONNECTED != master_cblk_ptr->connections.list[connection_index].state)
-                {
-                    fds_list[fd_index++] = master_cblk_ptr->connections.list[connection_index].fd;
-                }
-            }
-
-            generic_deallocator(message->params.read_ready.connection_indecies);
-            status = chat_server_network_start_network_watch(master_cblk_ptr);
-            assert(STATUS_SUCCESS == status);
-
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_WRITE_READY:
-        {
-            for (fd_index = 0; fd_index < message->params.write_ready.index_count; fd_index++)
-            {
-                connection_index     = message->params.write_ready.connection_indecies[fd_index];
-                relevant_connection  = master_cblk_ptr->connections[connection_index].connection;
-
-                chat_event_io_result = chat_event_io_do_operation_on_fd(&relevant_connection->event_writer,
-                                                                        relevant_connection->fd,
-                                                                        &event_buffer);
-                switch (chat_event_io_result.event)
-                {
-                    case CHAT_EVENT_IO_RESULT_WRITE_FINISHED:
-                    {
-                        // TODO nothing?
-                    }
-                    case CHAT_EVENT_IO_RESULT_FD_CLOSED:
-                    {
-                        // TODO respond to a close
-                    }
-                    case CHAT_EVENT_IO_RESULT_FAILED:
-                    {
-                        // TODO respond to a failure
-                    }
-                    // REVIEW should this respond to flushing conditions?
-                }
-            }
-
-            for (connection_index = 1, fd_index = 0; // Start at 1 for write as there's no reason to write to incoming connection socket
-                 connection_index < master_cblk_ptr->connections.size && fd_index < sizeof(fds_list) / sizeof(fds_list[0]),
-                 connection_index++)
-            {
-                if (CHAT_SERVER_CONNECTION_STATE_DISCONNECTED != master_cblk_ptr->connections.list[connection_index].state)
-                {
-                    fds_list[fd_index++] = master_cblk_ptr->connections.list[connection_index].fd;
-                }
-            }
-
-            status = network_watcher_start_watch(master_cblk_ptr->read_network_watcher,
-                                                 NETWORK_WATCHER_MODE_WRITE,
-                                                 &fds_list[0],
-                                                 fd_index);
-            assert(STATUS_SUCCESS == status);
-
-            break;
-        }
         case CHAT_SERVER_MESSAGE_CLOSE:
         {
             chat_server_network_close(&master_cblk_ptr->connections);
-
-            status = message_queue_destroy(master_cblk_ptr->message_queue);
-            assert(STATUS_SUCCESS == status);
-
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             break;
         }

@@ -50,10 +50,14 @@ typedef enum
     CHAT_CONNECTIONS_STATE_CLOSED
 } eCHAT_CONNECTIONS_STATE;
 
+
 typedef struct
 {
     MESSAGE_QUEUE           message_queue;
     eCHAT_CONNECTIONS_STATE state;
+
+    fCHAT_CONNECTIONS_USER_CBACK user_cback;
+    void*                        user_arg;
 
     sCHAT_CONNECTION* list;
     uint32_t          count;

@@ -30,7 +30,8 @@ eSTATUS network_watcher_create(
     NETWORK_WATCHER*            out_new_network_watcher,
     fNETWORK_WATCHER_USER_CBACK user_cback,
     void*                       user_arg,
-    uint32_t                    fd_count)
+    uint32_t                    fd_count,
+    struct pollfd**             out_pollfds)
 {
     sNETWORK_WATCHER_CBLK* new_network_watcher;
     eSTATUS                status;
@@ -42,7 +43,7 @@ eSTATUS network_watcher_create(
     if (NULL == new_network_watcher)
     {
         status = STATUS_ALLOC_FAILED;
-        goto func_exit;
+        goto fail_cblk_alloc;
     }
     init_cblk(new_network_watcher);
 
@@ -50,28 +51,28 @@ eSTATUS network_watcher_create(
     if (NULL == new_network_watcher->fds)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fds_alloc_fail;
+        goto fail_fds_alloc;
     }
 
     new_network_watcher->connection_indecies = generic_allocator(sizeof(uint32_t) * fd_count);
     if (NULL == new_network_watcher->connection_indecies)
     {
         status = STATUS_ALLOC_FAILED;
-        goto indecies_alloc_fail;
+        goto fail_indecies_alloc;
     }
 
     pipe_status = pipe(new_network_watcher->cancel_pipe);
     if (pipe_status < 0)
     {
         status = STATUS_FAILURE;
-        goto pipe1_create_fail;
+        goto fail_create_pipe_1;
     }
 
     pipe_status = pipe(new_network_watcher->close_pipe);
     if (pipe_status < 0)
     {
         status = STATUS_FAILURE;
-        goto pipe2_create_fail;
+        goto fail_create_pipe_2;
     }
 
     status = generic_create_thread(network_watcher_thread_entry,
@@ -83,9 +84,9 @@ eSTATUS network_watcher_create(
 
     new_network_watcher->fd_count = fd_count;
 
+    *out_pollfds             = new_network_watcher->fds;
     *out_new_network_watcher = new_network_watcher;
-    status = STATUS_SUCCESS;
-    goto func_exit;
+    return STATUS_SUCCESS;
 
 thread_create_fail:
     close(new_network_watcher->close_pipe[PIPE_END_WRITE]);
@@ -98,13 +99,13 @@ pipe2_create_fail:
 pipe1_create_fail:
     generic_deallocator(new_network_watcher->connection_indecies);
 
-indecies_alloc_fail:
+fail_alloc_indecies:
     generic_deallocator(new_network_watcher->fds);
 
-fds_alloc_fail:
+fail_alloc_fds:
     generic_deallocator(new_network_watcher);
 
-func_exit:
+fail_cblk_alloc:
     return status;
 }
 
