@@ -38,10 +38,12 @@ typedef struct
     int cancel_pipe[2];
     int close_pipe[2];
 
+    const int** fd_containers;
+    uint32_t    fd_count;
+    uint32_t    max_fds; // holds the number of fds; DOES NOT include the 2 control pipes
+
+
     struct pollfd* fds;
-    uint32_t       fd_count; // fd count holds the number of network fds; it
-                             // DOES NOT include the 2 extra used for polling
-                             // the control pipes
 
     pthread_mutex_t watch_mutex;
     pthread_cond_t  watch_condvar;

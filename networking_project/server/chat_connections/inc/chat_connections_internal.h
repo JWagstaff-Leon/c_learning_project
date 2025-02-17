@@ -59,12 +59,12 @@ typedef struct
     fCHAT_CONNECTIONS_USER_CBACK user_cback;
     void*                        user_arg;
 
-    sCHAT_CONNECTION* list;
-    uint32_t          count;
-    uint32_t          size;
+    sCHAT_CONNECTION* connections;
+    uint32_t          connection_count;
+    uint32_t          max_connections;
 
-    struct pollfd* read_fd_buffer;
-    struct pollfd* write_fd_buffer;
+    int* read_fd_buffer;
+    int* write_fd_buffer;
 
     NETWORK_WATCHER read_network_watcher;
     NETWORK_WATCHER write_network_watcher;

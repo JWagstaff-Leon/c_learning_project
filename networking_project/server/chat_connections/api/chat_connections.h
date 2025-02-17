@@ -23,7 +23,16 @@ typedef enum
 } eCHAT_CONNECTIONS_EVENT_TYPE;
 
 
-typedef void uCHAT_CONNECTIONS_CBACK_DATA;
+typedef struct
+{
+
+} sCHAT_CONNECTION_EVENT_DATA_INCOMING_EVENT;
+
+
+typedef union
+{
+    sCHAT_CONNECTION_EVENT_DATA_INCOMING_EVENT incoming_event;
+} uCHAT_CONNECTIONS_CBACK_DATA;
 
 
 typedef void (*fCHAT_CONNECTIONS_USER_CBACK) (

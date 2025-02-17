@@ -30,8 +30,7 @@ eSTATUS network_watcher_create(
     NETWORK_WATCHER*            out_new_network_watcher,
     fNETWORK_WATCHER_USER_CBACK user_cback,
     void*                       user_arg,
-    uint32_t                    fd_count,
-    struct pollfd**             out_pollfds)
+    uint32_t                    fd_count)
 {
     sNETWORK_WATCHER_CBLK* new_network_watcher;
     eSTATUS                status;
@@ -43,7 +42,7 @@ eSTATUS network_watcher_create(
     if (NULL == new_network_watcher)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_cblk_alloc;
+        goto fail_alloc_cblk;
     }
     init_cblk(new_network_watcher);
 
@@ -51,14 +50,14 @@ eSTATUS network_watcher_create(
     if (NULL == new_network_watcher->fds)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_fds_alloc;
+        goto fail_alloc_fds;
     }
 
-    new_network_watcher->connection_indecies = generic_allocator(sizeof(uint32_t) * fd_count);
-    if (NULL == new_network_watcher->connection_indecies)
+    new_network_watcher->fd_ptrs = generic_allocator(sizeof(int*) * fd_count);
+    if (NULL == new_network_watcher->fd_ptrs)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_indecies_alloc;
+        goto fail_alloc_fd_ptrs;
     }
 
     pipe_status = pipe(new_network_watcher->cancel_pipe);
@@ -84,7 +83,6 @@ eSTATUS network_watcher_create(
 
     new_network_watcher->fd_count = fd_count;
 
-    *out_pollfds             = new_network_watcher->fds;
     *out_new_network_watcher = new_network_watcher;
     return STATUS_SUCCESS;
 
@@ -97,15 +95,101 @@ pipe2_create_fail:
     close(new_network_watcher->cancel_pipe[PIPE_END_READ]);
 
 pipe1_create_fail:
-    generic_deallocator(new_network_watcher->connection_indecies);
+    generic_deallocator(new_network_watcher->fd_ptrs);
 
-fail_alloc_indecies:
+fail_alloc_fd_ptrs:
     generic_deallocator(new_network_watcher->fds);
 
 fail_alloc_fds:
     generic_deallocator(new_network_watcher);
 
-fail_cblk_alloc:
+fail_alloc_cblk:
+    return status;
+}
+
+
+eSTATUS network_watcher_add_watch(
+    NETWORK_WATCHER network_watcher,
+    const int*      fd_ptr)
+{
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+    uint32_t               fd_ptr_index;
+    eSTATUS                status;
+    int                    lock_status;
+
+    assert(NULL != network_watcher);
+    master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+
+    lock_status = pthread_mutex_trylock(master_cblk_ptr->watch_mutex);
+    if (0 != lock_status)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    if (master_cblk_ptr->fd_count >= master_cblk_ptr->fd_size)
+    {
+        status = STATUS_NO_SPACE;
+        goto func_exit;
+    }
+
+    for (fd_ptr_index = 0; fd_ptr_index < master_cblk_ptr->fd_size; fd_ptr_index++)
+    {
+        if (NULL == master_cblk_ptr->fd_ptrs[fd_ptr_index])
+        {
+            master_cblk_ptr->fd_ptrs[fd_ptr_index] = fd_ptr;
+            master_cblk_ptr->fd_count += 1;
+
+            status = STATUS_SUCCESS;
+            goto func_exit;
+        }
+    }
+
+    status = STATUS_NO_SPACE;
+func_exit:
+    pthread_mutex_unlock(master_cblk_ptr->watch_mutex);
+    return status;
+}
+
+
+eSTATUS network_watcher_remove_watch(
+    NETWORK_WATCHER network_watcher,
+    const int*      fd_ptr)
+{
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+    uint32_t               fd_ptr_index;
+    eSTATUS                status;
+    int                    lock_status;
+
+    assert(NULL != network_watcher);
+    master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+
+    lock_status = pthread_mutex_trylock(master_cblk_ptr->watch_mutex);
+    if (0 != lock_status)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    if (master_cblk_ptr->fd_count <= 0)
+    {
+        status = STATUS_INVALID_STATE;
+        goto func_exit;
+    }
+
+    for (fd_ptr_index = 0; fd_ptr_index < master_cblk_ptr->fd_size; fd_ptr_index++)
+    {
+        if (fd_ptr == master_cblk_ptr->fd_ptrs[fd_ptr_index])
+        {
+            master_cblk_ptr->fd_ptrs[fd_ptr_index]  = NULL;
+            master_cblk_ptr->fd_count              -= 1;
+
+            status = STATUS_SUCCESS;
+            goto func_exit;
+        }
+    }
+
+    status = STATUS_INVALID_ARG;
+func_exit:
+    pthread_mutex_unlock(master_cblk_ptr->watch_mutex);
     return status;
 }
 
@@ -119,8 +203,10 @@ eSTATUS network_watcher_start_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr;
     eSTATUS                status = STATUS_SUCCESS;
     int                    lock_status;
-    uint32_t               fd_index;
-    short                  poll_events;
+
+    uint32_t fd_index;
+    short    poll_events;
+    int*     next_fd_ptr;
 
     uint8_t  flush_buffer[128];
 
@@ -167,9 +253,20 @@ eSTATUS network_watcher_start_watch(
     // Setup the pollfds for all the given fds
     for (fd_index = 0; fd_index < fd_count; fd_index++)
     {
-        master_cblk_ptr->fds[fd_index].fd      = fd_list[fd_index];
-        master_cblk_ptr->fds[fd_index].events  = poll_events;
-        master_cblk_ptr->fds[fd_index].revents = 0;
+        next_fd_ptr = master_cblk_ptr->fd_ptrs[fd_index];
+
+        if (NULL != next_fd_ptr)
+        {
+            master_cblk_ptr->fds[fd_index].fd      = *next_fd_ptr;
+            master_cblk_ptr->fds[fd_index].events  = poll_events;
+            master_cblk_ptr->fds[fd_index].revents = 0;
+        }
+        else
+        {
+            master_cblk_ptr->fds[fd_index].fd      = -1;
+            master_cblk_ptr->fds[fd_index].events  = 0;
+            master_cblk_ptr->fds[fd_index].revents = 0;
+        }
     }
 
     // Clear out any remaining master control block pollfds
@@ -200,7 +297,7 @@ eSTATUS network_watcher_start_watch(
            > 0);
 
     pthread_cond_signal(master_cblk_ptr->watch_condvar);
-
+    status = STATUS_SUCCESS;
 func_exit:
     pthread_mutex_unlock(master_cblk_ptr->watch_mutex);
     return status;
