@@ -32,21 +32,21 @@ typedef enum
 
 typedef struct
 {
+    // Controlled by the module thread
     bool open;
     bool watching;
 
-    int cancel_pipe[2];
-    int close_pipe[2];
+    int control_pipe[2];
 
-    const int** fd_containers;
-    uint32_t    fd_count;
-    uint32_t    max_fds; // holds the number of fds; DOES NOT include the 2 control pipes
-
+    sNETWORK_WATCHER_WATCH* watches;
+    uint32_t                watch_count; // Holds the number of watches; DOES NOT include the control pipe
+    uint32_t                watches_size; // Holds the current size of watches; used to know if reallocation is needed; DOES NOT include the control pipe
 
     struct pollfd* fds;
+    struct pollfd  control_fd;
 
     pthread_mutex_t watch_mutex;
-    pthread_cond_t  watch_condvar;
+    pthread_mutex_t control_mutex;
 
     fNETWORK_WATCHER_USER_CBACK user_cback;
     void*                       user_arg;

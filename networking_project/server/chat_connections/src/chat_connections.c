@@ -34,24 +34,24 @@ eSTATUS chat_connections_create(
         goto fail_create_message_queue;
     }
 
-    new_chat_connections_cblk->list = generic_allocator(new_chat_connections_cblk->size * sizeof(sCHAT_SERVER_CONNECTION));
-    if (NULL == new_chat_connections_cblk->list)
+    new_chat_connections_cblk->connection_count = 0;
+    new_chat_connections_cblk->max_connections  = default_size;
+
+    new_chat_connections_cblk->connections = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(sCHAT_SERVER_CONNECTION));
+    if (NULL == new_chat_connections_cblk->connections)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_connection_list;
     }
 
-    new_chat_connections_cblk->count = 0;
-    new_chat_connections_cblk->size  = default_size;
-
-    new_chat_connections_cblk->read_fd_buffer = generic_allocator(new_chat_connections_cblk->size * sizeof(new_chat_connections_cblk->read_fd_buffer[0]));
+    new_chat_connections_cblk->read_fd_buffer = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->read_fd_buffer[0]));
     if (NULL == new_chat_connections_cblk->read_fd_buffer)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_read_fd_buffer;
     }
 
-    new_chat_connections_cblk->write_fd_buffer = generic_allocator(new_chat_connections_cblk->size * sizeof(new_chat_connections_cblk->write_fd_buffer[0]));
+    new_chat_connections_cblk->write_fd_buffer = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->write_fd_buffer[0]));
     if (NULL == new_chat_connections_cblk->write_fd_buffer)
     {
         status = STATUS_ALLOC_FAILED;
@@ -59,28 +59,26 @@ eSTATUS chat_connections_create(
     }
 
     for (connection_index = 0;
-         connection_index < new_chat_connections_cblk->size;
+         connection_index < new_chat_connections_cblk->max_connections;
          connection_index++)
     {
-        new_chat_connections_cblk->list[connection_index] = k_blank_connection;
+        new_chat_connections_cblk->connections[connection_index] = k_blank_connection;
 
-        new_chat_connections_cblk->read_fd_buffer[connection_index].fd  = -1;
-        new_chat_connections_cblk->write_fd_buffer[connection_index].fd = -1;
+        new_chat_connections_cblk->read_fd_buffer[connection_index].fd_ptr  = &new_chat_connections_cblk->connections[connection_index].fd;
+        new_chat_connections_cblk->write_fd_buffer[connection_index].fd_ptr = &new_chat_connections_cblk->connections[connection_index].fd;
     }
 
-    status = network_watcher_create(new_master_cblk_ptr->read_network_watcher,
+    status = network_watcher_create(new_chat_connections_cblk->read_network_watcher,
                                     chat_connections_network_watcher_read_cback,
-                                    new_chat_connections_cblk,
-                                    new_chat_connections_cblk->size);
+                                    new_chat_connections_cblk);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_read_watcher;
     }
 
-    status = network_watcher_create(new_master_cblk_ptr->write_network_watcher,
+    status = network_watcher_create(new_chat_connections_cblk->write_network_watcher,
                                     chat_connections_network_watcher_write_cback,
-                                    new_chat_connections_cblk,
-                                    new_chat_connections_cblk->size);
+                                    new_chat_connections_cblk);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_write_watcher;
@@ -89,10 +87,10 @@ eSTATUS chat_connections_create(
     *out_new_chat_connections = (CHAT_CONNECTIONS)new_chat_connections_cblk;
     return STATUS_SUCCESS;
 
-fail_create_write_wacther:
+fail_create_write_watcher:
     network_watcher_close(new_chat_connections_cblk->read_network_watcher);
 
-fail_create_read_wacther:
+fail_create_read_watcher:
     generic_deallocator(new_chat_connections_cblk->write_fd_buffer);
 
 fail_alloc_write_fd_buffer:

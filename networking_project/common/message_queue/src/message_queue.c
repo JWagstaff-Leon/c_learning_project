@@ -140,9 +140,9 @@ size_t message_queue_get_count(
     assert(NULL != message_queue);
     message_queue_ptr = (sMESSAGE_QUEUE*)message_queue;
 
-    pthread_mutex_lock(message_queue_ptr->queue_mutex);
+    pthread_mutex_lock(&message_queue_ptr->queue_mutex);
     count = message_queue_ptr->used_slots;
-    pthread_mutex_unlock(message_queue_ptr->queue_mutex);
+    pthread_mutex_unlock(&message_queue_ptr->queue_mutex);
     
     return count;
 }

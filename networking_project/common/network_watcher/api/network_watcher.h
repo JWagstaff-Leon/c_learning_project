@@ -6,6 +6,7 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include <pthread.h>
 #include <stdint.h>
 
 #include "common_types.h"
@@ -17,6 +18,15 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
+typedef struct
+{
+    int* fd_ptr; // User-controlled; points to the fd storage location; used to get the fd-containing object back
+    bool active; // User-controlled; marks the fd as active; can prevent watching
+    bool ready;  // Module-controlled; will be set to if the fd at fd_ptr is ready
+    bool closed; // Module-controlled; will be set to if the fd at fd_ptr has closed
+} sNETWORK_WATCHER_WATCH;
+
+
 typedef enum
 {
     NETWORK_WATCHER_MODE_READ,
@@ -26,22 +36,12 @@ typedef enum
 
 typedef enum
 {
-    NETWORK_WATCHER_EVENT_READY,
-    NETWORK_WATCHER_EVENT_CANCELED,
+    NETWORK_WATCHER_EVENT_WATCH_COMPLETE,
     NETWORK_WATCHER_EVENT_CLOSED
 } eNETWORK_WATCHER_EVENT_TYPE;
 
 
-typedef struct
-{
-    int** ready_fd_ptrs;
-}sNETWORK_WATCHER_CBACK_READY_DATA;
-
-
-typedef union
-{
-    sNETWORK_WATCHER_CBACK_READY_DATA ready;
-} uNETWORK_WATCHER_CBACK_DATA;
+typedef void uNETWORK_WATCHER_CBACK_DATA;
 
 
 typedef void (fNETWORK_WATCHER_USER_CBACK*) (
@@ -56,18 +56,16 @@ typedef void* NETWORK_WATCHER;
 // Functions -------------------------------------------------------------------
 
 eSTATUS network_watcher_create(
-    NETWORK_WATCHER*            out_new_network_watcher,
-    fNETWORK_WATCHER_USER_CBACK user_cback,
-    void*                       user_arg);
+    NETWORK_WATCHER*               out_new_network_watcher,
+    fNETWORK_WATCHER_USER_CBACK    user_cback,
+    void*                          user_arg);
 
 
 eSTATUS network_watcher_start_watch(
-    NETWORK_WATCHER       network_watcher,
-    eNETWORK_WATCHER_MODE mode,
-    void*                 fd_containers,
-    uint32_t              fd_count,
-    ptrdiff_t             container_size,
-    ptrdiff_t             fd_offset);
+    NETWORK_WATCHER         network_watcher,
+    eNETWORK_WATCHER_MODE   mode,
+    sNETWORK_WATCHER_WATCH* watches,
+    uint32_t                watch_count);
 
 
 eSTATUS network_watcher_stop_watch(

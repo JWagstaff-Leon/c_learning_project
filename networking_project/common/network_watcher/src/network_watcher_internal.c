@@ -6,65 +6,54 @@
 #include <unistd.h>
 
 
-static bool do_watch(
+static void do_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
     uint32_t fd_index;
     uint8_t  flush_buffer[128];
 
-    sNETWORK_WATCHER_CBACK_DATA cback_data;
-
     assert(NULL != master_cblk_ptr);
 
     poll(master_cblk_ptr->fds,
-         master_cblk_ptr->fd_count + 2,
+         master_cblk_ptr->watch_count + 2,
          -1);
 
-    // Check if the close pipe has been written to
-    if (master_cblk_ptr->fds[master_cblk_ptr->fd_count + 1].revents & POLLIN)
+    // Check if the control pipe has been written to
+    if (master_cblk_ptr->fds[master_cblk_ptr->watch_count].revents & POLLIN)
     {
+        pthread_mutex_lock(&master_cblk_ptr->control_mutex);
+
         // Flush the whole pipe
-        while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
+        while (read(master_cblk_ptr->control_pipe[PIPE_END_READ],
                     (void*)&flush_buffer[0],
                     sizeof(flush_buffer))
                > 0);
-        master_cblk_ptr->open = false;
-        return false;
+
+        if (!master_cblk_ptr->open || !master_cblk_ptr->watching)
+        {
+            pthread_mutex_unlock(&master_cblk_ptr->control_mutex);
+            return;
+        }
+        pthread_mutex_unlock(&master_cblk_ptr->control_mutex);
     }
 
-    // Check if the cancel pipe has been written to
-    if (master_cblk_ptr->fds[master_cblk_ptr->fd_count].revents & POLLIN)
-    {
-        // Flush the whole pipe
-        while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
-                    (void*)&flush_buffer[0],
-                    sizeof(flush_buffer))
-               > 0);
-        master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                    NETWORK_WATCHER_EVENT_CANCELED,
-                                    NULL);
-        return false;
-    }
 
-    cback_data.ready.connection_indecies = master_cblk_ptr->connection_indecies;
-    cback_data.ready.index_count         = 0;
-
-    for (fd_index = 0; fd_index < master_cblk_ptr->fd_count; fd_index++)
+    for (fd_index = 0; fd_index < master_cblk_ptr->watch_count; fd_index++)
     {
         if (master_cblk_ptr->fds[fd_index].revents & (POLLIN | POLLOUT))
         {
-            assert(cback_data.ready.index_count < master_cblk_ptr->fd_count);
-            master_cblk_ptr->connection_indecies[cback_data.ready.index_count++] = fd_index;
+            master_cblk_ptr->watches[fd_index].ready = true;
+        }
+
+        if (master_cblk_ptr->fds[fd_index].revents & POLLHUP)
+        {
+            master_cblk_ptr->watches[fd_index].closed = true;
         }
     }
 
-    if (cback_data.ready.index_count > 0)
-    {
-        master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                    NETWORK_WATCHER_EVENT_READY,
-                                    &cback_data);
-    }
-    return cback_data.ready.index_count > 0;
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                NETWORK_WATCHER_EVENT_WATCH_COMPLETE,
+                                &cback_data);
 }
 
 
@@ -76,17 +65,11 @@ static void fsm_cblk_close(
 
     assert(NULL != master_cblk_ptr);
 
-    pthread_cond_destroy(master_cblk_ptr->watch_condvar);
-    pthread_mutex_destroy(master_cblk_ptr->watch_mutex);
+    close(master_cblk_ptr->control_pipe[PIPE_END_WRITE]);
+    close(master_cblk_ptr->control_pipe[PIPE_END_READ]);
 
-    close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
-    close(master_cblk_ptr->cancel_pipe[PIPE_END_READ]);
-
-    close(master_cblk_ptr->close_pipe[PIPE_END_WRITE]);
-    close(master_cblk_ptr->close_pipe[PIPE_END_READ]);
-
-    generic_deallocator(master_cblk_ptr->fds);
-    generic_deallocator(master_cblk_ptr->connection_indecies);
+    pthread_mutex_destroy(&master_cblk_ptr->control_mutex);
+    pthread_mutex_destroy(&master_cblk_ptr->watch_mutex);
 
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
@@ -105,23 +88,45 @@ void* network_watcher_thread_entry(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr;
     eSTATUS                status;
 
+    uint8_t flush_buffer[128];
+
     assert(NULL != arg);
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)arg;
 
-    pthread_mutex_lock(master_cblk_ptr->watch_mutex);
-
+    pthread_mutex_lock(&master_cblk_ptr->control_mutex);
     master_cblk_ptr->open = true;
     while (master_cblk_ptr->open)
     {
-        pthread_cond_wait(master_cblk_ptr->watch_condvar,
-                          master_cblk_ptr->watch_mutex);
-        do
-        {
-            master_cblk_ptr->watching = do_watch();
-        } while (master_cblk_ptr->watching && master_cblk_ptr->open);
-    }
+        master_cblk_ptr->watching = false;
+        pthread_mutex_unlock(&master_cblk_ptr->control_mutex);
 
-    pthread_mutex_unlock(master_cblk_ptr->watch_mutex);
+        // Only poll the control pipe
+        poll(&master_cblk_ptr->control_fd,
+                1,
+                -1);
+
+        pthread_mutex_lock(&master_cblk_ptr->control_mutex);
+
+        // Flush the whole pipe
+        while (read(master_cblk_ptr->control_pipe[PIPE_END_READ],
+                    (void*)&flush_buffer[0],
+                    sizeof(flush_buffer))
+               > 0);
+
+        if (!master_cblk_ptr->open || !master_cblk_ptr->watching)
+        {
+            // The lock will unlock at the start of the next loop, or after the loop in the case of a close
+            continue;
+        }
+        pthread_mutex_unlock(&master_cblk_ptr->control_mutex);
+
+        pthread_mutex_lock(&master_cblk_ptr->watch_mutex);
+        do_watch();
+        pthread_mutex_unlock(&master_cblk_ptr->watch_mutex);
+        
+        pthread_mutex_lock(&master_cblk_ptr->control_mutex);
+    }
+    pthread_mutex_unlock(&master_cblk_ptr->control_mutex);
 
     fsm_cblk_close(master_cblk_ptr);
     return NULL;

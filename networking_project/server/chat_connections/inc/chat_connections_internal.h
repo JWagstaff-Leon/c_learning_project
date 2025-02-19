@@ -63,11 +63,11 @@ typedef struct
     uint32_t          connection_count;
     uint32_t          max_connections;
 
-    int* read_fd_buffer;
-    int* write_fd_buffer;
-
     NETWORK_WATCHER read_network_watcher;
     NETWORK_WATCHER write_network_watcher;
+
+    sNETWORK_WATCHER_WATCH* read_fd_buffer;
+    sNETWORK_WATCHER_WATCH* write_fd_buffer;
 } sCHAT_CONNECTIONS_CBLK;
 
 

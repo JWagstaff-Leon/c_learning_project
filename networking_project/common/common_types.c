@@ -22,7 +22,7 @@ eSTATUS generic_create_thread(
     fGENERIC_THREAD_ENTRY thread_entry,
     void* arg)
 {
-    int status;
+    int       status;
     pthread_t unused;
 
     status = pthread_create(&unused,
