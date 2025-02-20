@@ -44,18 +44,18 @@ eSTATUS chat_connections_create(
         goto fail_alloc_connection_list;
     }
 
-    new_chat_connections_cblk->read_fd_buffer = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->read_fd_buffer[0]));
-    if (NULL == new_chat_connections_cblk->read_fd_buffer)
+    new_chat_connections_cblk->read_watches = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->read_watches[0]));
+    if (NULL == new_chat_connections_cblk->read_watches)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_read_fd_buffer;
+        goto fail_alloc_read_watches;
     }
 
-    new_chat_connections_cblk->write_fd_buffer = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->write_fd_buffer[0]));
-    if (NULL == new_chat_connections_cblk->write_fd_buffer)
+    new_chat_connections_cblk->write_watches = generic_allocator(new_chat_connections_cblk->max_connections * sizeof(new_chat_connections_cblk->write_watches[0]));
+    if (NULL == new_chat_connections_cblk->write_watches)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_write_fd_buffer;
+        goto fail_alloc_write_watches;
     }
 
     for (connection_index = 0;
@@ -64,9 +64,11 @@ eSTATUS chat_connections_create(
     {
         new_chat_connections_cblk->connections[connection_index] = k_blank_connection;
 
-        new_chat_connections_cblk->read_fd_buffer[connection_index].fd_ptr  = &new_chat_connections_cblk->connections[connection_index].fd;
-        new_chat_connections_cblk->write_fd_buffer[connection_index].fd_ptr = &new_chat_connections_cblk->connections[connection_index].fd;
+        new_chat_connections_cblk->read_watches[connection_index].fd_ptr  = &new_chat_connections_cblk->connections[connection_index].fd;
+        new_chat_connections_cblk->write_watches[connection_index].fd_ptr = &new_chat_connections_cblk->connections[connection_index].fd;
     }
+    new_chat_connections_cblk->read_watches[0].active  = true;
+    new_chat_connections_cblk->write_watches[0].active = false;
 
     status = network_watcher_create(new_chat_connections_cblk->read_network_watcher,
                                     chat_connections_network_watcher_read_cback,
@@ -91,12 +93,12 @@ fail_create_write_watcher:
     network_watcher_close(new_chat_connections_cblk->read_network_watcher);
 
 fail_create_read_watcher:
-    generic_deallocator(new_chat_connections_cblk->write_fd_buffer);
+    generic_deallocator(new_chat_connections_cblk->write_watches);
 
-fail_alloc_write_fd_buffer:
-    generic_deallocator(new_chat_connections_cblk->read_fd_buffer);
+fail_alloc_write_watches:
+    generic_deallocator(new_chat_connections_cblk->read_watches);
 
-fail_alloc_read_fd_buffer:
+fail_alloc_read_watches:
     generic_deallocator(new_chat_connections_cblk->list);
 
 fail_alloc_connection_list:
@@ -107,98 +109,6 @@ fail_create_message_queue:
 
 fail_alloc_cblk:
     return status;
-}
-
-
-eSTATUS chat_connections_new_connection(
-    CHAT_CONNECTIONS connections,
-    int              connection_fd)
-{
-
-}
-
-
-static bool is_connection_readable(
-    const sCHAT_CONNECTION* connection)
-{
-    // Function exists for ease of enhancement
-    return true;
-}
-
-
-eSTATUS chat_connections_get_readable(
-    const sCHAT_CONNECTIONS* restrict connections,
-    int*                     restrict out_fds)
-{
-    uint32_t          connection_index;
-    sCHAT_CONNECTION* current_connection;
-
-    assert(NULL != connections);
-    assert(NULL != out_fds);
-
-     // We only care about reading from the incoming connection socket fd
-    out_fds[0] = connections->list[0].fd;
-
-    for (connection_index = 1; connection_index < connections->size; connection_index++)
-    {
-        current_connection = connections->list[connection_index];
-        if (is_connection_readable(current_connection))
-        {
-            out_fds[connection_index] = current_connection->fd;
-        }
-        else
-        {
-            out_fds[connection_index] = -1;
-        }
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
-static bool is_connection_writeable(
-    const sCHAT_CONNECTION* connection)
-{
-    if (CHAT_CONNECTION_STATE_DISCONNECTED == connection->state)
-    {
-        return false;
-    }
-
-    if (message_queue_get_count(connection->event_buffer) <= 0)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-
-eSTATUS chat_connections_get_writeable(
-    const sCHAT_CONNECTIONS* restrict connections,
-    int*                     restrict out_fds)
-{
-    uint32_t          connection_index;
-    sCHAT_CONNECTION* current_connection;
-
-    assert(NULL != connections);
-    assert(NULL != out_fds);
-
-    out_fds[0] = -1;
-
-    for (connection_index = 1; connection_index < connections->size; connection_index++)
-    {
-        current_connection = connections->list[connection_index];
-        if (is_connection_writeable(current_connection))
-        {
-            out_fds[connection_index] = connections->list[connection_index].fd;
-        }
-        else
-        {
-            out_fds[connection_index] = -1;
-        }
-    }
-
-    return STATUS_SUCCESS;
 }
 
 

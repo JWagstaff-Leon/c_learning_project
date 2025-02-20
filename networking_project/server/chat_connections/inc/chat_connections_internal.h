@@ -66,8 +66,8 @@ typedef struct
     NETWORK_WATCHER read_network_watcher;
     NETWORK_WATCHER write_network_watcher;
 
-    sNETWORK_WATCHER_WATCH* read_fd_buffer;
-    sNETWORK_WATCHER_WATCH* write_fd_buffer;
+    sNETWORK_WATCHER_WATCH* read_watches;
+    sNETWORK_WATCHER_WATCH* write_watches;
 } sCHAT_CONNECTIONS_CBLK;
 
 
@@ -86,6 +86,12 @@ static const sCHAT_CONNECTION k_blank_connection = {
 
 void* chat_connections_thread_entry(
     void* arg);
+
+
+void chat_connections_process_event_from(
+    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
+    uint32_t                from_connection_index,
+    const sCHAT_EVENT*      event);
 
 
 void chat_connections_network_watcher_read_cback(

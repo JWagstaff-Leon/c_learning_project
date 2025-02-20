@@ -20,10 +20,13 @@ extern "C" {
 
 typedef struct
 {
-    int* fd_ptr; // User-controlled; points to the fd storage location; used to get the fd-containing object back
-    bool active; // User-controlled; marks the fd as active; can prevent watching
-    bool ready;  // Module-controlled; will be set to if the fd at fd_ptr is ready
-    bool closed; // Module-controlled; will be set to if the fd at fd_ptr has closed
+    // User-controlled
+    int* fd_ptr; // pointer to the fd; used to get the fd-containing object back
+    bool active; // marks the fd as active; used to prevent watching
+
+    // Modue-controlled
+    bool ready;  // marks if the fd is ready
+    bool closed; // marks if the fd has closed
 } sNETWORK_WATCHER_WATCH;
 
 
@@ -37,6 +40,8 @@ typedef enum
 typedef enum
 {
     NETWORK_WATCHER_EVENT_WATCH_COMPLETE,
+    NETWORK_WATCHER_EVENT_WATCH_ERROR,
+    NETWORK_WATCHER_EVENT_CANCELLED,
     NETWORK_WATCHER_EVENT_CLOSED
 } eNETWORK_WATCHER_EVENT_TYPE;
 
@@ -56,9 +61,9 @@ typedef void* NETWORK_WATCHER;
 // Functions -------------------------------------------------------------------
 
 eSTATUS network_watcher_create(
-    NETWORK_WATCHER*               out_new_network_watcher,
-    fNETWORK_WATCHER_USER_CBACK    user_cback,
-    void*                          user_arg);
+    NETWORK_WATCHER*            out_new_network_watcher,
+    fNETWORK_WATCHER_USER_CBACK user_cback,
+    void*                       user_arg);
 
 
 eSTATUS network_watcher_start_watch(

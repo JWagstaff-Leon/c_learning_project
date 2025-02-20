@@ -17,8 +17,10 @@ extern "C" {
 
 #define NETWORK_WATCHER_MESSAGE_QUEUE_SIZE 32
 
-#define NETWORK_WATCHER_CANCEL_PIPE_INDEX NETWORK_WATCHER_MAX_FD_COUNT
-#define NETWORK_WATCHER_CLOSE_PIPE_INDEX  NETWORK_WATCHER_MAX_FD_COUNT + 1
+// The timeout in milliseconds for poll timeouts
+// The longer the timeout, the less responsive the watcher will be in the worst case
+// The shorter the timeout, the more process intensive the watcher will be in the worst case
+#define NETWORK_WATCHER_DEFAULT_POLL_TIMEOUT 1000
 
 
 // Types -----------------------------------------------------------------------
@@ -30,23 +32,25 @@ typedef enum
 } ePIPE_END;
 
 
+typedef enum
+{
+    NETWORK_WATCHER_STATE_OPEN,
+    NETWORK_WATCHER_STATE_ACTIVE,
+    NETWORK_WATCHER_STATE_CLOSED
+} eNETWORK_WATCHER_STATE;
+
+
 typedef struct
 {
-    // Controlled by the module thread
-    bool open;
-    bool watching;
-
-    int control_pipe[2];
+    MESSAGE_QUEUE          message_queue;
+    eNETWORK_WATCHER_STATE state;
 
     sNETWORK_WATCHER_WATCH* watches;
-    uint32_t                watch_count; // Holds the number of watches; DOES NOT include the control pipe
-    uint32_t                watches_size; // Holds the current size of watches; used to know if reallocation is needed; DOES NOT include the control pipe
+    uint32_t                watch_count;
 
     struct pollfd* fds;
-    struct pollfd  control_fd;
-
-    pthread_mutex_t watch_mutex;
-    pthread_mutex_t control_mutex;
+    uint32_t       fds_size;
+    int            poll_timeout;
 
     fNETWORK_WATCHER_USER_CBACK user_cback;
     void*                       user_arg;
