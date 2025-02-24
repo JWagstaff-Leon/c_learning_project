@@ -106,6 +106,11 @@ void chat_connections_network_watcher_write_cback(
     const sNETWORK_WATCHER_CBACK_DATA* data);
 
 
+eSTATUS chat_connections_accept_new_connection(
+    int  listen_fd,
+    int* out_new_fd);
+
+
 #ifdef __cplusplus
 }
 #endif
