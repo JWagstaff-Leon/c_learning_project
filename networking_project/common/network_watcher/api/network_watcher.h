@@ -24,7 +24,7 @@ typedef struct
     int* fd_ptr; // pointer to the fd; used to get the fd-containing object back
     bool active; // marks the fd as active; used to prevent watching
 
-    // Modue-controlled
+    // Module-controlled
     bool ready;  // marks if the fd is ready
     bool closed; // marks if the fd has closed
 } sNETWORK_WATCHER_WATCH;

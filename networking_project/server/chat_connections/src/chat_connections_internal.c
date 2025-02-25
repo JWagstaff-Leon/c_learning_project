@@ -7,7 +7,7 @@
 
 void chat_connections_process_event_from(
     sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
-    uint32_t                from_connection_index,
+    uint32_t                from_connection_index, // FIXME this should be a pointer to a connection
     const sCHAT_EVENT*      event)
 {
     eSTATUS           status;

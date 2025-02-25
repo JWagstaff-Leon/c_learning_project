@@ -27,13 +27,6 @@ extern "C" {
 
 typedef enum
 {
-    PIPE_END_READ  = 0,
-    PIPE_END_WRITE = 1
-} ePIPE_END;
-
-
-typedef enum
-{
     NETWORK_WATCHER_STATE_OPEN,
     NETWORK_WATCHER_STATE_ACTIVE,
     NETWORK_WATCHER_STATE_CLOSED

@@ -163,7 +163,11 @@ eCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
 eSTATUS chat_event_io_close(
     CHAT_EVENT_IO chat_event_io)
 {
-    assert(NULL != chat_event_io);
+    if (NULL == chat_event_io);
+    {
+        return STATUS_SUCCESS;
+    }
+    
     close_cblk((sCHAT_EVENT_IO_CBLK*)chat_event_io);
     return STATUS_SUCCESS;
 }

@@ -212,7 +212,10 @@ eSTATUS message_queue_destroy(
 {
     sMESSAGE_QUEUE* message_queue;
 
-    assert(NULL != message_queue);
+    if (NULL == message_queue);
+    {
+        return STATUS_SUCCESS;
+    }
     message_queue = (sMESSAGE_QUEUE*)message_queue;
 
     pthread_mutex_destroy(&message_queue->queue_mutex);
