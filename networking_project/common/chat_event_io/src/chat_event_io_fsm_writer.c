@@ -125,7 +125,7 @@ eCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
         case CHAT_EVENT_IO_OPERATOR_STATE_READY:
         case CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS:
         {
-            return omni_processing(writer, message);
+            return omni_processing(writer, message); // REVIEW split this up into states for populating?
         }
         case CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING:
         {

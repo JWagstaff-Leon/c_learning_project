@@ -6,7 +6,6 @@ extern "C" {
 
 // Defines ---------------------------------------------------------------------
 
-#define CHAT_CONNECTION_MAX_NAME_SIZE      65
 #define CHAT_CONNECTION_MESSAGE_QUEUE_SIZE 32
 
 
@@ -88,9 +87,8 @@ void* chat_connections_thread_entry(
     void* arg);
 
 
-void chat_connections_process_event_from(
+void chat_connections_process_event(
     sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
-    uint32_t                from_connection_index,
     const sCHAT_EVENT*      event);
 
 

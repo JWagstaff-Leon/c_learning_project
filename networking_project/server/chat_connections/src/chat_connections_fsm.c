@@ -151,7 +151,7 @@ static void check_read_ready_connections(
         relevant_watch      = &master_cblk_ptr->read_watches[connection_index];
         relevant_connection = relevant_watch->fd_ptr - offsetof(sCHAT_CONNECTION, fd); // REVIEW should this just be the index in connections?
 
-        if (relevant_watch->acitve && relevant_watch->ready)
+        if (relevant_watch->active && relevant_watch->ready)
         {
             chat_event_io_result = chat_event_io_read_from_fd(relevant_connection->io,
                                                               relevant_connection->fd);
@@ -165,9 +165,9 @@ static void check_read_ready_connections(
                                                                                 &event_buffer);
                         if (CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED & chat_event_io_result)
                         {
-                            chat_connections_process_event_from(master_cblk_ptr,
-                                                                relevant_connection,
-                                                                &event_buffer);
+                            event_buffer.origin = connection_index;
+                            chat_connections_process_event(master_cblk_ptr,
+                                                           &event_buffer);
                         }
                     } while (CHAT_EVENT_IO_RESULT_EXTRACT_MORE & chat_event_io_result);
 
@@ -176,6 +176,66 @@ static void check_read_ready_connections(
                 case CHAT_EVENT_IO_RESULT_FD_CLOSED:
                 {
                     chat_connection_close(master_cblk_ptr, connection_index);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+static void check_write_ready_connections(
+    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+{
+    eSTATUS status;
+
+    uint32_t connection_index;
+
+    sNETWORK_WATCHER_WATCH* relevant_watch;
+    sCHAT_CONNECTION*       relevant_connection;
+
+    eCHAT_EVENT_IO_RESULT chat_event_io_result;
+    sCHAT_EVENT           event_buffer;
+
+    for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
+    {
+        relevant_watch      = &master_cblk_ptr->write_watches[connection_index];
+        relevant_connection = relevant_watch->fd_ptr - offsetof(sCHAT_CONNECTION, fd); // REVIEW should this just be the index in connections?
+
+        while (relevant_watch->active && relevant_watch->ready)
+        {
+            chat_event_io_result = chat_event_io_write_to_fd(relevant_connection->io,
+                                                             relevant_connection->fd);
+            switch (chat_event_io_result)
+            {
+                case CHAT_EVENT_IO_RESULT_WRITE_FINISHED:
+                {
+                    if (message_queue_get_count(relevant_connection->event_queue) > 0)
+                    {
+                        status = message_queue_get(relevant_connection->event_queue,
+                                                   &event_buffer,
+                                                   sizeof(event_buffer));
+                        assert(STATUS_SUCCESS == status);
+
+                        chat_event_io_result = chat_event_io_populate_writer(relevant_connection->io,
+                                                                             &event_buffer);
+                        assert(CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS == chat_event_io_result);
+                    }
+                    else
+                    {
+                        relevant_watch->active = false;
+                    }
+
+                    break;
+                }
+                case CHAT_EVENT_IO_RESULT_INCOMPLETE:
+                {
+                    relevant_watch->ready = false;
+                }
+                case CHAT_EVENT_IO_RESULT_FD_CLOSED:
+                {
+                    chat_connection_close(master_cblk_ptr, connection_index);
+                    relevant_watch->active = false;
                     break;
                 }
             }
@@ -354,47 +414,10 @@ static void open_processing(
             check_closed_connections(master_cblk_ptr);
             check_write_ready_connections(master_cblk_ptr);
 
-            // TODO only set active on the write once they have a message queued to them
-            for (fd_index = 0; fd_index < message->params.write_ready.index_count; fd_index++)
-            {
-                connection_index     = message->params.write_ready.connection_indecies[fd_index];
-                relevant_connection  = master_cblk_ptr->connections[connection_index].connection;
-
-                chat_event_io_result = chat_event_write_to_fd(&relevant_connection->event_writer,
-                                                              relevant_connection->fd,
-                                                              &event_buffer);
-                switch (chat_event_io_result.event)
-                {
-                    case CHAT_EVENT_IO_RESULT_WRITE_FINISHED:
-                    {
-                        // TODO nothing?
-                    }
-                    case CHAT_EVENT_IO_RESULT_FD_CLOSED:
-                    {
-                        // TODO respond to a close
-                    }
-                    case CHAT_EVENT_IO_RESULT_FAILED:
-                    {
-                        // TODO respond to a failure
-                    }
-                    // REVIEW should this respond to flushing conditions?
-                }
-            }
-
-            for (connection_index = 1, fd_index = 0; // Start at 1 for write as there's no reason to write to incoming connection socket
-                 connection_index < master_cblk_ptr->connections.size && fd_index < sizeof(fds_list) / sizeof(fds_list[0]),
-                 connection_index++)
-            {
-                if (CHAT_SERVER_CONNECTION_STATE_DISCONNECTED != master_cblk_ptr->connections.list[connection_index].state)
-                {
-                    fds_list[fd_index++] = master_cblk_ptr->connections.list[connection_index].fd;
-                }
-            }
-
-            status = network_watcher_start_watch(master_cblk_ptr->read_network_watcher,
+            status = network_watcher_start_watch(master_cblk_ptr->write_network_watcher,
                                                  NETWORK_WATCHER_MODE_WRITE,
-                                                 &fds_list[0],
-                                                 fd_index);
+                                                 master_cblk_ptr->write_watches,
+                                                 master_cblk_ptr->connection_count);
             assert(STATUS_SUCCESS == status);
 
             break;

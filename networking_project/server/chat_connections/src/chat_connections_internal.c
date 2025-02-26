@@ -5,50 +5,50 @@
 #include <sys/types.h>
 
 
-void chat_connections_process_event_from(
+void chat_connections_process_event(
     sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
-    uint32_t                from_connection_index, // FIXME this should be a pointer to a connection
     const sCHAT_EVENT*      event)
 {
     eSTATUS           status;
-    uint32_t          send_connection_index;
-    sCHAT_CONNECTION* current_connection;
+    uint32_t          connection_index;
+    sCHAT_CONNECTION* relevant_connection;
     sCHAT_EVENT       outgoing_event;
     int               printed_length;
 
     assert(NULL != master_cblk_ptr);
     assert(NULL != event);
-    assert(from_connection_index < master_cblk_ptr->max_connections);
 
-    current_connection = master_cblk_ptr->connections[from_connection_index];
     switch(event->type)
     {
         case CHAT_EVENT_CHAT_MESSAGE:
         {
-            if (CHAT_CONNECTION_STATE_ACTIVE == current_connection->state)
+            if (CHAT_CONNECTION_STATE_ACTIVE == master_cblk_ptr->connections[event->origin].state)
             {
                 memcpy(&outgoing_event, event, sizeof(sCHAT_EVENT));
-                outgoing_event.origin = from_connection_index;
 
-                for (send_connection_index = 1;
-                     send_connection_index < connections->size;
-                     send_connection_index++)
+                for (connection_index = 1;
+                     connection_index < master_cblk_ptr->max_connections;
+                     connection_index++)
                 {
-                    if (send_connection_index == from_connection_index)
+                    if (connection_index == event->origin)
                     {
                         continue;
                     }
 
-                    status = chat_server_connection_queue_event(connections->list[send_connection_index],
-                                                                &outgoing_event);
+                    relevant_connection = &master_cblk_ptr->connections[connection_index];
+
+                    status = message_queue_put(relevant_connection->event_queue,
+                                               event, 
+                                               sizeof(sCHAT_EVENT));
                     assert(STATUS_SUCCESS == status);
+                    master_cblk_ptr->write_watches[connection_index].active = true;
                 }
             }
             break;
         }
         case CHAT_EVENT_USERNAME_REQUEST:
         {
-            if (CHAT_CONNECTION_STATE_ACTIVE == current_connection->state)
+            if (CHAT_CONNECTION_STATE_ACTIVE == relevant_connection->state)
             {
                 outgoing_event.origin = CHAT_EVENT_ORIGIN_SERVER;
                 outgoing_event.type   = CHAT_EVENT_USERNAME_SUBMIT;
@@ -61,15 +61,19 @@ void chat_connections_process_event_from(
                                           ? CHAT_EVENT_MAX_DATA_SIZE
                                           : printed_length;
 
-                status = chat_server_connection_queue_event(current_connection,
-                                                            &outgoing_event);
+                relevant_connection = &master_cblk_ptr->connections[event->origin];
+
+                status = message_queue_put(relevant_connection->event_queue,
+                                           event, 
+                                           sizeof(sCHAT_EVENT));
                 assert(STATUS_SUCCESS == status);
+                master_cblk_ptr->write_watches[connection_index].active = true;
             }
             break;
         }
         case CHAT_EVENT_USERNAME_SUBMIT:
         {
-            if (CHAT_CONNECTION_STATE_SETUP == current_connection->state)
+            if (CHAT_CONNECTION_STATE_SETUP == master_cblk_ptr->connections[event->origin].state)
             {
                 if (event->length <= CHAT_CONNECTION_MAX_NAME_SIZE)
                 {
@@ -81,30 +85,37 @@ void chat_connections_process_event_from(
                            event->data,
                            event->length);
 
-                    status = chat_server_connection_queue_event(current_connection,
-                                                                &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
+                    relevant_connection = &master_cblk_ptr->connections[event->origin];
 
-                    current_connection->state = CHAT_CONNECTION_STATE_ACTIVE;
+                    status = message_queue_put(relevant_connection->event_queue,
+                                               event, 
+                                               sizeof(sCHAT_EVENT));
+                    assert(STATUS_SUCCESS == status);
+                    master_cblk_ptr->write_watches[connection_index].active = true;
+
+                    relevant_connection->state = CHAT_CONNECTION_STATE_ACTIVE;
 
                     // Compose message to active users about joining user
                     outgoing_event.type   = CHAT_EVENT_USER_JOIN;
-                    outgoing_event.length = event->length; // FIXME set this to a real messgae
+                    outgoing_event.length = event->length; // FIXME set this to a real message
 
-                    for (send_connection_index = 1;
-                         send_connection_index < connections->size;
-                         send_connection_index++)
+                    for (connection_index = 1;
+                         connection_index < master_cblk_ptr->max_connections;
+                         connection_index++)
                     {
-                        if (send_connection_index == from_connection_index)
+                        if (connection_index == event->origin)
                         {
                             continue;
                         }
 
-                        if (CHAT_CONNECTION_STATE_ACTIVE == connections->list[send_connection_index].state)
+                        relevant_connection = &master_cblk_ptr->connections[connection_index];
+                        if (CHAT_CONNECTION_STATE_ACTIVE == relevant_connection->state)
                         {
-                            status = chat_server_connection_queue_event(&connections->list[send_connection_index],
-                                                                        outgoing_event);
+                            status = message_queue_put(relevant_connection->event_queue,
+                                                    event, 
+                                                    sizeof(sCHAT_EVENT));
                             assert(STATUS_SUCCESS == status);
+                            master_cblk_ptr->write_watches[connection_index].active = true;
                         }
                     }
                 }
@@ -121,9 +132,13 @@ void chat_connections_process_event_from(
                                             ? CHAT_EVENT_MAX_DATA_SIZE
                                             : printed_length;
 
-                    status = chat_server_connection_queue_event(current_connection,
-                                                                outgoing_event);
+                    relevant_connection = &master_cblk_ptr->connections[event->origin];
+                    
+                    status = message_queue_put(relevant_connection->event_queue,
+                                            event, 
+                                            sizeof(sCHAT_EVENT));
                     assert(STATUS_SUCCESS == status);
+                    master_cblk_ptr->write_watches[connection_index].active = true;
                 }
             }
             break;

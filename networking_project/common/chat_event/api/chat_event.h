@@ -8,6 +8,7 @@ extern "C" {
 
 #include <stdint.h>
 
+#include "chat_user.h"
 #include "common_types.h"
 
 
@@ -46,10 +47,13 @@ typedef enum
 } eCHAT_EVENT_TYPE;
 
 
+// REVIEW make structs for each event type?
+
+
 typedef struct
 {
     eCHAT_EVENT_TYPE type;
-    uint32_t         origin;
+    sCHAT_USER_ID    origin;
 
     uint16_t length;
     uint8_t  data[CHAT_EVENT_MAX_DATA_SIZE];
