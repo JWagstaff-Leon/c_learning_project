@@ -12,6 +12,9 @@ extern "C" {
 // Constants -------------------------------------------------------------------
 
 #define CHAT_USER_MAX_NAME_SIZE 65
+#define CHAT_USER_ID_SERVER 0
+
+#define CHAT_USER_INVALID_ID UINT64_MAX
 
 
 // Types -----------------------------------------------------------------------

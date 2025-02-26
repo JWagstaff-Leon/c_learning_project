@@ -19,6 +19,7 @@ extern "C" {
 
 #include "chat_event.h"
 #include "chat_event_io.h"
+#include "chat_user.h"
 #include "message_queue.h"
 #include "network_watcher.h"
 
@@ -38,7 +39,7 @@ typedef struct
     int                    fd;
     CHAT_EVENT_IO          io;
     eCHAT_CONNECTION_STATE state;
-    char                   name[CHAT_CONNECTION_MAX_NAME_SIZE];  // TODO make a chat user object which has at least a name and id
+    sCHAT_USER             user;
     MESSAGE_QUEUE          event_queue;
 } sCHAT_CONNECTION;
 
@@ -76,7 +77,11 @@ static const sCHAT_CONNECTION k_blank_connection = {
     .fd          = -1,
     .io          = NULL,
     .state       = CHAT_CONNECTION_STATE_DISCONNECTED,
-    .name        = { 0 },
+    .user        =
+    {
+        .id = CHAT_USER_INVALID_ID,
+        .name = { 0 }
+    },
     .event_queue = NULL
 };
 

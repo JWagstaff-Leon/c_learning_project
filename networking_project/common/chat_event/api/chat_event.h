@@ -16,8 +16,6 @@ extern "C" {
 
 #define CHAT_EVENT_MAX_DATA_SIZE 1024
 
-#define CHAT_EVENT_ORIGIN_SERVER 0
-
 
 // Types -----------------------------------------------------------------------
 

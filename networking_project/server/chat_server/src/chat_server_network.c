@@ -345,8 +345,8 @@ eSTATUS chat_server_process_connections_events(
                                     CHAT_EVENT_HEADER_SIZE + event_buffer.length,
                                     0);
 
-                                snprintf(current_connection->name,
-                                        sizeof(current_connection->name),
+                                snprintf(current_connection->user.name,
+                                        sizeof(current_connection->user.name),
                                         "%s",
                                         &current_connection->event_reader.event.data[0]);
 
@@ -360,8 +360,8 @@ eSTATUS chat_server_process_connections_events(
                                 snprintf((char*)&event_buffer.data[0],
                                         CHAT_EVENT_MAX_DATA_SIZE,
                                         "%s",
-                                        current_connection->name);
-                                event_buffer.length = strnlen(&current_connection->name[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
+                                        current_connection->user.name);
+                                event_buffer.length = strnlen(&current_connection->user.name[0], CHAT_EVENT_MAX_DATA_SIZE - 1);
 
                                 for (send_connection_index = 1;
                                 send_connection_index < connections->size;

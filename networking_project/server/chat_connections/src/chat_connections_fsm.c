@@ -60,11 +60,12 @@ static eSTATUS chat_connection_open(
         goto fail_create_event_io;
     }
 
-    connection->fd    = fd;
-    connection->state = CHAT_CONNECTION_STATE_INIT;
-    memset(connection->name,
+    connection->fd      = fd;
+    connection->state   = CHAT_CONNECTION_STATE_INIT;
+    connection->user.id = CHAT_USER_INVALID_ID;
+    memset(connection->user.name,
            0,
-           sizeof(connection->name));
+           sizeof(connection->user.name));
 
     return STATUS_SUCCESS;
 
@@ -106,12 +107,14 @@ static void chat_connection_close(
         close_status = close(connection->fd);
         assert(0 == close_status);
     }
-    connection->fd = -1;
 
-    connection->state = CHAT_CONNECTION_STATE_DISCONNECTED;
-    memset(connection->name,
+    connection->fd      = -1;
+    connection->state   = CHAT_CONNECTION_STATE_DISCONNECTED;
+    connection->user.id = CHAT_USER_INVALID_ID;
+
+    memset(connection->user.name,
            0,
-           sizeof(connection->name));
+           sizeof(connection->user.name));
 
     master_cblk_ptr->read_watches[connection_index].active = false;
     master_cblk_ptr->write_watches[connection_index].active = false;
