@@ -31,21 +31,23 @@ typedef enum
 
     CHAT_EVENT_USERNAME_REQUEST,
     CHAT_EVENT_USERNAME_SUBMIT,
-    CHAT_EVENT_USERNAME_ACCEPTED,
     CHAT_EVENT_USERNAME_REJECTED,
 
-    CHAT_EVENT_SERVER_SHUTDOWN,
+    CHAT_EVENT_PASSWORD_REQUEST,
+    CHAT_EVENT_PASSWORD_SUBMIT,    // Sent from the server is to create a password; from a user is to login
+    CHAT_EVENT_PASSWORD_REJECTED,
+
+    CHAT_EVENT_LOGGED_IN,
 
     CHAT_EVENT_USER_LIST,
     CHAT_EVENT_USER_JOIN,
     CHAT_EVENT_USER_LEAVE,
 
+    CHAT_EVENT_SERVER_SHUTDOWN,
+
     CHAT_EVENT_MAX // NOTE add all event types above this
 
 } eCHAT_EVENT_TYPE;
-
-
-// REVIEW make structs for each event type?
 
 
 typedef struct

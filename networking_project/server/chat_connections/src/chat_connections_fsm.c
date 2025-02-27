@@ -149,6 +149,8 @@ static void check_read_ready_connections(
     eCHAT_EVENT_IO_RESULT chat_event_io_result;
     sCHAT_EVENT           event_buffer;
 
+    uCHAT_CONNECTIONS_CBACK_DATA callback_data;
+
     for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
     {
         relevant_watch      = &master_cblk_ptr->read_watches[connection_index];
@@ -168,9 +170,17 @@ static void check_read_ready_connections(
                                                                                 &event_buffer);
                         if (CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED & chat_event_io_result)
                         {
-                            event_buffer.origin = connection_index;
-                            chat_connections_process_event(master_cblk_ptr,
-                                                           &event_buffer);
+                            callback_data.incoming_event.user         = &relevant_connection->user;
+                            callback_data.incoming_event.event.type   = event_buffer.type;
+                            callback_data.incoming_event.event.origin = relevant_connection->user.id;
+                            callback_data.incoming_event.event.length = event_buffer.length;
+                            memcpy(callback_data.incoming_event.event.data,
+                                   event_buffer.data,
+                                   sizeof(callback_data.incoming_event.event.data));
+
+                            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                        CHAT_CONNECTIONS_EVENT_INCOMING_EVENT,
+                                                        &callback_data);
                         }
                     } while (CHAT_EVENT_IO_RESULT_EXTRACT_MORE & chat_event_io_result);
 

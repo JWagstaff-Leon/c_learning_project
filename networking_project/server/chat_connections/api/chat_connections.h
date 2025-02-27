@@ -25,7 +25,25 @@ typedef enum
 
 typedef struct
 {
+    CHAT_CONNECTIONS_AUTH_EVENT_AUTHENTICATED,
 
+    CHAT_CONNECTIONS_AUTH_EVENT_NEW_USER,
+    CHAT_CONNECTIONS_AUTH_EVENT_PASSWORD_REQUIRED,
+    CHAT_CONNECTIONS_AUTH_EVENT_PASSWORD_REJECTED
+} sCHAT_CONNETIONS_AUTH_EVENT_TYPE;
+
+
+typedef struct
+{
+    sCHAT_CONNETIONS_AUTH_EVENT_TYPE type;
+    sCHAT_USER_ID                    user_id;
+} sCHAT_CONNECTIONS_AUTH_EVENT;
+
+
+typedef struct
+{
+    sCHAT_EVENT       event;
+    const sCHAT_USER* user;
 } sCHAT_CONNECTION_EVENT_DATA_INCOMING_EVENT;
 
 
@@ -51,6 +69,12 @@ eSTATUS chat_connections_create(
     fCHAT_CONNECTIONS_USER_CBACK user_cback,
     void*                        user_arg,
     uint32_t                     default_size);
+
+
+eSTATUS chat_connections_auth_event(
+    CHAT_CONNECTIONS             chat_connections,
+    const sCHAT_USER*            user,
+    sCHAT_CONNECTIONS_AUTH_EVENT user_id);
 
 
 eSTATUS chat_connections_close(
