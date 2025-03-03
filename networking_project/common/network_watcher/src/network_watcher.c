@@ -6,6 +6,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "common_types.h"
 #include "message_queue.h"
@@ -16,7 +17,7 @@ static void init_cblk(
 {
     memset(master_cblk_ptr, 0, sizeof(sNETWORK_WATCHER_CBLK));
 
-    master_cblk_ptr->poll_timeout = NETWORK_WATCHER_DEFAULT_POLL_TIMEOUT;
+    master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN; 
 }
 
 
@@ -48,6 +49,13 @@ eSTATUS network_watcher_create(
         goto fail_create_message_queue;
     }
 
+    pipe_status = pipe2(new_network_watcher->control_pipe, O_NONBLOCK);
+    if (0 != pipe_status)
+    {
+        status = STATUS_FAILURE;
+        goto fail_create_pipe;
+    }
+
     status = generic_create_thread(network_watcher_thread_entry,
                                    new_network_watcher);
     if (STATUS_SUCCESS != status)
@@ -58,10 +66,17 @@ eSTATUS network_watcher_create(
     new_network_watcher->user_cback = user_cback;
     new_network_watcher->user_arg   = user_arg;
 
+    new_network_watcher->fds[1].fd     = new_network_watcher->control_pipe[PIPE_END_READ];
+    new_network_watcher->fds[1].events = POLLIN;
+
     *out_new_network_watcher = new_network_watcher;
     return STATUS_SUCCESS;
 
 fail_create_thread:
+    close(new_network_watcher->control_pipe[PIPE_END_WRITE]);
+    close(new_network_watcher->control_pipe[PIPE_END_READ]);
+
+fail_create_pipe:
     message_queue_destroy(new_network_watcher->message_queue);
     
 fail_create_message_queue;
@@ -73,10 +88,9 @@ fail_alloc_cblk:
 
 
 eSTATUS network_watcher_start_watch(
-    NETWORK_WATCHER         network_watcher,
-    eNETWORK_WATCHER_MODE   mode,
-    sNETWORK_WATCHER_WATCH* watches,
-    uint32_t                watch_count)
+    NETWORK_WATCHER       network_watcher,
+    eNETWORK_WATCHER_MODE mode,
+    int                   fd)
 {
     sNETWORK_WATCHER_CBLK*   master_cblk_ptr;
     sNETWORK_WATCHER_MESSAGE message;
@@ -87,20 +101,16 @@ eSTATUS network_watcher_start_watch(
         return STATUS_INVALID_ARG;
     }
 
-    if (NULL == watches)
-    {
-        return STATUS_INVALID_ARG;
-    }
-
-    if (watch_count <= 0)
+    if (NULL == watch)
     {
         return STATUS_INVALID_ARG;
     }
 
     switch (mode)
     {
-        NETWORK_WATCHER_MODE_READ:
-        NETWORK_WATCHER_MODE_WRITE:
+        case NETWORK_WATCHER_MODE_READ:
+        case NETWORK_WATCHER_MODE_WRITE:
+        case NETWORK_WATCHER_MODE_BOTH:
         {
             break;
         }
@@ -112,10 +122,10 @@ eSTATUS network_watcher_start_watch(
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
 
-    message.type = NETWORK_WATCHER_MESSAGE_NEW_WATCH;
-    message.params.new_watch.watches     = watches;
-    message.params.new_watch.watch_count = watch_count;
-    message.params.new_watch.mode        = mode;
+    message.type = NETWORK_WATCHER_MESSAGE_WATCH;
+
+    message.params.new_watch.mode = mode;
+    message.params.new_watch.fd   = fd;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
@@ -126,12 +136,11 @@ eSTATUS network_watcher_start_watch(
 }
 
 
-eSTATUS network_watcher_stop_watch(
+eSTATUS network_watcher_cancel_watch(
     NETWORK_WATCHER network_watcher)
 {
-    sNETWORK_WATCHER_CBLK*   master_cblk_ptr;
-    sNETWORK_WATCHER_MESSAGE message;
-    eSTATUS                  status;
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+    eSTATUS                status;
 
     if(NULL == network_watcher)
     {
@@ -139,11 +148,14 @@ eSTATUS network_watcher_stop_watch(
     }
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
 
-    message.type = NETWORK_WATCHER_MESSAGE_CANCEL;
-    status       = message_queue_put(master_cblk_ptr->message_queue,
-                                     &message,
-                                     sizeof(message));
-    assert(STATUS_SUCCESS == status);
+    pthread_mutex_lock(master_cblk_ptr->control_mutex);
+    if (master_cblk_ptr->polling)
+    {
+        write(master_cblk_ptr->control_pipe[PIPE_END_WRITE], " ", 1);
+        pthread_mutex_unlock(master_cblk_ptr->control_mutex);
+        return STATUS_INCOMPLETE;
+    }
+    pthread_mutex_unlock(master_cblk_ptr->control_mutex);
 
     return STATUS_SUCCESS;
 }

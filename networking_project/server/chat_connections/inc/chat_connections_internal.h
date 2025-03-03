@@ -41,7 +41,9 @@ typedef struct
     CHAT_EVENT_IO          io;
     eCHAT_CONNECTION_STATE state;
     sCHAT_USER             user;
-    MESSAGE_QUEUE          event_queue;
+
+    MESSAGE_QUEUE   message_queue;
+    NETWORK_WATCHER network_watcher;
 } sCHAT_CONNECTION;
 
 
@@ -64,8 +66,6 @@ typedef struct
     uint32_t          connection_count;
     uint32_t          max_connections;
 
-    NETWORK_WATCHER read_network_watcher;
-    NETWORK_WATCHER write_network_watcher;
 
     sNETWORK_WATCHER_WATCH* read_watches;
     sNETWORK_WATCHER_WATCH* write_watches;

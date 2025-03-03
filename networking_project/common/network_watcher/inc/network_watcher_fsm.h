@@ -19,18 +19,15 @@ extern "C" {
 
 typedef enum
 {
-    NETWORK_WATCHER_MESSAGE_NEW_WATCH,
-    NETWORK_WATCHER_MESSAGE_CONTINUE_WATCH,
-    NETWORK_WATCHER_MESSAGE_CANCEL,
+    NETWORK_WATCHER_MESSAGE_WATCH,
     NETWORK_WATCHER_MESSAGE_CLOSE
 } eNETWORK_WATCHER_MESSAGE_TYPE;
 
 
 typedef struct
 {
-    sNETWORK_WATCHER_WATCH* watches;
-    uint32_t                watch_count;
-    eNETWORK_WATCHER_MODE   mode;
+    int                   fd;
+    eNETWORK_WATCHER_MODE mode;
 } sNETWORK_WATCHER_NEW_WATCH_PARAMS;
 
 

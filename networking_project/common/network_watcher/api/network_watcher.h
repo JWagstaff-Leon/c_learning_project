@@ -18,22 +18,12 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
-typedef struct
-{
-    // User-controlled
-    int* fd_ptr; // pointer to the fd; used to get the fd-containing object back
-    bool active; // marks the fd as active; used to prevent watching
-
-    // Module-controlled
-    bool ready;  // marks if the fd is ready
-    bool closed; // marks if the fd has closed
-} sNETWORK_WATCHER_WATCH;
-
 
 typedef enum
 {
     NETWORK_WATCHER_MODE_READ,
-    NETWORK_WATCHER_MODE_WRITE
+    NETWORK_WATCHER_MODE_WRITE,
+    NETWORK_WATCHER_MODE_BOTH
 } eNETWORK_WATCHER_MODE;
 
 
@@ -46,7 +36,16 @@ typedef enum
 } eNETWORK_WATCHER_EVENT_TYPE;
 
 
-typedef void uNETWORK_WATCHER_CBACK_DATA;
+typedef struct
+{
+    short revents;
+} sNETWORK_WATCHER_CBACK_DATA_WATCH_COMPLETE;
+
+
+typedef union
+{
+    sNETWORK_WATCHER_CBACK_DATA_WATCH_COMPLETE watch_complete;
+} uNETWORK_WATCHER_CBACK_DATA;
 
 
 typedef void (fNETWORK_WATCHER_USER_CBACK*) (
@@ -67,13 +66,12 @@ eSTATUS network_watcher_create(
 
 
 eSTATUS network_watcher_start_watch(
-    NETWORK_WATCHER         network_watcher,
-    eNETWORK_WATCHER_MODE   mode,
-    sNETWORK_WATCHER_WATCH* watches,
-    uint32_t                watch_count);
+    NETWORK_WATCHER       network_watcher,
+    eNETWORK_WATCHER_MODE mode,
+    int                   fd);
 
 
-eSTATUS network_watcher_stop_watch(
+eSTATUS network_watcher_cancel_watch(
     NETWORK_WATCHER network_watcher);
 
 

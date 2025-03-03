@@ -20,6 +20,13 @@ typedef enum
 } eSTATUS;
 
 
+typedef enum
+{
+    PIPE_END_READ  = 0,
+    PIPE_END_WRITE = 1
+} ePIPE_END;
+
+
 typedef void* (*fGENERIC_THREAD_ENTRY) (void*);
 
 
