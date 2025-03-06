@@ -17,7 +17,9 @@ static void init_cblk(
 {
     memset(master_cblk_ptr, 0, sizeof(sNETWORK_WATCHER_CBLK));
 
-    master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN; 
+    master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN;
+
+    pthread_mutex_init(&master_cblk_ptr->cancel_mutex);
 }
 
 
@@ -49,7 +51,7 @@ eSTATUS network_watcher_create(
         goto fail_create_message_queue;
     }
 
-    pipe_status = pipe2(new_network_watcher->control_pipe, O_NONBLOCK);
+    pipe_status = pipe2(new_network_watcher->cancel_pipe, O_NONBLOCK);
     if (0 != pipe_status)
     {
         status = STATUS_FAILURE;
@@ -66,19 +68,19 @@ eSTATUS network_watcher_create(
     new_network_watcher->user_cback = user_cback;
     new_network_watcher->user_arg   = user_arg;
 
-    new_network_watcher->fds[1].fd     = new_network_watcher->control_pipe[PIPE_END_READ];
+    new_network_watcher->fds[1].fd     = new_network_watcher->cancel_pipe[PIPE_END_READ];
     new_network_watcher->fds[1].events = POLLIN;
 
     *out_new_network_watcher = new_network_watcher;
     return STATUS_SUCCESS;
 
 fail_create_thread:
-    close(new_network_watcher->control_pipe[PIPE_END_WRITE]);
-    close(new_network_watcher->control_pipe[PIPE_END_READ]);
+    close(new_network_watcher->cancel_pipe[PIPE_END_WRITE]);
+    close(new_network_watcher->cancel_pipe[PIPE_END_READ]);
 
 fail_create_pipe:
     message_queue_destroy(new_network_watcher->message_queue);
-    
+
 fail_create_message_queue;
     generic_deallocator(new_network_watcher);
 
@@ -95,6 +97,7 @@ eSTATUS network_watcher_start_watch(
     sNETWORK_WATCHER_CBLK*   master_cblk_ptr;
     sNETWORK_WATCHER_MESSAGE message;
     eSTATUS                  status;
+    uint8_t                  flush_buffer[128];
 
     if(NULL == network_watcher)
     {
@@ -127,6 +130,14 @@ eSTATUS network_watcher_start_watch(
     message.params.new_watch.mode = mode;
     message.params.new_watch.fd   = fd;
 
+    pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
+
+    while (read(master_cblk_ptr->control_pipe[PIPE_END_READ],
+           flush_buffer,
+           sizeof(flush_buffer)) > 0);
+
+    pthread_mutex_unlock(&master_cblk_ptr->cancel_mutex);
+
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
                                sizeof(message));
@@ -148,14 +159,9 @@ eSTATUS network_watcher_cancel_watch(
     }
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
 
-    pthread_mutex_lock(master_cblk_ptr->control_mutex);
-    if (master_cblk_ptr->polling)
-    {
-        write(master_cblk_ptr->control_pipe[PIPE_END_WRITE], " ", 1);
-        pthread_mutex_unlock(master_cblk_ptr->control_mutex);
-        return STATUS_INCOMPLETE;
-    }
-    pthread_mutex_unlock(master_cblk_ptr->control_mutex);
+    pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
+    write(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE], " ", 2); // TODO add error checking
+    pthread_mutex_unlock(&master_cblk_ptr->cancel_mutex);
 
     return STATUS_SUCCESS;
 }
@@ -173,6 +179,9 @@ eSTATUS network_watcher_close(
         return STATUS_INVALID_ARG;
     }
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+
+    status = network_watcher_cancel_watch(network_watcher);
+    assert(STATUS_SUCCESS == status);
 
     message.type = NETWORK_WATCHER_MESSAGE_CLOSE;
     status       = message_queue_put(master_cblk_ptr->message_queue,

@@ -18,7 +18,7 @@ typedef enum
     CHAT_SERVER_EVENT_OPENED      = 1 << 0,
     CHAT_SERVER_EVENT_OPEN_FAILED = 1 << 1,
     CHAT_SERVER_EVENT_CLOSED      = 1 << 2
-} eCHAT_SERVER_EVENT_TYPE;
+} bCHAT_SERVER_EVENT_TYPE;
 
 
 typedef void uCHAT_SERVER_CBACK_DATA;
@@ -26,7 +26,7 @@ typedef void uCHAT_SERVER_CBACK_DATA;
 
 typedef void (*fCHAT_SERVER_USER_CBACK) (
     void*                    user_arg,
-    eCHAT_SERVER_EVENT_TYPE  event,
+    bCHAT_SERVER_EVENT_TYPE  event_mask,
     uCHAT_SERVER_CBACK_DATA* data);
 
 

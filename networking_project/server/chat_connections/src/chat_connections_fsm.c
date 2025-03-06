@@ -146,7 +146,7 @@ static void check_read_ready_connections(
     sNETWORK_WATCHER_WATCH* relevant_watch;
     sCHAT_CONNECTION*       relevant_connection;
 
-    eCHAT_EVENT_IO_RESULT chat_event_io_result;
+    bCHAT_EVENT_IO_RESULT chat_event_io_result;
     sCHAT_EVENT           event_buffer;
 
     uCHAT_CONNECTIONS_CBACK_DATA callback_data;
@@ -207,7 +207,7 @@ static void check_write_ready_connections(
     sNETWORK_WATCHER_WATCH* relevant_watch;
     sCHAT_CONNECTION*       relevant_connection;
 
-    eCHAT_EVENT_IO_RESULT chat_event_io_result;
+    bCHAT_EVENT_IO_RESULT chat_event_io_result;
     sCHAT_EVENT           event_buffer;
 
     for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)

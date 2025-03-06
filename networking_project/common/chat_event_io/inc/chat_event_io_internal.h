@@ -50,22 +50,22 @@ typedef struct
 
 // Functions -------------------------------------------------------------------
 
-eCHAT_EVENT_IO_RESULT chat_event_io_operation_entry(
+bCHAT_EVENT_IO_RESULT chat_event_io_operation_entry(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
     
 
-eCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message);
 

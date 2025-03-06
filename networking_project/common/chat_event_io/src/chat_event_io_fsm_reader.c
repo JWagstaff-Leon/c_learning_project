@@ -101,7 +101,7 @@ static eSTATUS do_flush(
 }
 
 
-static eCHAT_EVENT_IO_RESULT ready_processing(
+static bCHAT_EVENT_IO_RESULT ready_processing(
     sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
@@ -127,6 +127,12 @@ static eCHAT_EVENT_IO_RESULT ready_processing(
                 {
                     return CHAT_EVENT_IO_RESULT_INCOMPLETE;
                 }
+                case STATUS_NO_SPACE:
+                {
+                    reader->state = CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING;
+
+                    return CHAT_EVENT_IO_RESULT_INCOMPLETE;
+                }
                 case STATUS_CLOSED:
                 {
                     return CHAT_EVENT_IO_RESULT_FD_CLOSED;
@@ -134,12 +140,6 @@ static eCHAT_EVENT_IO_RESULT ready_processing(
                 case STATUS_FAILURE:
                 {
                     return CHAT_EVENT_IO_RESULT_FAILED;
-                }
-                case STATUS_NO_SPACE:
-                {
-                    reader->state = CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING;
-
-                    return CHAT_EVENT_IO_RESULT_FLUSH_REQUIRED;
                 }
                 default:
                 {
@@ -162,11 +162,11 @@ static void flushing_processing(
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
-    eCHAT_EVENT_IO_RESULT result;
+    bCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != reader);
     assert(NULL != message);
-    
+
     switch (message->type)
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
@@ -207,11 +207,11 @@ static void flushing_processing(
 }
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
     sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eCHAT_EVENT_IO_RESULT  result;
+    bCHAT_EVENT_IO_RESULT  result;
 
     assert(NULL != reader);
     assert(NULL != message);

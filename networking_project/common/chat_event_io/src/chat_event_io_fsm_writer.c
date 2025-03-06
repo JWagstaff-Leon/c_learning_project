@@ -46,12 +46,12 @@ static eSTATUS do_write(
 }
 
 
-static eCHAT_EVENT_IO_RESULT omni_processing(
+static bCHAT_EVENT_IO_RESULT omni_processing(
     sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
     eSTATUS               status;
-    eCHAT_EVENT_IO_RESULT result;
+    bCHAT_EVENT_IO_RESULT result;
 
     assert(NULL != writer);
     assert(NULL != message);
@@ -111,11 +111,11 @@ static eCHAT_EVENT_IO_RESULT omni_processing(
     
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
     sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eCHAT_EVENT_IO_RESULT result;
+    bCHAT_EVENT_IO_RESULT result;
     
     assert(NULL != writer);
     assert(NULL != message);

@@ -18,9 +18,9 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_CONNECTIONS_EVENT_INCOMING_EVENT,
-    CHAT_CONNECTIONS_EVENT_CLOSED
-} eCHAT_CONNECTIONS_EVENT_TYPE;
+    CHAT_CONNECTIONS_EVENT_INCOMING_EVENT = 1 << 0,
+    CHAT_CONNECTIONS_EVENT_CLOSED = 1 << 31
+} bCHAT_CONNECTIONS_EVENT_TYPE;
 
 
 typedef struct
@@ -36,7 +36,7 @@ typedef struct
 typedef struct
 {
     sCHAT_CONNETIONS_AUTH_EVENT_TYPE type;
-    sCHAT_USER_ID                    user_id;
+    sCHAT_USER                       user_info;
 } sCHAT_CONNECTIONS_AUTH_EVENT;
 
 
@@ -55,7 +55,7 @@ typedef union
 
 typedef void (*fCHAT_CONNECTIONS_USER_CBACK) (
     void*                         user_arg,
-    eCHAT_CONNECTIONS_EVENT_TYPE  event,
+    bCHAT_CONNECTIONS_EVENT_TYPE  event_mask,
     uCHAT_CONNECTIONS_CBACK_DATA* data);
 
 

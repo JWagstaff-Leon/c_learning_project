@@ -10,7 +10,7 @@
 
 void chat_server_connections_cback(
     void*                               user_arg,
-    eCHAT_CONNECTIONS_EVENT_TYPE        event_mask,
+    bCHAT_CONNECTIONS_EVENT_TYPE        event_mask,
     const uCHAT_CONNECTIONS_CBACK_DATA* data)
 {
     sCHAT_SERVER_CBLK*   master_cblk_ptr;
@@ -18,8 +18,6 @@ void chat_server_connections_cback(
 
     assert(NULL != user_arg);
     master_cblk_ptr = user_arg;
-
-    
 
     if (event_mask & CHAT_CONNECTIONS_EVENT_CLOSED)
     {

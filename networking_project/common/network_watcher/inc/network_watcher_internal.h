@@ -34,9 +34,8 @@ typedef struct
 
     struct pollfd fds[2];
     
-    int             control_pipe[2];
-    pthread_mutex_t control_mutex;
-    bool            polling;
+    int             cancel_pipe[2];
+    pthread_mutex_t cancel_mutex;
 
     fNETWORK_WATCHER_USER_CBACK user_cback;
     void*                       user_arg;

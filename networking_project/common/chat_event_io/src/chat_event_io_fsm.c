@@ -8,7 +8,7 @@
 #include "message_queue.h"
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
+bCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
     sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {

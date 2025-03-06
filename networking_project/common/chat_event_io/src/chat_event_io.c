@@ -49,12 +49,12 @@ eSTATUS chat_event_io_create(
 }
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
+bCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
     CHAT_EVENT_IO      chat_event_io_writer,
     const sCHAT_EVENT* event)
 {
     sCHAT_EVENT_IO_MESSAGE message;
-    eCHAT_EVENT_IO_RESULT  result;
+    bCHAT_EVENT_IO_RESULT  result;
 
     assert(NULL != chat_event_io_writer);
     assert(NULL != event);
@@ -74,7 +74,7 @@ eCHAT_EVENT_IO_RESULT chat_event_io_populate_writer(
 }
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_read_from_fd(
+bCHAT_EVENT_IO_RESULT chat_event_io_read_from_fd(
     CHAT_EVENT_IO chat_event_io,
     int           fd)
 {
@@ -93,14 +93,14 @@ eCHAT_EVENT_IO_RESULT chat_event_io_read_from_fd(
 }
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
+bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     CHAT_EVENT_IO restrict chat_event_io,
     sCHAT_EVENT*  restrict event_buffer)
 {
     sCHAT_EVENT_IO_OPERATOR reader;
     uint32_t                extracted_event_size;
 
-    eCHAT_EVENT_IO_RESULT* result;
+    bCHAT_EVENT_IO_RESULT* result;
 
     assert(NULL != chat_event_io);
     assert(NULL != event_buffer);
@@ -142,7 +142,7 @@ eCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
 }
 
 
-eCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
+bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
     CHAT_EVENT_IO      chat_event_io,
     int                fd)
 {

@@ -34,10 +34,10 @@ typedef enum
     CHAT_EVENT_USERNAME_REJECTED,
 
     CHAT_EVENT_PASSWORD_REQUEST,
-    CHAT_EVENT_PASSWORD_SUBMIT,    // Sent from the server is to create a password; from a user is to login
+    CHAT_EVENT_PASSWORD_SUBMIT,
     CHAT_EVENT_PASSWORD_REJECTED,
 
-    CHAT_EVENT_LOGGED_IN,
+    CHAT_EVENT_AUTHENTICATED,
 
     CHAT_EVENT_USER_LIST,
     CHAT_EVENT_USER_JOIN,
@@ -53,7 +53,7 @@ typedef enum
 typedef struct
 {
     eCHAT_EVENT_TYPE type;
-    sCHAT_USER_ID    origin;
+    sCHAT_USER       origin;
 
     uint16_t length;
     uint8_t  data[CHAT_EVENT_MAX_DATA_SIZE];
@@ -65,6 +65,9 @@ typedef struct
 
 // Functions -------------------------------------------------------------------
 
+eSTATUS chat_event_copy(
+    sCHAT_EVENT*       restrict dst,
+    const sCHAT_EVENT* restrict src);
 
 
 #ifdef __cplusplus

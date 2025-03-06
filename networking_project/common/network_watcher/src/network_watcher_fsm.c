@@ -44,28 +44,8 @@ static eSTATUS do_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
     int poll_status;
-    int flush_buffer[128];
 
-    {
-        pthread_mutex_lock(master_cblk_ptr->control_mutex);
-        master_cblk_ptr->polling = true;
-        pthread_mutex_unlock(master_cblk_ptr->control_mutex);
-    }
-    
     poll_status = poll(master_cblk_ptr->fds, 2, 0);
-
-    {
-        pthread_mutex_lock(master_cblk_ptr->control_mutex);
-
-        master_cblk_ptr->polling = false;
-        
-        while (read(master_cblk_ptr->control_pipe[PIPE_END_READ],
-               flush_buffer,
-               sizeof(flush_buffer)) > 0);
-
-        pthread_mutex_unlock(master_cblk_ptr->control_mutex);
-    }
-    
     if (poll_status < 0)
     {
         return STATUS_FAILURE;
@@ -73,8 +53,6 @@ static eSTATUS do_watch(
 
     if (master_cblk_ptr->fds[1].revents & POLLIN)
     {
-        pthread_mutex_lock(master_cblk_ptr->control_mutex);
-        pthread_mutex_unlock(master_cblk_ptr->control_mutex);
         return STATUS_CLOSED;
     }
 
@@ -88,7 +66,7 @@ static void open_processing(
 {
     eSTATUS status;
 
-    uNETWORK_WATCHER_CBACK_DATA cback_data;
+    sNETWORK_WATCHER_CBACK_DATA cback_data;
 
     switch (message->type)
     {
@@ -116,13 +94,6 @@ static void open_processing(
                                                 &cback_data);
                     break;
                 }
-                case STATUS_CLOSED:
-                {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                NETWORK_WATCHER_EVENT_CANCELLED,
-                                                NULL);
-                    break;
-                }
                 default:
                 {
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -131,6 +102,13 @@ static void open_processing(
                     break;
                 }
             }
+            break;
+        }
+        case NETWORK_WATCHER_MESSAGE_CANCEL:
+        {
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        NETWORK_WATCHER_EVENT_CANCELLED,
+                                        NULL);
             break;
         }
         case NETWORK_WATCHER_MESSAGE_CLOSE:
@@ -177,6 +155,8 @@ static void fsm_cblk_close(
     void*                       user_arg;
 
     assert(NULL != master_cblk_ptr);
+
+    pthread_mutex_destroy(&master_cblk_ptr->cancel_mutex);
 
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;

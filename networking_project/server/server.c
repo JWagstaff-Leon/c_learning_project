@@ -33,7 +33,7 @@ typedef enum
 static pthread_mutex_t k_server_mutex;
 static pthread_cond_t  k_server_cond_var;
 
-static eCHAT_SERVER_EVENT_TYPE k_last_event;
+static bCHAT_SERVER_EVENT_TYPE k_last_event;
 
 
 #define MAIN_MESSAGE_QUEUE_SIZE 8
@@ -54,7 +54,7 @@ eSTATUS create_chat_server_thread(
 
 void chat_server_cback(
     void*                    user_arg,
-    eCHAT_SERVER_EVENT_TYPE  mask,
+    bCHAT_SERVER_EVENT_TYPE  event_mask,
     uCHAT_SERVER_CBACK_DATA* data)
 {
     (void)data;
