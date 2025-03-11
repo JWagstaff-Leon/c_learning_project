@@ -21,10 +21,9 @@ extern "C" {
 
 typedef enum
 {
-    NETWORK_WATCHER_MODE_READ,
-    NETWORK_WATCHER_MODE_WRITE,
-    NETWORK_WATCHER_MODE_BOTH
-} eNETWORK_WATCHER_MODE;
+    NETWORK_WATCHER_MODE_READ  = 1 << 0,
+    NETWORK_WATCHER_MODE_WRITE = 1 << 1
+} bNETWORK_WATCHER_MODE;
 
 
 typedef enum
@@ -38,7 +37,7 @@ typedef enum
 
 typedef struct
 {
-    short revents;
+    bNETWORK_WATCHER_MODE modes_complete;
 } sNETWORK_WATCHER_CBACK_DATA_WATCH_COMPLETE;
 
 
@@ -67,7 +66,7 @@ eSTATUS network_watcher_create(
 
 eSTATUS network_watcher_start_watch(
     NETWORK_WATCHER       network_watcher,
-    eNETWORK_WATCHER_MODE mode,
+    bNETWORK_WATCHER_MODE mode,
     int                   fd);
 
 

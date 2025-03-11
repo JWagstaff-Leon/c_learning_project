@@ -95,47 +95,6 @@ fail_alloc_chat_connection:
 }
 
 
-// TODO fill these out
-eSTATUS chat_connection_request_username(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_EVENT*    request_event)
-{
-    
-}
-
-
-eSTATUS chat_connection_reject_username(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_EVENT*    request_event)
-{
-    
-}
-
-
-eSTATUS chat_connection_request_password(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_EVENT*    request_event)
-{
-    
-}
-
-
-eSTATUS chat_connection_reject_password(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_EVENT*    request_event)
-{
-    
-}
-
-
-eSTATUS chat_connection_authenticated(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_USER*     user_info)
-{
-    
-}
-
-
 eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION chat_connection,
     sCHAT_EVENT*    event)

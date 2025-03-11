@@ -24,7 +24,8 @@ extern "C" {
 // Types -----------------------------------------------------------------------
 
 typedef enum {
-    CHAT_CONNECTION_STATE_OPEN,
+    CHAT_CONNECTION_STATE_READING,
+    CHAT_CONNECTION_STATE_READING_WRITING,
     CHAT_CONNECTION_STATE_CANCELLING,
     CHAT_CONNECTION_STATE_CLOSING,
     CHAT_CONNECTION_STATE_CLOSED

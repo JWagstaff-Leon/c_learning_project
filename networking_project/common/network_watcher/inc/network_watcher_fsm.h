@@ -28,7 +28,7 @@ typedef enum
 typedef struct
 {
     int                   fd;
-    eNETWORK_WATCHER_MODE mode;
+    bNETWORK_WATCHER_MODE mode;
 } sNETWORK_WATCHER_NEW_WATCH_PARAMS;
 
 

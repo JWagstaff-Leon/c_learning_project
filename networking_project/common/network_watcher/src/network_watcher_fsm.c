@@ -11,32 +11,23 @@
 #include "message_queue.h"
 
 
-static eSTATUS setup_watch(
+static void setup_watch(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr,
     int                    fd,
-    eNETWORK_WATCHER_MODE  mode)
+    bNETWORK_WATCHER_MODE  mode)
 {
     master_cblk_ptr->fds[0].fd = fd;
 
-    switch (mode)
-    {
-        case NETWORK_WATCHER_MODE_READ:
-        {
-            master_cblk_ptr->fds[0].events = POLLIN | POLLHUP;
-            break;
-        }
-        case NETWORK_WATCHER_MODE_WRITE:
-        {
-            master_cblk_ptr->fds[0].events = POLLOUT | POLLHUP;
-            break;
-        }
-        case NETWORK_WATCHER_MODE_BOTH:
-        {
-            master_cblk_ptr->fds[0].events = POLLIN | POLLOUT | POLLHUP;
-        }
-    }
+    master_cblk_ptr->fds[0].events = POLLHUP;
 
-    return STATUS_SUCCESS;
+    if (mode & NETWORK_WATCHER_MODE_READ)
+    {
+        master_cblk_ptr->fds[0].events |= POLLIN;
+    }
+    if (mode & NETWORK_WATCHER_MODE_WRITE)
+    {
+        master_cblk_ptr->fds[0].events |= POLLOUT;
+    }
 }
 
 

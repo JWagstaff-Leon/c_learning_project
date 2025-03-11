@@ -11,83 +11,177 @@
 #include "message_queue.h"
 
 
-static void watch_complete(
-    sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
-    const sCHAT_CONNECTION_MESSAGE* message)
+static void read_ready(
+    sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
     uCHAT_CONNECTION_CBACK_DATA cback_data;
 
     bCHAT_EVENT_IO_RESULT main_io_result;
     bCHAT_EVENT_IO_RESULT extract_result;
 
-    if (message->params.watch_complete.revents & POLLOUT)
+    do
     {
-        // Write into the IO
-        // If complete, start another write if the buffer has more to write
-    }
-    if (message->params.watch_complete.revents & POLLIN)
-    {
-        do
+        main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io,
+                                                    master_cblk_ptr->fd);
+        if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
         {
-            main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io,
-                                                        master_cblk_ptr->fd);
-
-            if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
+            assert(0);
+            // REVIEW do something here? Logging?
+            break;
+        }
+        if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
+        {
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CONNECTION_EVENT_CONNECTION_CLOSED,
+                                        NULL);
+            break;
+        }
+        if (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED)
+        {
+            do
             {
-                assert(0);
-                // REVIEW do something here? Logging?
-                break;
-            }
-            if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
-            {
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_CONNECTION_EVENT_CONNECTION_CLOSED,
-                                            NULL);
-                break;
-            }
-            if (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED)
-            {
-                do
+                extract_result = chat_event_io_extract_read_event(master_cblk_ptr->io,
+                                                                  &cback_data.incoming_event.event);
+                if (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED)
                 {
-                    extract_result = chat_event_io_extract_read_event(master_cblk_ptr->io,
-                                                                      &cback_data.incoming_event.event);
-                    if (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED)
-                    {
-                        master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                    CHAT_CONNECTION_EVENT_INCOMING_EVENT,
-                                                    cback_data);
-                    }
-                } while (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_MORE);
-            }
-        } while (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED);
-    }
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CONNECTION_EVENT_INCOMING_EVENT,
+                                                cback_data);
+                }
+            } while (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_MORE);
+        }
+    } while (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED);
 }
 
 
-static void open_processing(
+static void write_ready(
+    sCHAT_CONNECTION_CBLK* master_cblk_ptr)
+{
+    sCHAT_EVENT event_buffer;
+
+    eSTATUS               status;
+    bCHAT_EVENT_IO_RESULT main_io_result;
+
+    do
+    {
+        main_io_result = chat_event_io_write_to_fd(master_cblk_ptr->io, master_cblk_ptr->fd);
+
+        if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
+        {
+            assert(0);
+            // REVIEW do something here? Logging?
+            break;
+        }
+        
+        if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
+        {
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CONNECTION_EVENT_CONNECTION_CLOSED,
+                                        NULL);
+            break;
+        }
+
+        if (CHAT_EVENT_IO_RESULT_NOT_POPULATED  & main_io_result ||
+            CHAT_EVENT_IO_RESULT_WRITE_FINISHED & main_io_result)
+        {
+            if (message_queue_get_count(master_cblk_ptr->event_queue) == 0)
+            {
+                break;
+            }
+
+            status = message_queue_get(master_cblk_ptr->event_queue,
+                                       &event_buffer,
+                                       sizeof(event_buffer));
+            assert(STATUS_SUCCESS == status);
+
+            main_io_result = chat_event_io_populate_writer(master_cblk_ptr->io, &event_buffer);
+        }
+    } while (main_io_result & CHAT_EVENT_IO_RESULT_INCOMPLETE |
+             main_io_result & CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS);
+}
+
+
+static void reading_processing(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
     eSTATUS status;
-    int     snprintf_status;
-
-    sCHAT_EVENT           event_buffer;
-    eNETWORK_WATCHER_MODE watch_mode;
 
     switch (message->type)
     {
         case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
         {
-            watch_complete(master_cblk_ptr, message);
+            if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_READ)
+            {
+                read_ready(master_cblk_ptr, message);
+            }
+
+            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                 NETWORK_WATCHER_MODE_READ,
+                                                 master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
+        {
+            status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CANCELLING;
+
+            status = message_queue_put(master_cblk_ptr->event_queue,
+                                       &message->params.queue_event.event,
+                                       sizeof(message->params.queue_event.event));
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
+        {
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+
+            status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
+    }
+}
+
+
+static void reading_writing_processing(
+    sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
+    const sCHAT_CONNECTION_MESSAGE* message)
+{
+    eSTATUS               status;
+    bNETWORK_WATCHER_MODE watch_mode;
+
+    switch (message->type)
+    {
+        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        {
+            if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_WRITE)
+            {
+                write_ready(master_cblk_ptr, message);
+            }
+
+            if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_READ)
+            {
+                read_ready(master_cblk_ptr, message);
+            }
+
+            watch_mode = NETWORK_WATCHER_MODE_READ;
 
             if (message_queue_get_count(master_cblk_ptr->event_queue) > 0)
             {
-                watch_mode = NETWORK_WATCHER_MODE_BOTH;
+                watch_mode |= NETWORK_WATCHER_MODE_WRITE;
             }
             else
             {
-                watch_mode = NETWORK_WATCHER_MODE_READ;
+                master_cblk_ptr->state  = CHAT_CONNECTION_STATE_READING;
             }
+
             status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
                                                  watch_mode,
                                                  master_cblk_ptr->fd);
@@ -97,11 +191,18 @@ static void open_processing(
         }
         case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
         {
-            // TODO check if cancelling the watch is needed, and transition states if so
-
             status = message_queue_put(master_cblk_ptr->event_queue,
-                                       &event_buffer,
-                                       sizeof(event_buffer));
+                                       &message->params.queue_event.event,
+                                       sizeof(message->params.queue_event.event));
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
+        {
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+
+            status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
 
             break;
@@ -109,29 +210,61 @@ static void open_processing(
     }
 }
 
-
 static void cancelling_processing(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
+    eSTATUS               status;
+    bNETWORK_WATCHER_MODE watch_mode;
+
     switch (message->type)
     {
         case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
         {
-            watch_complete(master_cblk_ptr, message);
+            if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_WRITE)
+            {
+                write_ready(master_cblk_ptr, message);
+            }
+
+            if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_READ)
+            {
+                read_ready(master_cblk_ptr, message);
+            }
+
             break;
         }
         case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
         {
-            master_cblk_ptr->state = CHAT_CONNECTION_STATE_OPEN;
+            watch_mode = NETWORK_WATCHER_MODE_READ;
+
+            if (message_queue_get_count(master_cblk_ptr->event_queue) > 0)
+            {
+                watch_mode             |= NETWORK_WATCHER_MODE_WRITE;
+                master_cblk_ptr->state  = CHAT_CONNECTION_STATE_READING_WRITING;
+            }
+            else
+            {
+                master_cblk_ptr->state - CHAT_CONNECTION_STATE_READING;
+            }
+
+            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                 watch_mode,
+                                                 master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
             break;
         }
         case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
         {
+            status = message_queue_put(master_cblk_ptr->event_queue,
+                                       &message->params.queue_event.event,
+                                       sizeof(message->params.queue_event.event));
+            assert(STATUS_SUCCESS == status);
+
             break;
         }
         case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
         {
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
             break;
         }
     }
@@ -144,7 +277,11 @@ static void closing_processing(
 {
     switch (message->type)
     {
-        // TODO this
+        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
+        {
+            master_cblk_ptr->state - CHAT_CONNECTION_STATE_CLOSED;
+            break;
+        }
     }
 }
 
@@ -155,9 +292,14 @@ static void dispatch_message(
 {
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CONNECTION_STATE_OPEN:
+        case CHAT_CONNECTION_STATE_READING:
         {
-            open_processing(master_cblk_ptr, message);
+            reading_processing(master_cblk_ptr, message);
+            break;
+        }
+        case CHAT_CONNECTION_STATE_READING_WRITING:
+        {
+            reading_writing_processing(master_cblk_ptr, message);
             break;
         }
         case CHAT_CONNECTION_STATE_CANCELLING:
@@ -183,14 +325,44 @@ static void dispatch_message(
 static void fsm_cblk_init(
     sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
-    // TODO this
+    eSTATUS status;
+
+    status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                         NETWORK_WATCHER_MODE_READ,
+                                        master_cblk_ptr->fd);
+    assert(STATUS_SUCCESS == status);
+    master_cblk_ptr->state = CHAT_CONNECTION_STATE_READING
 }
 
 
 static void fsm_cblk_close(
     sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
-    // TODO this
+    eSTATUS status;
+
+    fCHAT_CONNECTION_USER_CBACK user_cback;
+    void*                       user_arg;
+
+    status = network_watcher_close(master_cblk_ptr->network_watcher);
+    assert(STATUS_SUCCESS == status);
+    
+    status = message_queue_destroy(master_cblk_ptr->event_queue);
+    assert(STATUS_SUCCESS == status);
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    status = chat_event_io_close(master_cblk_ptr->io);
+    assert(STATUS_SUCCESS == status);
+
+    user_cback = master_cblk_ptr->user_cback;
+    user_arg = master_cblk_ptr->user_arg;
+
+    generic_deallocator(master_cblk_ptr);
+
+    user_cback(user_arg,
+               CHAT_CONNECTION_EVENT_CLOSED,
+               NULL);
 }
 
 

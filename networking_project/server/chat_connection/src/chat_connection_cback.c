@@ -25,7 +25,7 @@ void chat_connection_watcher_cback(
         message.type = CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE;
         
         assert(NULL != data);
-        message.params.watch_complete.revents = data->watch_complete.revents;
+        message.params.watch_complete.modes_complete = data->watch_complete.modes_complete;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,

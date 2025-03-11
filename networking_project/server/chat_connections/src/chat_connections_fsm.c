@@ -14,7 +14,7 @@ static eSTATUS fsm_cblk_init(
     sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
 {
     // TODO this
-    return STAUTS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 

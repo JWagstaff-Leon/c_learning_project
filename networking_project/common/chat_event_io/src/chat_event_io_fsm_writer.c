@@ -68,10 +68,17 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
                    message->params.populate_writer.event.length);
 
             result.event = CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS;
+
+            writer->state = CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS;
             return result;
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
+            if (CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS != writer->state)
+            {
+                result.event = CHAT_EVENT_IO_RESULT_NOT_POPULATED;
+                return result;
+            }
             status = do_write(writer,
                               message->params.operate.fd);
             switch (status)
@@ -85,8 +92,6 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
                 }
                 case STATUS_INCOMPLETE:
                 {
-                    writer->state = CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS;
-
                     return CHAT_EVENT_IO_RESULT_INCOMPLETE;
                 }
                 case STATUS_FAILURE:

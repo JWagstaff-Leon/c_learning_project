@@ -91,7 +91,7 @@ fail_alloc_cblk:
 
 eSTATUS network_watcher_start_watch(
     NETWORK_WATCHER       network_watcher,
-    eNETWORK_WATCHER_MODE mode,
+    bNETWORK_WATCHER_MODE mode,
     int                   fd)
 {
     sNETWORK_WATCHER_CBLK*   master_cblk_ptr;
@@ -104,23 +104,9 @@ eSTATUS network_watcher_start_watch(
         return STATUS_INVALID_ARG;
     }
 
-    if (NULL == watch)
+    if (!(mode & (NETWORK_WATCHER_MODE_READ | NETWORK_WATCHER_MODE_WRITE)))
     {
         return STATUS_INVALID_ARG;
-    }
-
-    switch (mode)
-    {
-        case NETWORK_WATCHER_MODE_READ:
-        case NETWORK_WATCHER_MODE_WRITE:
-        case NETWORK_WATCHER_MODE_BOTH:
-        {
-            break;
-        }
-        default:
-        {
-            return STATUS_INVALID_ARG;
-        }
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
