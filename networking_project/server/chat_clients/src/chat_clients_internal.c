@@ -1,13 +1,13 @@
-#include "chat_connections.h"
-#include "chat_connections_internal.h"
+#include "chat_clients.h"
+#include "chat_clients_internal.h"
 
 #include <sys/socket.h>
 #include <sys/types.h>
 
 
-void chat_connections_process_event(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
-    const sCHAT_EVENT*      event)
+void chat_clients_process_event(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    const sCHAT_EVENT*  event)
 {
     eSTATUS           status;
     uint32_t          connection_index;
@@ -166,7 +166,7 @@ void chat_connections_process_event(
 }
 
 
-eSTATUS chat_connections_accept_new_connection(
+eSTATUS chat_clients_accept_new_connection(
     int  listen_fd,
     int* out_new_fd)
 {

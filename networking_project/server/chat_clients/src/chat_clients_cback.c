@@ -1,8 +1,8 @@
-#include "chat_connections.h"
-#include "chat_connections_internal.h"
+#include "chat_clients.h"
+#include "chat_clients_internal.h"
 
 
-void chat_connections_connection_cback(
+void chat_clients_connection_cback(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
     const uCHAT_CONNECTION_CBACK_DATA* data)

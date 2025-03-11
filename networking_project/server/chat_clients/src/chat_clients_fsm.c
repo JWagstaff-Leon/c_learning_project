@@ -1,6 +1,6 @@
-#include "chat_connections.h"
-#include "chat_connections_internal.h"
-#include "chat_connections_fsm.h"
+#include "chat_clients.h"
+#include "chat_clients_internal.h"
+#include "chat_clients_fsm.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -11,7 +11,7 @@
 
 
 static eSTATUS fsm_cblk_init(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
     // TODO this
     return STATUS_SUCCESS;
@@ -19,9 +19,9 @@ static eSTATUS fsm_cblk_init(
 
 
 static void fsm_cblk_close(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
-    fCHAT_CONNECTIONS_USER_CBACK user_cback;
+    fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                        user_arg;
 
     assert(NULL != master_cblk_ptr);
@@ -34,7 +34,7 @@ static void fsm_cblk_close(
     // TODO free the cblk
 
     user_cback(user_arg,
-               CHAT_CONNECTIONS_EVENT_CLOSED,
+               CHAT_CLIENTS_EVENT_CLOSED,
                NULL);
 }
 
@@ -80,8 +80,8 @@ fail_message_queue_create:
 
 
 static void chat_connection_close(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
-    uint32_t                connection_index)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    uint32_t            connection_index)
 {
     eSTATUS           status;
     int               close_status;
@@ -122,7 +122,7 @@ static void chat_connection_close(
 
 
 static void check_closed_connections(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
     uint32_t connection_index;
 
@@ -139,7 +139,7 @@ static void check_closed_connections(
 
 
 static void check_read_ready_connections(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
     uint32_t connection_index;
 
@@ -149,7 +149,7 @@ static void check_read_ready_connections(
     bCHAT_EVENT_IO_RESULT chat_event_io_result;
     sCHAT_EVENT           event_buffer;
 
-    uCHAT_CONNECTIONS_CBACK_DATA callback_data;
+    uCHAT_CLIENTS_CBACK_DATA callback_data;
 
     for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
     {
@@ -179,7 +179,7 @@ static void check_read_ready_connections(
                                    sizeof(callback_data.incoming_event.event.data));
 
                             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                        CHAT_CONNECTIONS_EVENT_INCOMING_EVENT,
+                                                        CHAT_CLIENTS_EVENT_INCOMING_EVENT,
                                                         &callback_data);
                         }
                     } while (CHAT_EVENT_IO_RESULT_EXTRACT_MORE & chat_event_io_result);
@@ -198,7 +198,7 @@ static void check_read_ready_connections(
 
 
 static void check_write_ready_connections(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
     eSTATUS status;
 
@@ -258,7 +258,7 @@ static void check_write_ready_connections(
 
 
 static eSTATUS realloc_connections(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr,
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     uint32_t                new_max_connections)
 {
     eSTATUS status;
@@ -356,7 +356,7 @@ fail_alloc_connections:
 
 
 static void check_new_connections(
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr)
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
     eSTATUS           status;
     uint32_t          connection_index;
@@ -384,7 +384,7 @@ static void check_new_connections(
 
         if (NULL != relevant_connection)
         {
-            status = chat_connections_accept_new_connection(master_cblk_ptr->connections[0].fd,
+            status = chat_clients_accept_new_connection(master_cblk_ptr->connections[0].fd,
                                                             &new_connection_fd);
             if (STATUS_SUCCESS == status)
             {
@@ -401,14 +401,14 @@ static void check_new_connections(
 
 
 static void open_processing(
-    sCHAT_CONNECTIONS_CBLK*          master_cblk_ptr,
-    const sCHAT_CONNECTIONS_MESSAGE* message)
+    sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENTS_MESSAGE* message)
 {
     eSTATUS status;
 
     switch (message->type)
     {
-        case CHAT_CONNECTIONS_MESSAGE_READ_READY:
+        case CHAT_CLIENTS_MESSAGE_READ_READY:
         {
             check_closed_connections(master_cblk_ptr);
             check_read_ready_connections(master_cblk_ptr);
@@ -422,7 +422,7 @@ static void open_processing(
 
             break;
         }
-        case CHAT_CONNECTIONS_MESSAGE_WRITE_READY:
+        case CHAT_CLIENTS_MESSAGE_WRITE_READY:
         {
             check_closed_connections(master_cblk_ptr);
             check_write_ready_connections(master_cblk_ptr);
@@ -440,15 +440,15 @@ static void open_processing(
 
 
 void dispatch_message(
-    sCHAT_CONNECTIONS_CBLK*          master_cblk_ptr,
-    const sCHAT_CONNECTIONS_MESSAGE* message)
+    sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENTS_MESSAGE* message)
 {
     assert(NULL != master_cblk_ptr);
     assert(NULL != message);
 
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CONNECTIONS_STATE_OPEN:
+        case CHAT_CLIENTS_STATE_OPEN:
         {
             open_processing(master_cblk_ptr, message);
             break;
@@ -457,13 +457,13 @@ void dispatch_message(
 }
 
 
-void* chat_connections_thread_entry(
+void* chat_clients_thread_entry(
     void* arg)
 {
-    sCHAT_CONNECTIONS_CBLK* master_cblk_ptr;
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
     eSTATUS                 status;
 
-    sCHAT_CONNECTIONS_MESSAGE message;
+    sCHAT_CLIENTS_MESSAGE message;
 
     assert(NULL != arg);
     master_cblk_ptr = arg;
@@ -471,7 +471,7 @@ void* chat_connections_thread_entry(
     status = fsm_cblk_init(master_cblk_ptr);
     assert(STATUS_SUCCESS == status);
 
-    while (CHAT_CONNECTIONS_STATE_CLOSED != master_cblk_ptr->state)
+    while (CHAT_CLIENTS_STATE_CLOSED != master_cblk_ptr->state)
     {
         status = message_queue_get(master_cblk_ptr->message_queue,
                                    &message,
