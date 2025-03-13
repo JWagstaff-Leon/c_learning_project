@@ -48,7 +48,7 @@ typedef union
 
 
 typedef void (fNETWORK_WATCHER_USER_CBACK*) (
-    void*                              arg,
+    void*                              user_arg,
     bNETWORK_WATCHER_EVENT_TYPE        event_mask,
     const sNETWORK_WATCHER_CBACK_DATA* data);
 

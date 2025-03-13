@@ -30,25 +30,48 @@ extern "C" {
 typedef enum
 {
     CHAT_CLIENTS_STATE_OPEN,
+    CHAT_CLIENTS_STATE_CLOSING,
     CHAT_CLIENTS_STATE_CLOSED
 } eCHAT_CLIENTS_STATE;
 
 
-typedef enum {
-    CHAT_CLIENTS_CLIENT_STATE_INIT,
-    CHAT_CLIENTS_CLIENT_STATE_USERNAME_ENTRY,
-    CHAT_CLIENTS_CLIENT_STATE_PASSWORD_ENTRY,
-    CHAT_CLIENTS_CLIENT_STATE_ACTIVE
-}
-eCHAT_CLIENTS_CLIENT_STATE;
+typedef enum
+{
+    CHAT_CLIENT_STATE_INIT,
+    CHAT_CLIENT_STATE_AUTHENTICATING,
+    CHAT_CLIENT_STATE_ACTIVE
+} eCHAT_CLIENT_STATE;
+
+
+typedef enum
+{
+    CHAT_CLIENT_STATE_USERNAME_ENTRY,
+    CHAT_CLIENT_STATE_PASSWORD_ENTRY
+} eCHAT_CLIENT_AUTH_SUBSTATE;
 
 
 typedef struct
 {
-    eCHAT_CLIENTS_CLIENT_STATE state;
-    CHAT_CONNECTION            connection;
-    sCHAT_USER                 user_info;
-} sCHAT_CLIENTS_CLIENT;
+    pthread_mutex_t mutex;
+
+    bool active;   // Set internally to determine if the auth still needs to be done
+    bool complete; // Set externally to determine if the auth is complete
+
+    sCHAT_USER                user_info;   // Set externally to the resultant user info on completed auth
+    eCHAT_CLIENTS_AUTH_RESULT auth_result; // Set externally to what the result of the auth operation was
+
+    void* client_ptr;
+} sCHAT_CLIENT_AUTH_STATE;
+
+
+typedef struct
+{
+    eCHAT_CLIENT_STATE       state;
+    sCHAT_CLIENT_AUTH_STATE* auth_state;
+
+    CHAT_CONNECTION connection;
+    sCHAT_USER      user_info;
+} sCHAT_CLIENT;
 
 
 typedef struct
@@ -59,10 +82,19 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    sCHAT_CLIENTS_CLIENT* client_list;
-    uint32_t              client_count;
-    uint32_t              max_clients;
+    NETWORK_WATCHER new_connection_watch;
+
+    sCHAT_CLIENT* client_list;
+    uint32_t      client_count;
+    uint32_t      max_clients;
 } sCHAT_CLIENTS_CBLK;
+
+
+typedef struct
+{
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
+    sCHAT_CLIENT*       client_ptr;
+} sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 
 
 // Constants -------------------------------------------------------------------
@@ -77,7 +109,7 @@ void* chat_clients_thread_entry(
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    const sCHAT_EVENT*      event);
+    const sCHAT_EVENT*  event);
 
 
 eSTATUS chat_clients_accept_new_connection(

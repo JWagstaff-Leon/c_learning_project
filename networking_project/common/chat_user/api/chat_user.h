@@ -28,6 +28,16 @@ typedef struct
 } sCHAT_USER;
 
 
+typedef struct
+{
+    char*  username;
+    size_t username_size;
+
+    char*  password;
+    size_t password_size;
+} sCHAT_USER_CREDENTIALS;
+
+
 // Functions -------------------------------------------------------------------
 
 

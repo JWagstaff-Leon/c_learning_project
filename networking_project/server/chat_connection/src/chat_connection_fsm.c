@@ -72,7 +72,7 @@ static void write_ready(
             // REVIEW do something here? Logging?
             break;
         }
-        
+
         if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
         {
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -277,6 +277,7 @@ static void closing_processing(
 {
     switch (message->type)
     {
+        // FIXME add logic to empty event queue before closing
         case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
         {
             master_cblk_ptr->state - CHAT_CONNECTION_STATE_CLOSED;

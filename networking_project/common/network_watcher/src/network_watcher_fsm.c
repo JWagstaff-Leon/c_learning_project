@@ -79,7 +79,16 @@ static void open_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    cback_data.watch_complete.revents = master_cblk_ptr->fds[0].revents;
+                    cback_data.watch_complete.modes_complete = 0;
+                    if (master_cblk_ptr->fds[0].revents & POLLIN)
+                    {
+                        cback_data.watch_complete.modes_complete |= NETWORK_WATCHER_MODE_READ;
+                    }
+                    if (master_cblk_ptr->fds[0].revents & POLLOUT)
+                    {
+                        cback_data.watch_complete.modes_complete |= NETWORK_WATCHER_MODE_WRITE;
+                    }
+                    
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                                 NETWORK_WATCHER_EVENT_WATCH_COMPLETE,
                                                 &cback_data);
@@ -98,7 +107,7 @@ static void open_processing(
         case NETWORK_WATCHER_MESSAGE_CANCEL:
         {
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        NETWORK_WATCHER_EVENT_CANCELLED,
+                                        NETWORK_WATCHER_EVENT_WATCH_CANCELLED,
                                         NULL);
             break;
         }

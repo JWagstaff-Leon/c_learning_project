@@ -6,6 +6,8 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include "chat_event.h"
+#include "chat_user.h"
 #include "common_types.h"
 #include "network_watcher.h"
 
@@ -18,45 +20,50 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_CLIENTS_EVENT_INCOMING_EVENT = 1 << 0,
+    CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION = 1 << 0,
+
     CHAT_CLIENTS_EVENT_CLOSED = 1 << 31
 } bCHAT_CLIENTS_EVENT_TYPE;
 
 
+typedef enum
+{
+    CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED,
+    CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED,
+
+    CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED,
+    CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED,
+
+    CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED
+} eCHAT_CLIENTS_AUTH_RESULT;
+
+
 typedef struct
 {
-    CHAT_CLIENTS_AUTH_EVENT_AUTHENTICATED,
-
-    CHAT_CLIENTS_AUTH_EVENT_NEW_USER,
-    CHAT_CLIENTS_AUTH_EVENT_PASSWORD_REQUIRED,
-    CHAT_CLIENTS_AUTH_EVENT_PASSWORD_REJECTED
-} sCHAT_CONNETIONS_AUTH_EVENT_TYPE;
-
-
-typedef struct
-{
-    sCHAT_CONNETIONS_AUTH_EVENT_TYPE type;
-    sCHAT_USER                       user_info;
+    eCHAT_CLIENTS_AUTH_RESULT result;
+    const sCHAT_USER*         user_info;
 } sCHAT_CLIENTS_AUTH_EVENT;
 
 
+typedef void* CHAT_CLIENTS_AUTH_OBJECT;
+
 typedef struct
 {
-    sCHAT_EVENT       event;
-    const sCHAT_USER* user;
-} sCHAT_CONNECTION_EVENT_DATA_INCOMING_EVENT;
+    CHAT_CLIENTS_AUTH_OBJECT auth_object;
+    sCHAT_USER_CREDENTIALS   credentials;
+} sCHAT_CLIENTS_CBACK_DATA_REQUEST_AUTHENTICATION;
 
 
 typedef union
 {
-    sCHAT_CONNECTION_EVENT_DATA_INCOMING_EVENT incoming_event;
-} uCHAT_CLIENTS_CBACK_DATA;
+    sCHAT_CLIENTS_CBACK_DATA_REQUEST_AUTHENTICATION request_authentication;
+} sCHAT_CLIENTS_CBACK_DATA;
 
 
 typedef void (*fCHAT_CLIENTS_USER_CBACK) (
     void*                     user_arg,
     bCHAT_CLIENTS_EVENT_TYPE  event_mask,
-    uCHAT_CLIENTS_CBACK_DATA* data);
+    sCHAT_CLIENTS_CBACK_DATA* data);
 
 
 typedef void* CHAT_CLIENTS;
@@ -73,8 +80,8 @@ eSTATUS chat_clients_create(
 
 eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS             chat_clients,
-    const sCHAT_USER*        user,
-    sCHAT_CLIENTS_AUTH_EVENT user_id);
+    CHAT_CLIENTS_AUTH_OBJECT auth_object,
+    sCHAT_CLIENTS_AUTH_EVENT auth_event);
 
 
 eSTATUS chat_clients_close(
