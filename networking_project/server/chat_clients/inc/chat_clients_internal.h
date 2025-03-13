@@ -109,12 +109,31 @@ void* chat_clients_thread_entry(
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    sCHAT_CLIENT*       client_ptr,
     const sCHAT_EVENT*  event);
 
 
 eSTATUS chat_clients_accept_new_connection(
     int  listen_fd,
     int* out_new_fd);
+
+
+eSTATUS chat_clients_client_open(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    sCHAT_CLIENT*       client,
+    int                 fd);
+
+
+void chat_clients_new_connections_cback(
+    void*                              user_arg,
+    bNETWORK_WATCHER_EVENT_TYPE        event_mask,
+    const sNETWORK_WATCHER_CBACK_DATA* data);
+
+
+void chat_clients_connection_cback(
+    void*                              user_arg,
+    bCHAT_CONNECTION_EVENT_TYPE        event_mask,
+    const uCHAT_CONNECTION_CBACK_DATA* data);
 
 
 #ifdef __cplusplus

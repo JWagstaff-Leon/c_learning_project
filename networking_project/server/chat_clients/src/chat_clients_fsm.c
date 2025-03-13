@@ -39,46 +39,6 @@ static void fsm_cblk_close(
 }
 
 
-static eSTATUS chat_connection_open(
-    sCHAT_CONNECTION* connection,
-    int               fd)
-{
-    eSTATUS status;
-    eSTATUS fail_status;
-
-    status = message_queue_create(&connection->event_queue,
-                                  CHAT_CONNECTION_MESSAGE_QUEUE_SIZE,
-                                  sizeof(sCHAT_EVENT));
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_message_queue;
-    }
-
-    status = chat_event_io_create(&connection->io);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_event_io;
-    }
-
-    connection->fd      = fd;
-    connection->state   = CHAT_CONNECTION_STATE_INIT;
-    connection->user.id = CHAT_USER_INVALID_ID;
-    memset(connection->user.name,
-           0,
-           sizeof(connection->user.name));
-
-    return STATUS_SUCCESS;
-
-fail_message_event_io:
-    fail_status = message_queue_destroy(connection->event_queue);
-    assert(STATUS_SUCCESS == fail_status);
-    connection->event_queue = NULL;
-
-fail_message_queue_create:
-    return status;
-}
-
-
 static void chat_connection_close(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     uint32_t            connection_index)
@@ -405,34 +365,110 @@ static void open_processing(
     const sCHAT_CLIENTS_MESSAGE* message)
 {
     eSTATUS status;
+    int     new_connection_fd;
+
+    uint32_t      client_index;
+    sCHAT_CLIENT* relevant_client;
 
     switch (message->type)
     {
-        case CHAT_CLIENTS_MESSAGE_READ_READY:
+        case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
         {
-            check_closed_connections(master_cblk_ptr);
-            check_read_ready_connections(master_cblk_ptr);
-            check_new_connections(master_cblk_ptr);
-
-            status = network_watcher_start_watch(master_cblk_ptr->read_network_watcher,
-                                                 NETWORK_WATCHER_MODE_READ,
-                                                 master_cblk_ptr->read_watches,
-                                                 master_cblk_ptr->connection_count);
-            assert(STATUS_SUCCESS == status);
-
+            chat_clients_process_event(master_cblk_ptr,
+                                       message->params.incoming_event.client_ptr,
+                                       &message->params.incoming_event.event);
             break;
         }
-        case CHAT_CLIENTS_MESSAGE_WRITE_READY:
+        case CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED:
         {
-            check_closed_connections(master_cblk_ptr);
-            check_write_ready_connections(master_cblk_ptr);
+            // TODO close the client
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION:
+        {
+            if (master_cblk_ptr->connection_count >= master_cblk_ptr->max_connections)
+            {
+                status = realloc_connections(master_cblk_ptr,
+                                             master_cblk_ptr->connection_count + 10); // REVIEW make this 10 configurable?
+                if (STATUS_SUCCESS != status)
+                {
+                    // TODO handle failure
+                }
 
-            status = network_watcher_start_watch(master_cblk_ptr->write_network_watcher,
-                                                 NETWORK_WATCHER_MODE_WRITE,
-                                                 master_cblk_ptr->write_watches,
-                                                 master_cblk_ptr->connection_count);
-            assert(STATUS_SUCCESS == status);
+                relevant_client = NULL;
+                for (client_index = 1;
+                    relevant_client == NULL && client_index < master_cblk_ptr->max_clients;
+                    client_index++)
+                {
+                    if (NULL == master_cblk_ptr->client_list[client_index])
+                    {
+                        relevant_client = &master_cblk_ptr->client_list[client_index];
+                    }
+                }
 
+                status = chat_clients_accept_new_connection(master_cblk_ptr->connections[0].fd,
+                                                            &new_connection_fd);
+                if (STATUS_SUCCESS == status)
+                {
+                    status = chat_clients_client_open(master_cblk_ptr,
+                                                      relevant_client,
+                                                      new_connection_fd);
+                    if (STATUS_SUCCESS != status)
+                    {
+                        close(new_connection_fd);
+                    }
+                }
+            }
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_CLOSE:
+        {
+            // TODO start closing
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_ERROR:
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CANCELLED:
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CLOSED:
+        default:
+        {
+            // Should not get here
+            assert(0);
+            break;
+        }
+    }
+}
+
+
+static void closing_processing(
+    sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENTS_MESSAGE* message)
+{
+    eSTATUS status;
+
+    switch (message->type)
+    {
+        case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
+        {
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED:
+        {
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION:
+        {
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CANCELLED:
+        {
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_ERROR:
+        {
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CLOSED:
+        {
             break;
         }
     }
@@ -452,6 +488,16 @@ void dispatch_message(
         {
             open_processing(master_cblk_ptr, message);
             break;
+        }
+        case CHAT_CLIENTS_STATE_CLOSING:
+        {
+            closing_processing(master_cblk_ptr, message);
+            break;
+        }
+        case CHAT_CLIENTS_STATE_CLOSED:
+        {
+            // Should never get here
+            assert(0);
         }
     }
 }
