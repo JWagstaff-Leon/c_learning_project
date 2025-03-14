@@ -54,20 +54,20 @@ typedef struct
 {
     pthread_mutex_t mutex;
 
-    bool active;   // Set internally to determine if the auth still needs to be done
-    bool complete; // Set externally to determine if the auth is complete
+    bool active;   // Set internally to determine if the auth operation still needs to be done
+    bool complete; // Set externally to determine if the auth operation is complete
 
     sCHAT_USER                user_info;   // Set externally to the resultant user info on completed auth
     eCHAT_CLIENTS_AUTH_RESULT auth_result; // Set externally to what the result of the auth operation was
 
     void* client_ptr;
-} sCHAT_CLIENT_AUTH_STATE;
+} sCHAT_CLIENT_AUTH_OPERATION;
 
 
 typedef struct
 {
-    eCHAT_CLIENT_STATE       state;
-    sCHAT_CLIENT_AUTH_STATE* auth_state;
+    eCHAT_CLIENT_STATE           state;
+    sCHAT_CLIENT_AUTH_OPERATION* auth;
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
@@ -109,7 +109,7 @@ void* chat_clients_thread_entry(
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       client_ptr,
+    sCHAT_CLIENT*       source_client,
     const sCHAT_EVENT*  event);
 
 
