@@ -1,6 +1,8 @@
 #include "chat_clients.h"
 #include "chat_clients_internal.h"
 
+#include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -16,15 +18,16 @@ void chat_clients_process_event(
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
-    int     snprintf_status;
 
     uint32_t      client_index;
     sCHAT_CLIENT* relevant_client;
 
     sCHAT_EVENT outgoing_event;
-    int         printed_length;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
+    sCHAT_CLIENT_AUTH*       auth_data;
+    sCHAT_USER_CREDENTIALS*  credentials;
+
 
     switch(event->type)
     {
@@ -60,34 +63,13 @@ void chat_clients_process_event(
         {
             if (CHAT_CLIENT_STATE_ACTIVE == relevant_client->state)
             {
-                outgoing_event.origin.id   = CHAT_USER_ID_SERVER;
-                snprintf_status = snprintf(outgoing_event.origin.name,
-                                           sizeof(outgoing_event.origin.name),
-                                           "%s",
-                                           k_server_name);
-                if (snprintf_status < 1)
-                {
-                    outgoing_event.origin.name[0] = '\0';
-                }
-                else
-                {
-                    outgoing_event.type = CHAT_EVENT_USERNAME_SUBMIT;
-                    printed_length      = snprintf((char*)&outgoing_event.data[0],
-                                                    CHAT_EVENT_MAX_DATA_SIZE,
-                                                    "%s",
-                                                    k_server_name);
+                outgoing_event.origin.id = CHAT_USER_ID_SERVER;
 
-                    outgoing_event.length = printed_length;
-                    if (outgoing_event.length > CHAT_EVENT_MAX_DATA_SIZE)
-                    {
-                        outgoing_event.length = CHAT_EVENT_MAX_DATA_SIZE;
-                    }
-                    else if (outgoing_event.length < 0)
-                    {
-                        outgoing_event.length         = 0;
-                        outgoing_event.origin.name[0] = '\0';
-                    }
-                }
+                status = chat_event_fill_origin(&outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                assert(STATUS_SUCCESS == status);
+
+                status = chat_event_fill_content(&outgoing_event, k_server_name, CHAT_EVENT_USERNAME_SUBMIT);
+                assert(STATUS_SUCCESS == status);
 
                 status = chat_connection_queue_event(source_client->connection,
                                                      outgoing_event);
@@ -99,26 +81,53 @@ void chat_clients_process_event(
         {
             if (CHAT_CLIENT_STATE_AUTHENTICATING == source_client->state)
             {
+                // FIXME move the allocation to when the client is moved into the authenticating state;
+                //       deallocate when they're moved out
                 cback_data.request_authentication.auth_object = generic_allocator(sizeof(sCHAT_CLIENT_AUTH_OPERATION));
                 if (NULL == cback_data.request_authentication.auth_object)
                 {
-                    // TODO send an error message
+                    status = chat_event_fill_origin(outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_event_fill_content(outgoing_event, NULL, CHAT_EVENT_SERVER_ERROR); // TODO decide what data goes here
+                    assert(STATUS_SUCCESS == status); // FIXME add real error handling
+
+                    status = chat_connection_queue_event(source_client->connection, &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+
                     // REVIEW close the client?
                     break;
                 }
+                pthread_mutex_init(&auth_data->auth_object.mutex);
 
-                cback_data.request_authentication.auth_object.active   = true;
-                cback_data.request_authentication.auth_object.complete = false;
 
-                pthread_mutex(&cback_data.request_authentication.auth_object.mutex);
+                auth_data   = (sCHAT_CLIENT_AUTH*)cback_data.request_authentication.auth_object;
+                credentials = &cback_data.request_authentication.credentials;
 
-                cback_data.request_authentication.auth_object.client_ptr = source_client;
+                pthread_mutex_lock(&auth_data->mutex);
 
-                cback_data.request_authentication.credentials.username_size = strnlen(event->data, sizeof(event->data));
-                cback_data.request_authentication.credentials.username      = 0; // FIXME alloc new buffer and handle errors
+               switch (auth_data->state)
+                {
+                    // TODO ignore the username submit if processing
+                    // TODO free the username and start over if entering password
+                }
 
-                cback_data.request_authentication.credentials.password      = NULL;
-                cback_data.request_authentication.credentials.password_size = 0;
+                auth_data->client_ptr = source_client;
+
+                credentials->username_size = strnlen(event->data, sizeof(event->data));
+                credentials->username      = generic_allocator(credentials->username_size);
+                if (NULL == credentials->username)
+                {
+                    status = chat_event_fill_origin(outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_event_fill_content(outgoing_event, NULL, CHAT_EVENT_SERVER_ERROR); // TODO decide what data goes here
+                    assert(STATUS_SUCCESS == status);
+                    break;
+                }
+
+                credentials->password      = NULL;
+                credentials->password_size = 0;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,

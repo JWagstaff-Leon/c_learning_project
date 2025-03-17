@@ -1,6 +1,7 @@
 #include "common_types.h"
 
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 
@@ -35,4 +36,51 @@ eSTATUS generic_create_thread(
     }
 
     return STATUS_SUCCESS;
+}
+
+eSTATUS print_string_to_buffer(
+    char*       restrict buffer,
+    const char* restrict string,
+    size_t               buffer_size,
+    int*        restrict out_printed_length)
+{
+    eSTATUS status;
+    int     snprintf_status;
+
+    if (NULL == buffer)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    if (NULL == string)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    snprintf_status = snprintf(buffer, buffer_size, "%s", string);
+    if (snprintf_status < 0)
+    {
+        snprintf_status = 0;
+        status          = STATUS_FAILURE;
+
+        goto func_complete;
+    }
+    
+    if (snprintf_status > buffer_size)
+    {
+        snprintf_status = buffer_size;
+        status          = STATUS_NO_SPACE;
+
+        goto func_complete;
+    }
+    
+    status = STATUS_NO_SPACE;
+    goto func_complete;
+    
+func_complete:   
+    if (NULL != out_printed_length)
+    {
+        *out_printed_length = snprintf_status;
+    }
+    return status;
 }

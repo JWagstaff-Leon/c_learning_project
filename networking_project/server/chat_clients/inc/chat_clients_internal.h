@@ -14,6 +14,7 @@ extern "C" {
 #include "chat_clients_fsm.h"
 
 #include <poll.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -45,29 +46,31 @@ typedef enum
 
 typedef enum
 {
-    CHAT_CLIENT_STATE_USERNAME_ENTRY,
-    CHAT_CLIENT_STATE_PASSWORD_ENTRY
-} eCHAT_CLIENT_AUTH_SUBSTATE;
+    CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY,
+    CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY,
+    CHAT_CLIENT_AUTH_STATE_PROCESSING,
+    CHAT_CLIENT_AUTH_STATE_CANCELLED,
+    CHAT_CLIENT_AUTH_STATE_COMPLETE
+} eCHAT_CLIENT_AUTH_STATE;
 
 
 typedef struct
 {
     pthread_mutex_t mutex;
 
-    bool active;   // Set internally to determine if the auth operation still needs to be done
-    bool complete; // Set externally to determine if the auth operation is complete
+    eCHAT_CLIENT_AUTH_STATE auth_state;
 
     sCHAT_USER                user_info;   // Set externally to the resultant user info on completed auth
     eCHAT_CLIENTS_AUTH_RESULT auth_result; // Set externally to what the result of the auth operation was
 
     void* client_ptr;
-} sCHAT_CLIENT_AUTH_OPERATION;
+} sCHAT_CLIENT_AUTH;
 
 
 typedef struct
 {
-    eCHAT_CLIENT_STATE           state;
-    sCHAT_CLIENT_AUTH_OPERATION* auth;
+    eCHAT_CLIENT_STATE state;
+    sCHAT_CLIENT_AUTH* auth;
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;

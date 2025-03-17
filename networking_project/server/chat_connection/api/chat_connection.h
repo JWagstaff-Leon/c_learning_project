@@ -56,8 +56,8 @@ eSTATUS chat_connection_create(
 
 
 eSTATUS chat_connection_queue_event(
-    CHAT_CONNECTION chat_connection,
-    sCHAT_EVENT*    event);
+    CHAT_CONNECTION    restrict chat_connection,
+    const sCHAT_EVENT* restrict event);
 
 
 eSTATUS chat_connection_close(

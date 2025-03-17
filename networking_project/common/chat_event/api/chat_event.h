@@ -27,6 +27,7 @@ typedef enum
     CHAT_EVENT_CHAT_MESSAGE,
 
     CHAT_EVENT_CONNECTION_FAILED,
+    CHAT_EVENT_SERVER_ERROR,
     CHAT_EVENT_OVERSIZED_CONTENT,
 
     CHAT_EVENT_USERNAME_REQUEST,
@@ -68,6 +69,18 @@ typedef struct
 eSTATUS chat_event_copy(
     sCHAT_EVENT*       restrict dst,
     const sCHAT_EVENT* restrict src);
+
+
+eSTATUS chat_event_fill_content(
+    sCHAT_EVENT*     event,
+    const char*      string,
+    eCHAT_EVENT_TYPE type);
+
+
+eSTATUS chat_event_fill_origin(
+    sCHAT_EVENT* event,
+    const char*  name,
+    CHAT_USER_ID id);
 
 
 #ifdef __cplusplus

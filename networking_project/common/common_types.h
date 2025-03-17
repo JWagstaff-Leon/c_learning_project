@@ -41,3 +41,10 @@ void generic_deallocator(
 eSTATUS generic_create_thread(
     fGENERIC_THREAD_ENTRY thread_entry,
     void* arg);
+
+
+eSTATUS print_string_to_buffer(
+    char*       restrict buffer,
+    const char* restrict string,
+    size_t               buffer_size,
+    int*        restrict out_printed_length);

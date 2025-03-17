@@ -21,10 +21,13 @@ const char g_server_username[CHAT_USER_MAX_NAME_SIZE] = "Server";
 
 // Types -----------------------------------------------------------------------
 
+typedef uint64_t CHAT_USER_ID;
+
+
 typedef struct
 {
-    uint64_t id;
-    char     name[CHAT_USER_MAX_NAME_SIZE];
+    CHAT_USER_ID id;
+    char         name[CHAT_USER_MAX_NAME_SIZE];
 } sCHAT_USER;
 
 
