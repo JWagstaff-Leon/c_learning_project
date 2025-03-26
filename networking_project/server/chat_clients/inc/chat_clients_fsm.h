@@ -34,7 +34,13 @@ typedef struct
 {
     sCHAT_EVENT   event;
     sCHAT_CLIENT* client_ptr;
-} sCHAT_CLIENT_INCOMING_EVENT_PARAMS;
+} sCHAT_CLIENTS_INCOMING_EVENT_PARAMS;
+
+
+typedef struct
+{
+    sCHAT_CLIENT* client_ptr;
+} sCHAT_CLIENTS_CLIENT_CLOSED_PARAMS;
 
 
 typedef struct
@@ -46,7 +52,7 @@ typedef struct
 
 typedef union
 {
-    sCHAT_CLIENT_INCOMING_EVENT_PARAMS incoming_event;
+    sCHAT_CLIENTS_INCOMING_EVENT_PARAMS incoming_event;
     sCHAT_CLIENTS_AUTH_RESULT_PARAMS   auth_result;
 } uCHAT_CLIENTS_MESSAGE_PARAMS;
 

@@ -25,9 +25,8 @@ void chat_clients_process_event(
     sCHAT_EVENT outgoing_event;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-    sCHAT_CLIENT_AUTH*       auth_data;
+    sCHAT_CLIENT_AUTH*       auth_object;
     sCHAT_USER_CREDENTIALS*  credentials;
-
 
     switch(event->type)
     {
@@ -38,8 +37,10 @@ void chat_clients_process_event(
                 status = chat_event_copy(&outgoing_event, event);
                 assert(STATUS_SUCCESS == status);
 
-                outgoing_event.origin.id   = source_client->user_info.id;
-                outgoing_event.origin.name = source_client->user_info.name;
+                status = chat_event_fill_origin(&outgoing_event,
+                                                source_client->user_info.name,
+                                                source_client->user_info.id);
+                assert(STATUS_SUCCESS == status);
 
                 for (client_index = 1;
                      client_index < master_cblk_ptr->max_clients;
@@ -50,10 +51,13 @@ void chat_clients_process_event(
                         continue;
                     }
 
-                    relevant_client = &master_cblk_ptr->connections[client_index];
+                    relevant_client = &master_cblk_ptr->client_list[client_index];
 
-                    status = chat_connection_queue_event(relevant_client->connection,
-                                                         outgoing_event);
+                    if (NULL != relevant_client && CHAT_CLIENT_STATE_ACTIVE == relevant_client->state)
+                    {
+                        status = chat_connection_queue_event(relevant_client->connection,
+                                                             outgoing_event);
+                    }
                     assert(STATUS_SUCCESS == status);
                 }
             }
@@ -68,7 +72,7 @@ void chat_clients_process_event(
                 status = chat_event_fill_origin(&outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
                 assert(STATUS_SUCCESS == status);
 
-                status = chat_event_fill_content(&outgoing_event, k_server_name, CHAT_EVENT_USERNAME_SUBMIT);
+                status = chat_event_fill_content(&outgoing_event, CHAT_EVENT_USERNAME_SUBMIT, k_server_name);
                 assert(STATUS_SUCCESS == status);
 
                 status = chat_connection_queue_event(source_client->connection,
@@ -79,137 +83,205 @@ void chat_clients_process_event(
         }
         case CHAT_EVENT_USERNAME_SUBMIT:
         {
-            if (CHAT_CLIENT_STATE_AUTHENTICATING == source_client->state)
+            if (CHAT_CLIENT_STATE_AUTHENTICATING != source_client->state)
             {
-                // FIXME move the allocation to when the client is moved into the authenticating state;
-                //       deallocate when they're moved out
-                cback_data.request_authentication.auth_object = generic_allocator(sizeof(sCHAT_CLIENT_AUTH_OPERATION));
-                if (NULL == cback_data.request_authentication.auth_object)
+                // TODO send username rejected with already auth-ed/not in auth message
+                break;
+            }
+
+            // FIXME move the allocation to when the client is moved into the authenticating state;
+            //       deallocate when they're moved out
+            cback_data.request_authentication.auth_object = generic_allocator(sizeof(sCHAT_CLIENT_AUTH_OPERATION));
+            if (NULL == cback_data.request_authentication.auth_object)
+            {
+                status = chat_event_fill_origin(outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                assert(STATUS_SUCCESS == status);
+
+                status = chat_event_fill_content(outgoing_event, CHAT_EVENT_SERVER_ERROR, NULL); // TODO decide what data goes here
+                assert(STATUS_SUCCESS == status); // FIXME add real error handling
+
+                status = chat_connection_queue_event(source_client->connection, &outgoing_event);
+                assert(STATUS_SUCCESS == status);
+
+                // REVIEW close the client?
+                break;
+            }
+            pthread_mutex_init(&auth_object->mutex); // NOTE this needs to move with auth allocation
+
+            // NOTE this is where what shouldn't be moved starts
+
+            auth_object = source_client->auth;
+
+            cback_data.request_authentication.auth_object = auth_object;
+            cback_data.request_authentication.credentials = auth_object->credentials;
+
+            pthread_mutex_lock(&auth_object->mutex);
+
+            switch (auth_object->state)
+            {
+                case CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY:
                 {
-                    status = chat_event_fill_origin(outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                    generic_deallocator(auth_object->credentials.username);
+                    auth_object->credentials.username      = NULL;
+                    auth_object->credentials.username_size = 0;
+
+                    auth_object->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
+
+                    // Fallthrough
+                }
+                case CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY:
+                {
+                    if (event->length > CHAT_USER_MAX_NAME_SIZE)
+                    {
+                        // TODO send error
+                        break;
+                    }
+
+                    auth_object->credentials.username_size = event->length;
+                    auth_object->credentials.username      = generic_allocator(auth_object->credentials.username_size);
+                    if (NULL == auth_object->credentials.username)
+                    {
+                        // TODO send error
+                        break;
+                    }
+
+                    status = print_string_to_buffer(auth_object->credentials.username,
+                                                    event->data,
+                                                    auth_object->credentials.username_size,
+                                                    NULL);
                     assert(STATUS_SUCCESS == status);
 
-                    status = chat_event_fill_content(outgoing_event, NULL, CHAT_EVENT_SERVER_ERROR); // TODO decide what data goes here
-                    assert(STATUS_SUCCESS == status); // FIXME add real error handling
-
-                    status = chat_connection_queue_event(source_client->connection, &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
-
-                    // REVIEW close the client?
+                    auth_object->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                                cback_data);
                     break;
                 }
-                pthread_mutex_init(&auth_data->auth_object.mutex);
+            }
 
+            pthread_mutex_unlock(&auth_object->mutex);
+            break;
 
-                auth_data   = (sCHAT_CLIENT_AUTH*)cback_data.request_authentication.auth_object;
-                credentials = &cback_data.request_authentication.credentials;
+            // REVIEW reuse this for auth complete?
+            // if (event->length <= CHAT_CONNECTION_MAX_NAME_SIZE)
+            // {
+            //     // Compose name accepted message to joining user
+            //     outgoing_event.type   = CHAT_EVENT_USERNAME_ACCEPTED;
+            //     outgoing_event.origin = CHAT_EVENT_ORIGIN_SERVER;
+            //     outgoing_event.length = event->length; // FIXME set this to a real message
+            //     memcpy(outgoing_event->data,
+            //            event->data,
+            //            event->length);
 
-                pthread_mutex_lock(&auth_data->mutex);
+            //     relevant_client = &master_cblk_ptr->connections[event->origin];
 
-               switch (auth_data->state)
+            //     status = message_queue_put(relevant_client->event_queue,
+            //                                event,
+            //                                sizeof(sCHAT_EVENT));
+            //     assert(STATUS_SUCCESS == status);
+            //     master_cblk_ptr->write_watches[client_index].active = true;
+
+            //     relevant_client->state = CHAT_CONNECTION_STATE_ACTIVE;
+
+            //     // Compose message to active users about joining user
+            //     outgoing_event.type   = CHAT_EVENT_USER_JOIN;
+            //     outgoing_event.length = event->length; // FIXME set this to a real message
+
+            //     for (client_index = 1;
+            //          client_index < master_cblk_ptr->max_connections;
+            //          client_index++)
+            //     {
+            //         if (client_index == event->origin)
+            //         {
+            //             continue;
+            //         }
+
+            //         relevant_client = &master_cblk_ptr->connections[client_index];
+            //         if (CHAT_CONNECTION_STATE_ACTIVE == relevant_client->state)
+            //         {
+            //             status = message_queue_put(relevant_client->event_queue,
+            //                                     event,
+            //                                     sizeof(sCHAT_EVENT));
+            //             assert(STATUS_SUCCESS == status);
+            //             master_cblk_ptr->write_watches[client_index].active = true;
+            //         }
+            //     }
+            // }
+            // else // event->length > CHAT_SERVER_CONNECTION_MAX_NAME_SIZE
+            // {
+            //     outgoing_event.origin = CHAT_EVENT_ORIGIN_SERVER;
+            //     outgoing_event.type   = CHAT_EVENT_USERNAME_REJECTED;
+            //     printed_length = snprintf((char*)&outgoing_event.data,
+            //                               CHAT_EVENT_MAX_DATA_SIZE,
+            //                               "%s",
+            //                               &k_name_too_long_message[0]); // FIXME this canned message is in a different file
+            //     assert(printed_length >= 0);
+            //     outgoing_event.length = printed_length > CHAT_EVENT_MAX_DATA_SIZE
+            //                             ? CHAT_EVENT_MAX_DATA_SIZE
+            //                             : printed_length;
+
+            //     relevant_client = &master_cblk_ptr->connections[event->origin];
+
+            //     status = message_queue_put(relevant_client->event_queue,
+            //                             event,
+            //                             sizeof(sCHAT_EVENT));
+            //     assert(STATUS_SUCCESS == status);
+            //     master_cblk_ptr->write_watches[client_index].active = true;
+            // }
+        }
+        case CHAT_EVENT_PASSWORD_SUBMIT:
+        {
+            if (CHAT_CLIENT_STATE_AUTHENTICATING != source_client->state)
+            {
+                // TODO send password rejected with already auth-ed/not in auth message
+                break;
+            }
+
+            auth_object = source_client->auth;
+
+            cback_data.request_authentication.auth_object = auth_object;
+            cback_data.request_authentication.credentials = auth_object->credentials;
+
+            pthread_mutex_lock(&auth_object->mutex);
+
+            switch (auth_object->state)
+            {
+                case CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY:
                 {
-                    // TODO ignore the username submit if processing
-                    // TODO free the username and start over if entering password
-                }
+                    auth_object->credentials.password_size = event->length;
+                    auth_object->credentials.password      = generic_allocator(auth_object->credentials.password_size);
+                    if (NULL == auth_object->credentials.password)
+                    {
+                        // TODO send error
+                        break;
+                    }
 
-                auth_data->client_ptr = source_client;
-
-                credentials->username_size = strnlen(event->data, sizeof(event->data));
-                credentials->username      = generic_allocator(credentials->username_size);
-                if (NULL == credentials->username)
-                {
-                    status = chat_event_fill_origin(outgoing_event, k_server_name, CHAT_USER_ID_SERVER);
+                    status = print_string_to_buffer(auth_object->credentials.password,
+                                                    event->data,
+                                                    auth_object->credentials.password_size,
+                                                    NULL);
                     assert(STATUS_SUCCESS == status);
 
-                    status = chat_event_fill_content(outgoing_event, NULL, CHAT_EVENT_SERVER_ERROR); // TODO decide what data goes here
-                    assert(STATUS_SUCCESS == status);
+                    auth_object->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                                cback_data);
                     break;
                 }
-
-                credentials->password      = NULL;
-                credentials->password_size = 0;
-
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
-                                            cback_data);
-
-
-                // REVIEW reuse this for auth complete?
-                // if (event->length <= CHAT_CONNECTION_MAX_NAME_SIZE)
-                // {
-                //     // Compose name accepted message to joining user
-                //     outgoing_event.type   = CHAT_EVENT_USERNAME_ACCEPTED;
-                //     outgoing_event.origin = CHAT_EVENT_ORIGIN_SERVER;
-                //     outgoing_event.length = event->length; // FIXME set this to a real message
-                //     memcpy(outgoing_event->data,
-                //            event->data,
-                //            event->length);
-
-                //     relevant_client = &master_cblk_ptr->connections[event->origin];
-
-                //     status = message_queue_put(relevant_client->event_queue,
-                //                                event,
-                //                                sizeof(sCHAT_EVENT));
-                //     assert(STATUS_SUCCESS == status);
-                //     master_cblk_ptr->write_watches[client_index].active = true;
-
-                //     relevant_client->state = CHAT_CONNECTION_STATE_ACTIVE;
-
-                //     // Compose message to active users about joining user
-                //     outgoing_event.type   = CHAT_EVENT_USER_JOIN;
-                //     outgoing_event.length = event->length; // FIXME set this to a real message
-
-                //     for (client_index = 1;
-                //          client_index < master_cblk_ptr->max_connections;
-                //          client_index++)
-                //     {
-                //         if (client_index == event->origin)
-                //         {
-                //             continue;
-                //         }
-
-                //         relevant_client = &master_cblk_ptr->connections[client_index];
-                //         if (CHAT_CONNECTION_STATE_ACTIVE == relevant_client->state)
-                //         {
-                //             status = message_queue_put(relevant_client->event_queue,
-                //                                     event,
-                //                                     sizeof(sCHAT_EVENT));
-                //             assert(STATUS_SUCCESS == status);
-                //             master_cblk_ptr->write_watches[client_index].active = true;
-                //         }
-                //     }
-                // }
-                // else // event->length > CHAT_SERVER_CONNECTION_MAX_NAME_SIZE
-                // {
-                //     outgoing_event.origin = CHAT_EVENT_ORIGIN_SERVER;
-                //     outgoing_event.type   = CHAT_EVENT_USERNAME_REJECTED;
-                //     printed_length = snprintf((char*)&outgoing_event.data,
-                //                               CHAT_EVENT_MAX_DATA_SIZE,
-                //                               "%s",
-                //                               &k_name_too_long_message[0]); // FIXME this canned message is in a different file
-                //     assert(printed_length >= 0);
-                //     outgoing_event.length = printed_length > CHAT_EVENT_MAX_DATA_SIZE
-                //                             ? CHAT_EVENT_MAX_DATA_SIZE
-                //                             : printed_length;
-
-                //     relevant_client = &master_cblk_ptr->connections[event->origin];
-
-                //     status = message_queue_put(relevant_client->event_queue,
-                //                             event,
-                //                             sizeof(sCHAT_EVENT));
-                //     assert(STATUS_SUCCESS == status);
-                //     master_cblk_ptr->write_watches[client_index].active = true;
-                // }
             }
-            else
-            {
-                // TODO send username rejected with already auth-ed message
-            }
+
+            pthread_mutex_unlock(&auth_object->mutex);
             break;
         }
         case CHAT_EVENT_USER_LIST:
         {
-            // TODO implement this
+            // REVIEW implement this?
+            break;
+        }
+        case CHAT_EVENT_USER_LEAVE:
+        {
+            source_client->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            chat_connection_close(source_client->connection);
             break;
         }
 
@@ -217,11 +289,10 @@ void chat_clients_process_event(
         case CHAT_EVENT_UNDEFINED:
         case CHAT_EVENT_CONNECTION_FAILED:
         case CHAT_EVENT_OVERSIZED_CONTENT:
-        case CHAT_EVENT_USERNAME_ACCEPTED:
         case CHAT_EVENT_USERNAME_REJECTED:
+        case CHAT_EVENT_PASSWORD_REJECTED:
         case CHAT_EVENT_SERVER_SHUTDOWN:
         case CHAT_EVENT_USER_JOIN:
-        case CHAT_EVENT_USER_LEAVE:
         default:
         {
             break;

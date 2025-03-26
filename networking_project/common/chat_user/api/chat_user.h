@@ -27,7 +27,7 @@ typedef uint64_t CHAT_USER_ID;
 typedef struct
 {
     CHAT_USER_ID id;
-    char         name[CHAT_USER_MAX_NAME_SIZE];
+    char         name[CHAT_USER_MAX_NAME_SIZE]; // TODO make this dynamic, and either: remove it from chat event, or add the length to chat event (comes free with this struct)
 } sCHAT_USER;
 
 

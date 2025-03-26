@@ -72,15 +72,15 @@ eSTATUS chat_event_copy(
 
 
 eSTATUS chat_event_fill_content(
-    sCHAT_EVENT*     event,
-    const char*      string,
-    eCHAT_EVENT_TYPE type);
+    sCHAT_EVENT*     restrict event,
+    eCHAT_EVENT_TYPE          type,
+    const char*      restrict string);
 
 
 eSTATUS chat_event_fill_origin(
-    sCHAT_EVENT* event,
-    const char*  name,
-    CHAT_USER_ID id);
+    sCHAT_EVENT* restrict event,
+    const char*  restrict name,
+    CHAT_USER_ID          id);
 
 
 #ifdef __cplusplus

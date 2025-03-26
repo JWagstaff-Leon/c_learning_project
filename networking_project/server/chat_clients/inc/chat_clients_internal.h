@@ -40,6 +40,7 @@ typedef enum
 {
     CHAT_CLIENT_STATE_INIT,
     CHAT_CLIENT_STATE_AUTHENTICATING,
+    CHAT_CLIENT_STATE_DISCONNECTING,
     CHAT_CLIENT_STATE_ACTIVE
 } eCHAT_CLIENT_STATE;
 
@@ -58,10 +59,8 @@ typedef struct
 {
     pthread_mutex_t mutex;
 
-    eCHAT_CLIENT_AUTH_STATE auth_state;
-
-    sCHAT_USER                user_info;   // Set externally to the resultant user info on completed auth
-    eCHAT_CLIENTS_AUTH_RESULT auth_result; // Set externally to what the result of the auth operation was
+    eCHAT_CLIENT_AUTH_STATE state;
+    sCHAT_USER_CREDENTIALS  credentials;
 
     void* client_ptr;
 } sCHAT_CLIENT_AUTH;
@@ -87,6 +86,11 @@ typedef struct
 
     NETWORK_WATCHER new_connection_watch;
 
+    // FIXME right now the list of clients is dynamic; because the user arg
+    //       for connections has a client pointer, this list needs to be a
+    //       double pointer so that on reallocation the user arg pointer still
+    //       points to the client. ie: allocate a new client, store its ptr in
+    //       this list, and use that pointer for the user arg
     sCHAT_CLIENT* client_list;
     uint32_t      client_count;
     uint32_t      max_clients;

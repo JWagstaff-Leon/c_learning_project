@@ -268,6 +268,7 @@ static eSTATUS realloc_connections(
         new_connections[connection_index].state       = master_cblk_ptr->connections[connection_index].state;
         new_connections[connection_index].event_queue = master_cblk_ptr->connections[connection_index].event_queue;
 
+        // FIXME replace snprintf's with print_string_to_buffer's
         snprintf(new_connections[connection_index].name,
                 sizeof(new_connections[connection_index].name),
                 "%s",

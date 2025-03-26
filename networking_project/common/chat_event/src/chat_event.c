@@ -1,49 +1,32 @@
 #include "chat_event.h"
 
-#include <assert.h>
-#include <stdio.h>
-
 
 eSTATUS chat_event_copy(
     sCHAT_EVENT*       restrict dst,
     const sCHAT_EVENT* restrict src)
 {
-    int snprintf_status;
+    eSTATUS status;
 
-    dst->type = src->type;
-    dst->origin.id = src->origin.id;
-
-    snprintf_status = snprintf(dst->origin.name,
-                               sizeof(dst->origin.name),
-                               "%s",
-                               src->origin.name);
-    if (snprintf_status < 0)
+    status = chat_event_fill_origin(dst, src->origin.name, src->origin.id);
+    if (STATUS_SUCCESS != status)
     {
-        return STATUS_FAILURE;
+        return status;
     }
-
-    snprintf_status = snprintf(dst->data,
-                               sizeof(dst->data),
-                               "%s",
-                               src->data);
-    if (snprintf_status < 0)
+    
+    status = chat_event_fill_content(dst, src->type, src->data);
+    if (STATUS_SUCCESS != status)
     {
-        snprintf_status = 0;
+        return status;
     }
-    if (snprintf_status > CHAT_EVENT_MAX_DATA_SIZE)
-    {
-        return STATUS_NO_SPACE;
-    }
-    dst->length = snprintf_status;
 
     return STATUS_SUCCESS;
 }
 
 
 eSTATUS chat_event_fill_content(
-    sCHAT_EVENT*     event,
-    const char*      string,
-    eCHAT_EVENT_TYPE type)
+    sCHAT_EVENT*     restrict event,
+    eCHAT_EVENT_TYPE          type,
+    const char*      restrict string)
 {
     eSTATUS status;
     int     printed_length;
@@ -65,9 +48,9 @@ eSTATUS chat_event_fill_content(
 
 
 eSTATUS chat_event_fill_origin(
-    sCHAT_EVENT* event,
-    const char*  name,
-    CHAT_USER_ID id)
+    sCHAT_EVENT* restrict event,
+    const char*  restrict name,
+    CHAT_USER_ID          id)
 {
     eSTATUS status;
 

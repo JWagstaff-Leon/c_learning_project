@@ -49,8 +49,8 @@ typedef void* CHAT_CLIENTS_AUTH_OBJECT;
 
 typedef struct
 {
-    CHAT_CLIENTS_AUTH_OBJECT auth_object;
-    sCHAT_USER_CREDENTIALS   credentials;
+    CHAT_CLIENTS_AUTH_OBJECT      auth_object;
+    const sCHAT_USER_CREDENTIALS* credentials;
 } sCHAT_CLIENTS_CBACK_DATA_REQUEST_AUTHENTICATION;
 
 

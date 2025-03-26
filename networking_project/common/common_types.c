@@ -38,6 +38,7 @@ eSTATUS generic_create_thread(
     return STATUS_SUCCESS;
 }
 
+
 eSTATUS print_string_to_buffer(
     char*       restrict buffer,
     const char* restrict string,
@@ -74,7 +75,7 @@ eSTATUS print_string_to_buffer(
         goto func_complete;
     }
     
-    status = STATUS_NO_SPACE;
+    status = STATUS_SUCCESS;
     goto func_complete;
     
 func_complete:   

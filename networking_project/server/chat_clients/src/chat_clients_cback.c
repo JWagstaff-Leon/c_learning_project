@@ -60,8 +60,12 @@ void chat_clients_connection_cback(
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
     const uCHAT_CONNECTION_CBACK_DATA* data)
 {
+    eSTATUS status;
+    
     sCHAT_CLIENTS_CBLK* master_cblk_ptr;
     sCHAT_CLIENT*       client_ptr;
+
+    sCHAT_CLIENTS_MESSAGE message;
 
     assert(NULL != user_arg);
 
@@ -69,16 +73,28 @@ void chat_clients_connection_cback(
     assert(NULL != master_cblk_ptr);
 
     client_ptr = ((sCHAT_CLIENTS_CLIENT_CBACK_ARG*)user_arg)->client_ptr;
-    assert(NULL != master_cblk_ptr);
+    assert(NULL != client_ptr);
 
     if (event_mask & CHAT_CONNECTION_EVENT_INCOMING_EVENT)
     {
-        // TODO this
+        message.type                             = CHAT_CLIENTS_MESSAGE_INCOMING_EVENT;
+        message.params.incoming_event.client_ptr = client_ptr;
+
+        status = chat_event_copy(&message.params.incoming_event.event,
+                                 &data->incoming_event.event);
+        assert(STATUS_SUCCESS == status);
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
     }
 
     if (event_mask & CHAT_CONNECTION_EVENT_CONNECTION_CLOSED)
     {
-        // TODO this
+        // TODO finish this
+        message.type = CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED;
+        message.
     }
 
     if (event_mask & CHAT_CONNECTION_EVENT_CLOSED)
