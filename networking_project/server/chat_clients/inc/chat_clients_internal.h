@@ -84,16 +84,12 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
+    int             connection_listen_fd;
     NETWORK_WATCHER new_connection_watch;
 
-    // FIXME right now the list of clients is dynamic; because the user arg
-    //       for connections has a client pointer, this list needs to be a
-    //       double pointer so that on reallocation the user arg pointer still
-    //       points to the client. ie: allocate a new client, store its ptr in
-    //       this list, and use that pointer for the user arg
-    sCHAT_CLIENT* client_list;
-    uint32_t      client_count;
-    uint32_t      max_clients;
+    sCHAT_CLIENT** client_ptr_list;
+    uint32_t       client_count;
+    uint32_t       max_clients;
 } sCHAT_CLIENTS_CBLK;
 
 

@@ -217,9 +217,10 @@ static void check_write_ready_connections(
 }
 
 
-static eSTATUS realloc_connections(
+// FIXME this function
+static eSTATUS realloc_clients(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t                new_max_connections)
+    uint32_t            new_max_clients)
 {
     eSTATUS status;
 
@@ -380,17 +381,17 @@ static void open_processing(
                                        &message->params.incoming_event.event);
             break;
         }
-        case CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED:
+        case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            // TODO close the client
+            // TODO close the connection
             break;
         }
         case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION:
         {
-            if (master_cblk_ptr->connection_count >= master_cblk_ptr->max_connections)
+            if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
             {
-                status = realloc_connections(master_cblk_ptr,
-                                             master_cblk_ptr->connection_count + 10); // REVIEW make this 10 configurable?
+                status = realloc_clients(master_cblk_ptr,
+                                         master_cblk_ptr->max_clients + 10); // REVIEW make this 10 configurable?
                 if (STATUS_SUCCESS != status)
                 {
                     // TODO handle failure
@@ -398,17 +399,19 @@ static void open_processing(
 
                 relevant_client = NULL;
                 for (client_index = 1;
-                    relevant_client == NULL && client_index < master_cblk_ptr->max_clients;
-                    client_index++)
+                     client_index < master_cblk_ptr->max_clients;
+                     client_index++)
                 {
-                    if (NULL == master_cblk_ptr->client_list[client_index])
+                    if (NULL == master_cblk_ptr->client_ptr_list[client_index])
                     {
-                        relevant_client = &master_cblk_ptr->client_list[client_index];
+                        relevant_client = generic_allocator(sizeof(sCHAT_CLIENT));
+                        assert(NULL != relevant_client); // REVIEW should this stay as an assert? What error handling would work here?
+                        master_cblk_ptr->client_ptr_list[client_index] = relevant_client;
+                        break;
                     }
                 }
 
-                status = chat_clients_accept_new_connection(master_cblk_ptr->connections[0].fd,
-                                                            &new_connection_fd);
+                status = chat_clients_accept_new_connection(master_cblk_ptr, &new_connection_fd);
                 if (STATUS_SUCCESS == status)
                 {
                     status = chat_clients_client_open(master_cblk_ptr,
@@ -417,9 +420,15 @@ static void open_processing(
                     if (STATUS_SUCCESS != status)
                     {
                         close(new_connection_fd);
+                        generic_deallocator(relevant_client);
                     }
                 }
             }
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_AUTH_RESULT:
+        {
+            // TODO act on the auth result
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
@@ -452,7 +461,7 @@ static void closing_processing(
         {
             break;
         }
-        case CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED:
+        case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
             break;
         }

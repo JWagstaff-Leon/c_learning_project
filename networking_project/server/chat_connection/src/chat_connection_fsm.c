@@ -11,7 +11,7 @@
 #include "message_queue.h"
 
 
-static void read_ready(
+static eSTATUS read_ready(
     sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
     uCHAT_CONNECTION_CBACK_DATA cback_data;
@@ -21,21 +21,22 @@ static void read_ready(
 
     do
     {
-        main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io,
-                                                    master_cblk_ptr->fd);
+        main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io, master_cblk_ptr->fd);
+
         if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
         {
             assert(0);
             // REVIEW do something here? Logging?
             break;
         }
+
         if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
         {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CONNECTION_EVENT_CONNECTION_CLOSED,
-                                        NULL);
-            break;
+            // Force a close here; if the fd is closed, the connection has no context anymore
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+            return STATUS_CLOSED;
         }
+
         if (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED)
         {
             do
@@ -51,6 +52,8 @@ static void read_ready(
             } while (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_MORE);
         }
     } while (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED);
+
+    return STATUS_SUCCESS;
 }
 
 
@@ -75,10 +78,9 @@ static void write_ready(
 
         if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
         {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CONNECTION_EVENT_CONNECTION_CLOSED,
-                                        NULL);
-            break;
+            // Force a close here; if the fd is closed, the connection has no context anymore
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+            return STATUS_CLOSED;
         }
 
         if (CHAT_EVENT_IO_RESULT_NOT_POPULATED  & main_io_result ||
@@ -98,6 +100,8 @@ static void write_ready(
         }
     } while (main_io_result & CHAT_EVENT_IO_RESULT_INCOMPLETE |
              main_io_result & CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS);
+
+    return STATUS_SUCCESS;
 }
 
 
@@ -113,8 +117,13 @@ static void reading_processing(
         {
             if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_READ)
             {
-                read_ready(master_cblk_ptr, message);
+                status = read_ready(master_cblk_ptr, message);
+                if (STATUS_CLOSED == status)
+                {
+                    break;
+                }
             }
+
 
             status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
                                                  NETWORK_WATCHER_MODE_READ,
@@ -163,12 +172,20 @@ static void reading_writing_processing(
         {
             if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_WRITE)
             {
-                write_ready(master_cblk_ptr, message);
+                status = write_ready(master_cblk_ptr, message);
+                if (STATUS_CLOSED == status)
+                {
+                    break;
+                }
             }
 
             if (message->params.watch_complete.modes_complete & NETWORK_WATCHER_MODE_READ)
             {
-                read_ready(master_cblk_ptr, message);
+                status = read_ready(master_cblk_ptr, message);
+                if (STATUS_CLOSED == status)
+                {
+                    break;
+                }
             }
 
             watch_mode = NETWORK_WATCHER_MODE_READ;
@@ -179,7 +196,7 @@ static void reading_writing_processing(
             }
             else
             {
-                master_cblk_ptr->state  = CHAT_CONNECTION_STATE_READING;
+                master_cblk_ptr->state = CHAT_CONNECTION_STATE_READING;
             }
 
             status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
@@ -346,7 +363,7 @@ static void fsm_cblk_close(
 
     status = network_watcher_close(master_cblk_ptr->network_watcher);
     assert(STATUS_SUCCESS == status);
-    
+
     status = message_queue_destroy(master_cblk_ptr->event_queue);
     assert(STATUS_SUCCESS == status);
 

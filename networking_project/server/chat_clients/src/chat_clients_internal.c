@@ -46,12 +46,12 @@ void chat_clients_process_event(
                      client_index < master_cblk_ptr->max_clients;
                      client_index++)
                 {
-                    if (&master_cblk_ptr->client_list[client_index] == source_client)
+                    if (&master_cblk_ptr->client_ptr_list[client_index] == source_client)
                     {
                         continue;
                     }
 
-                    relevant_client = &master_cblk_ptr->client_list[client_index];
+                    relevant_client = master_cblk_ptr->client_ptr_list[client_index];
 
                     if (NULL != relevant_client && CHAT_CLIENT_STATE_ACTIVE == relevant_client->state)
                     {
@@ -302,16 +302,16 @@ void chat_clients_process_event(
 
 
 eSTATUS chat_clients_accept_new_connection(
-    int  listen_fd,
-    int* out_new_fd)
+    const sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    int*                      out_new_fd)
 {
     struct sockaddr_storage incoming_address;
     socklen_t               incoming_address_size;
     int                     accept_status;
 
-    accept_status = accept(listen_fd,
-                          &incoming_address,
-                          &incoming_address_size);
+    accept_status = accept(master_cblk_ptr->connection_listen_fd,
+                           &incoming_address,
+                           &incoming_address_size);
     if (accept_status < 0)
     {
         return STATUS_FAILURE;

@@ -17,7 +17,7 @@ extern "C" {
 typedef enum
 {
     CHAT_CLIENTS_MESSAGE_INCOMING_EVENT,
-    CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED,
+    CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED,
 
     CHAT_CLIENTS_MESSAGE_AUTH_RESULT,
 
@@ -45,15 +45,15 @@ typedef struct
 
 typedef struct
 {
-    eCHAT_CLIENTS_AUTH_RESULT result;
-    sCHAT_CLIENT*             client_ptr;
+    sCHAT_CLIENT_AUTH* auth_ptr;
 } sCHAT_CLIENTS_AUTH_RESULT_PARAMS;
 
 
 typedef union
 {
     sCHAT_CLIENTS_INCOMING_EVENT_PARAMS incoming_event;
-    sCHAT_CLIENTS_AUTH_RESULT_PARAMS   auth_result;
+    sCHAT_CLIENTS_CLIENT_CLOSED_PARAMS  client_closed;
+    sCHAT_CLIENTS_AUTH_RESULT_PARAMS    auth_result;
 } uCHAT_CLIENTS_MESSAGE_PARAMS;
 
 

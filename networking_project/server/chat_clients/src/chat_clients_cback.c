@@ -92,13 +92,12 @@ void chat_clients_connection_cback(
 
     if (event_mask & CHAT_CONNECTION_EVENT_CONNECTION_CLOSED)
     {
-        // TODO finish this
-        message.type = CHAT_CLIENTS_MESSAGE_CLIENT_CLOSED;
-        message.
-    }
+        message.type                            = CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED;
+        message.params.client_closed.client_ptr = client_ptr;
 
-    if (event_mask & CHAT_CONNECTION_EVENT_CLOSED)
-    {
-        // TODO this
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
     }
 }
