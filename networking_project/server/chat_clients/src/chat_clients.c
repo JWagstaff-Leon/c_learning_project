@@ -85,23 +85,25 @@ fail_alloc_cblk:
 }
 
 
-eSTATUS chat_connection_queue_event(
-    sCHAT_CONNECTION* connection,
-    const sCHAT_EVENT*       event)
+eSTATUS chat_clients_open_client(
+    CHAT_CLIENTS chat_clients,
+    int fd)
 {
-
+    // TODO this
 }
 
 
-eSTATUS chat_connection_do_read(
-    sCHAT_CONNECTION* connection)
+eSTATUS chat_clients_auth_event(
+    CHAT_CLIENTS             chat_clients,
+    CHAT_CLIENTS_AUTH_OBJECT auth_object,
+    sCHAT_CLIENTS_AUTH_EVENT auth_event)
 {
-
+    // TODO this
 }
 
 
-eSTATUS chat_connection_do_write(
-    sCHAT_CONNECTION* connection)
+eSTATUS chat_clients_close(
+    CHAT_CLIENTS* chat_clients)
 {
-
+    // TODO this
 }

@@ -21,6 +21,7 @@ extern "C" {
 typedef enum
 {
     CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION = 1 << 0,
+    CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED     = 1 << 1,
 
     CHAT_CLIENTS_EVENT_CLOSED = 1 << 31
 } bCHAT_CLIENTS_EVENT_TYPE;
@@ -76,6 +77,11 @@ eSTATUS chat_clients_create(
     fCHAT_CLIENTS_USER_CBACK user_cback,
     void*                    user_arg,
     uint32_t                 default_size);
+
+
+eSTATUS chat_clients_open_client(
+    CHAT_CLIENTS chat_clients,
+    int fd);
 
 
 eSTATUS chat_clients_auth_event(

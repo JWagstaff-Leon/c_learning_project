@@ -39,48 +39,6 @@ static void fsm_cblk_close(
 }
 
 
-static void chat_connection_close(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t            connection_index)
-{
-    eSTATUS           status;
-    int               close_status;
-    sCHAT_CONNECTION* connection;
-
-    if (connection_index > master_cblk_ptr->connection_count)
-    {
-        return;
-    }
-
-    connection = &master_cblk_ptr->connections[connection_index];
-
-    status = chat_event_io_close(connection->io);
-    assert(STATUS_SUCCESS == status);
-    connection->io = NULL;
-
-    status = message_queue_destroy(connection->event_queue);
-    assert(STATUS_SUCCESS == status);
-    connection->event_queue = NULL;
-
-    if (connection->fd >= 0)
-    {
-        close_status = close(connection->fd);
-        assert(0 == close_status);
-    }
-
-    connection->fd      = -1;
-    connection->state   = CHAT_CONNECTION_STATE_DISCONNECTED;
-    connection->user.id = CHAT_USER_INVALID_ID;
-
-    memset(connection->user.name,
-           0,
-           sizeof(connection->user.name));
-
-    master_cblk_ptr->read_watches[connection_index].active = false;
-    master_cblk_ptr->write_watches[connection_index].active = false;
-}
-
-
 static void check_closed_connections(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
@@ -217,102 +175,55 @@ static void check_write_ready_connections(
 }
 
 
-// FIXME this function
+// REVIEW does this function need to interact with multithreading?
 static eSTATUS realloc_clients(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     uint32_t            new_max_clients)
 {
     eSTATUS status;
 
-    uint32_t          connection_index;
-    sCHAT_CONNECTION* new_connections;
+    uint32_t       client_index;
+    sCHAT_CLIENT** new_client_ptr_list;
 
-    sNETWORK_WATCHER_WATCH* new_read_watches;
-    sNETWORK_WATCHER_WATCH* new_write_watches;
-
-    new_connections = generic_allocator(sizeof(sCHAT_CONNECTION) * new_max_connections);
-    if (NULL == new_connections)
+    new_client_ptr_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
+    if (NULL == new_client_ptr_list)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_connections;
-    }
-
-    new_read_watches = generic_allocator(sizeof(sNETWORK_WATCHER_WATCH) * new_max_connections);
-    if (NULL == new_read_watches)
-    {
-        status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_read_watches;
-    }
-
-    new_write_watches = generic_allocator(sizeof(sNETWORK_WATCHER_WATCH) * new_max_connections);
-    if (NULL == new_write_watches)
-    {
-        status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_write_watches;
+        goto fail_alloc_client_list;
     }
 
     // Close any connections in excess of new_max_connections
-    for (connection_index = new_connections;
-         connection_index < master_cblk_ptr->connection_count;
-         connection_index++)
+    for (client_index = new_max_clients;
+         client_index < master_cblk_ptr->connection_count;
+         client_index++)
     {
-        chat_connection_close(master_cblk_ptr, connection_index);
+        chat_clients_client_close(master_cblk_ptr->client_ptr_list[client_index]);
     }
 
     // Copy any connections overlapping
-    for (connection_index = 0;
-         connection_index < master_cblk_ptr->max_connections && connection_index < new_max_connections;
-         connection_index++)
+    for (client_index = 0;
+         client_index < master_cblk_ptr->max_connections && client_index < new_max_clients;
+         client_index++)
     {
-        new_connections[connection_index].fd          = master_cblk_ptr->connections[connection_index].fd;
-        new_connections[connection_index].io          = master_cblk_ptr->connections[connection_index].io;
-        new_connections[connection_index].state       = master_cblk_ptr->connections[connection_index].state;
-        new_connections[connection_index].event_queue = master_cblk_ptr->connections[connection_index].event_queue;
-
-        // FIXME replace snprintf's with print_string_to_buffer's
-        snprintf(new_connections[connection_index].name,
-                sizeof(new_connections[connection_index].name),
-                "%s",
-                master_cblk_ptr->connections[connection_index].name);
-
-        new_read_watches[connection_index].fd_ptr = &new_connections[connection_index].fd;
-        new_read_watches[connection_index].active = master_cblk_ptr->read_watches.active;
-
-        new_write_watches[connection_index].fd_ptr = &new_connections[connection_index].fd;
-        new_write_watches[connection_index].active = master_cblk_ptr->write_watches.active;
+        new_client_ptr_list[client_index] = master_cblk_ptr->client_ptr_list[client_index];
     }
 
     // Initialize any new connections
-    for (connection_index = master_cblk_ptr->max_connections;
-         connection_index < new_max_connections;
-         connection_index++)
+    for (client_index = master_cblk_ptr->max_connections;
+         client_index < new_max_clients;
+         client_index++)
     {
-        memcpy(new_connections[connection_index],
-               k_blank_connection,
-               sizeof(new_connections[connection_index]));
-
-        new_write_watches[connection_index].fd_ptr = &new_connections[connection_index].fd;
-        new_write_watches[connection_index].active = false;
+        new_client_ptr_list[client_index] = NULL;
     }
 
-    generic_deallocator(master_cblk_ptr->connections);
-    generic_deallocator(master_cblk_ptr->read_watches);
-    generic_deallocator(master_cblk_ptr->write_watches);
+    generic_deallocator(master_cblk_ptr->client_ptr_list);
 
-    master_cblk_ptr->connections     = new_connections;
-    master_cblk_ptr->max_connections = new_max_connections;
-    master_cblk_ptr->read_watches    = new_read_watches;
-    master_cblk_ptr->write_watches   = new_write_watches;
+    master_cblk_ptr->client_ptr_list = new_client_ptr_list;
+    master_cblk_ptr->max_clients     = new_max_clients;
 
     return STATUS_SUCCESS;
 
-fail_alloc_write_watches:
-    generic_deallocator(new_read_watches);
-
-fail_alloc_read_watches:
-    generic_deallocator(new_connections);
-
-fail_alloc_connections:
+fail_alloc_client_list:
     return status;
 }
 
@@ -320,10 +231,10 @@ fail_alloc_connections:
 static void check_new_connections(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
-    eSTATUS           status;
-    uint32_t          connection_index;
-    sCHAT_CONNECTION* relevant_connection;
-    int               new_connection_fd;
+    eSTATUS         status;
+    uint32_t        connection_index;
+    CHAT_CONNECTION relevant_connection;
+    int             new_connection_fd;
 
     if (master_cblk_ptr->read_watches[0].ready)
     {
@@ -335,8 +246,8 @@ static void check_new_connections(
 
         relevant_connection = NULL;
         for (connection_index = 1;
-            relevant_connection == NULL && connection_index < master_cblk_ptr->max_connections;
-            connection_index++)
+             relevant_connection == NULL && connection_index < master_cblk_ptr->max_connections;
+             connection_index++)
         {
             if (CHAT_CONNECTION_STATE_DISCONNECTED == master_cblk_ptr->connections[connection_index].state)
             {
@@ -347,11 +258,11 @@ static void check_new_connections(
         if (NULL != relevant_connection)
         {
             status = chat_clients_accept_new_connection(master_cblk_ptr->connections[0].fd,
-                                                            &new_connection_fd);
+                                                        &new_connection_fd);
             if (STATUS_SUCCESS == status)
             {
-                status = chat_connection_open(relevant_connection,
-                                            new_connection_fd);
+
+                status = chat_connection_create()
                 if (STATUS_SUCCESS != status)
                 {
                     close(new_connection_fd);
@@ -374,19 +285,7 @@ static void open_processing(
 
     switch (message->type)
     {
-        case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
-        {
-            chat_clients_process_event(master_cblk_ptr,
-                                       message->params.incoming_event.client_ptr,
-                                       &message->params.incoming_event.event);
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
-        {
-            // TODO close the connection
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION:
+        case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
             if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
             {
@@ -405,25 +304,49 @@ static void open_processing(
                     if (NULL == master_cblk_ptr->client_ptr_list[client_index])
                     {
                         relevant_client = generic_allocator(sizeof(sCHAT_CLIENT));
-                        assert(NULL != relevant_client); // REVIEW should this stay as an assert? What error handling would work here?
                         master_cblk_ptr->client_ptr_list[client_index] = relevant_client;
                         break;
                     }
                 }
 
-                status = chat_clients_accept_new_connection(master_cblk_ptr, &new_connection_fd);
-                if (STATUS_SUCCESS == status)
+                if(NULL == relevant_client)
                 {
-                    status = chat_clients_client_open(master_cblk_ptr,
-                                                      relevant_client,
-                                                      new_connection_fd);
-                    if (STATUS_SUCCESS != status)
-                    {
-                        close(new_connection_fd);
-                        generic_deallocator(relevant_client);
-                    }
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
+                                                NULL);
+                    break;
+                }
+
+                status = chat_clients_client_init(master_cblk_ptr,
+                                                  relevant_client,
+                                                  message->params.open_client.fd);
+                if (STATUS_SUCCESS != status)
+                {
+                    close(new_connection_fd);
+                    generic_deallocator(relevant_client);
+
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
+                                                NULL);
                 }
             }
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_AUTH_RESULT:
+        {
+            // TODO respond to auth results
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
+        {
+            chat_clients_process_event(master_cblk_ptr,
+                                       message->params.incoming_event.client_ptr,
+                                       &message->params.incoming_event.event);
+            break;
+        }
+        case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
+        {
+            // TODO close the connection
             break;
         }
         case CHAT_CLIENTS_MESSAGE_AUTH_RESULT:
@@ -436,9 +359,6 @@ static void open_processing(
             // TODO start closing
             break;
         }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_ERROR:
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CANCELLED:
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CLOSED:
         default:
         {
             // Should not get here
@@ -462,22 +382,6 @@ static void closing_processing(
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
-        {
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION:
-        {
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CANCELLED:
-        {
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_ERROR:
-        {
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_NEW_CONNECTION_WATCH_CLOSED:
         {
             break;
         }

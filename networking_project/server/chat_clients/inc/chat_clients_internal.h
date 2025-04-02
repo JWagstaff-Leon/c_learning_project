@@ -68,11 +68,20 @@ typedef struct
 
 typedef struct
 {
+    void* master_cblk_ptr;
+    void* client_ptr;
+} sCHAT_CLIENTS_CLIENT_CBACK_ARG;
+
+
+typedef struct
+{
     eCHAT_CLIENT_STATE state;
     sCHAT_CLIENT_AUTH* auth;
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
+
+    sCHAT_CLIENTS_CLIENT_CBACK_ARG cback_arg;
 } sCHAT_CLIENT;
 
 
@@ -84,20 +93,11 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    int             connection_listen_fd;
-    NETWORK_WATCHER new_connection_watch;
-
     sCHAT_CLIENT** client_ptr_list;
     uint32_t       client_count;
     uint32_t       max_clients;
 } sCHAT_CLIENTS_CBLK;
 
-
-typedef struct
-{
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
-    sCHAT_CLIENT*       client_ptr;
-} sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 
 
 // Constants -------------------------------------------------------------------
@@ -125,6 +125,10 @@ eSTATUS chat_clients_client_open(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     sCHAT_CLIENT*       client,
     int                 fd);
+
+
+eSTATUS chat_clients_client_close(
+    sCHAT_CLIENT* client);
 
 
 void chat_clients_new_connections_cback(

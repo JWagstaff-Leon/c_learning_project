@@ -322,27 +322,61 @@ eSTATUS chat_clients_accept_new_connection(
 }
 
 
-eSTATUS chat_clients_client_open(
+eSTATUS chat_clients_client_init(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     sCHAT_CLIENT*       client,
     int                 fd)
 {
     eSTATUS status;
 
-    sCHAT_CLIENTS_CLIENT_CBACK_ARG* user_arg;
-    user_arg = generic_allocator(sizeof(sCHAT_CLIENTS_CLIENT_CBACK_ARG));
-
-    if (NULL == user_arg)
-    {
-        return STATUS_ALLOC_FAILED;
-    }
-
-    user_arg->master_cblk_ptr = master_cblk_ptr;
-    user_arg->client_ptr      = client;
+    client->cback_arg.master_cblk_ptr = master_cblk_ptr;
+    client->cback_arg.client_ptr      = client;
 
     status = chat_connection_create(&client->connection,
                                     chat_clients_connection_cback,
-                                    user_arg,
+                                    &client->cback_arg,
                                     fd);
+    return status;
+}
+
+
+void chat_clients_client_close(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    uint32_t            connection_index)
+{
+    eSTATUS           status;
+    int               close_status;
+    sCHAT_CONNECTION* connection;
+
+    if (connection_index > master_cblk_ptr->connection_count)
+    {
+        return;
+    }
+
+    connection = &master_cblk_ptr->connections[connection_index];
+
+    status = chat_event_io_close(connection->io);
     assert(STATUS_SUCCESS == status);
+    connection->io = NULL;
+
+    status = message_queue_destroy(connection->event_queue);
+    assert(STATUS_SUCCESS == status);
+    connection->event_queue = NULL;
+
+    if (connection->fd >= 0)
+    {
+        close_status = close(connection->fd);
+        assert(0 == close_status);
+    }
+
+    connection->fd      = -1;
+    connection->state   = CHAT_CONNECTION_STATE_DISCONNECTED;
+    connection->user.id = CHAT_USER_INVALID_ID;
+
+    memset(connection->user.name,
+           0,
+           sizeof(connection->user.name));
+
+    master_cblk_ptr->read_watches[connection_index].active = false;
+    master_cblk_ptr->write_watches[connection_index].active = false;
 }
