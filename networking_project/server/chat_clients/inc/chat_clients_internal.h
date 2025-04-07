@@ -66,11 +66,7 @@ typedef struct
 } sCHAT_CLIENT_AUTH;
 
 
-typedef struct
-{
-    void* master_cblk_ptr;
-    void* client_ptr;
-} sCHAT_CLIENTS_CLIENT_CBACK_ARG;
+typedef void* sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 
 
 typedef struct
@@ -81,7 +77,8 @@ typedef struct
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
 
-    sCHAT_CLIENTS_CLIENT_CBACK_ARG cback_arg;
+    void* container_ptr;
+    void* master_cblk_ptr;
 } sCHAT_CLIENT;
 
 
@@ -121,9 +118,9 @@ eSTATUS chat_clients_accept_new_connection(
     int* out_new_fd);
 
 
-eSTATUS chat_clients_client_open(
+eSTATUS chat_clients_client_init(
+    sCHAT_CLIENT**      client_container_ptr,
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       client,
     int                 fd);
 
 

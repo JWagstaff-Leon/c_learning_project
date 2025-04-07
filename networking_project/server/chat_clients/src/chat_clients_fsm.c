@@ -280,8 +280,8 @@ static void open_processing(
     eSTATUS status;
     int     new_connection_fd;
 
-    uint32_t      client_index;
-    sCHAT_CLIENT* relevant_client;
+    uint32_t       client_index;
+    sCHAT_CLIENT** relevant_client_ptr;
 
     switch (message->type)
     {
@@ -293,38 +293,29 @@ static void open_processing(
                                          master_cblk_ptr->max_clients + 10); // REVIEW make this 10 configurable?
                 if (STATUS_SUCCESS != status)
                 {
-                    // TODO handle failure
-                }
-
-                relevant_client = NULL;
-                for (client_index = 1;
-                     client_index < master_cblk_ptr->max_clients;
-                     client_index++)
-                {
-                    if (NULL == master_cblk_ptr->client_ptr_list[client_index])
-                    {
-                        relevant_client = generic_allocator(sizeof(sCHAT_CLIENT));
-                        master_cblk_ptr->client_ptr_list[client_index] = relevant_client;
-                        break;
-                    }
-                }
-
-                if(NULL == relevant_client)
-                {
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                                 CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
                                                 NULL);
                     break;
                 }
 
-                status = chat_clients_client_init(master_cblk_ptr,
-                                                  relevant_client,
+                for (client_index = 1;
+                     client_index < master_cblk_ptr->max_clients;
+                     client_index++)
+                {
+                    if (NULL == master_cblk_ptr->client_ptr_list[client_index])
+                    {
+                        relevant_client_ptr = &master_cblk_ptr->client_ptr_list[client_index];
+                        break;
+                    }
+                }
+
+                status = chat_clients_client_init(relevant_client_ptr,
+                                                  master_cblk_ptr,
                                                   message->params.open_client.fd);
                 if (STATUS_SUCCESS != status)
                 {
                     close(new_connection_fd);
-                    generic_deallocator(relevant_client);
-
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                                 CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
                                                 NULL);
@@ -346,12 +337,8 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            // TODO close the connection
-            break;
-        }
-        case CHAT_CLIENTS_MESSAGE_AUTH_RESULT:
-        {
-            // TODO act on the auth result
+            status = chat_clients_client_close(message->params.client_closed.client_ptr);
+            assert(STATUS_SUCCESS == status);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:

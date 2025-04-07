@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -323,60 +324,44 @@ eSTATUS chat_clients_accept_new_connection(
 
 
 eSTATUS chat_clients_client_init(
+    sCHAT_CLIENT**      client_container_ptr,
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       client,
     int                 fd)
 {
     eSTATUS status;
+    sCHAT_CLIENT* new_client;
 
-    client->cback_arg.master_cblk_ptr = master_cblk_ptr;
-    client->cback_arg.client_ptr      = client;
+    new_client = generic_allocator(sizeof(sCHAT_CLIENT));
+    if (NULL == *new_client)
+    {
+        return STATUS_ALLOC_FAILED;
+    }
 
-    status = chat_connection_create(&client->connection,
+    new_client->container_ptr   = client_container_ptr;
+    new_client->master_cblk_ptr = master_cblk_ptr;
+
+    *client_container_ptr = new_client;
+    
+    status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
-                                    &client->cback_arg,
+                                    new_client,
                                     fd);
     return status;
 }
 
 
 void chat_clients_client_close(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t            connection_index)
+    sCHAT_CLIENT* client_ptr)
 {
-    eSTATUS           status;
-    int               close_status;
-    sCHAT_CONNECTION* connection;
+    eSTATUS status;
 
-    if (connection_index > master_cblk_ptr->connection_count)
-    {
-        return;
-    }
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
+    uint32_t            client_ptr_index;
 
-    connection = &master_cblk_ptr->connections[connection_index];
+    master_cblk_ptr = client_ptr->master_cblk_ptr;
 
-    status = chat_event_io_close(connection->io);
-    assert(STATUS_SUCCESS == status);
-    connection->io = NULL;
+    client_ptr->container_ptr = NULL;
+    generic_deallocator(master_cblk_ptr->client_ptr_list[client_ptr_index]);
 
-    status = message_queue_destroy(connection->event_queue);
-    assert(STATUS_SUCCESS == status);
-    connection->event_queue = NULL;
-
-    if (connection->fd >= 0)
-    {
-        close_status = close(connection->fd);
-        assert(0 == close_status);
-    }
-
-    connection->fd      = -1;
-    connection->state   = CHAT_CONNECTION_STATE_DISCONNECTED;
-    connection->user.id = CHAT_USER_INVALID_ID;
-
-    memset(connection->user.name,
-           0,
-           sizeof(connection->user.name));
-
-    master_cblk_ptr->read_watches[connection_index].active = false;
-    master_cblk_ptr->write_watches[connection_index].active = false;
+    master_cblk_ptr->client_count -= 1;
 }
