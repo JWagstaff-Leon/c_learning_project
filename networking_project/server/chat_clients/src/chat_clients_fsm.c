@@ -39,82 +39,6 @@ static void fsm_cblk_close(
 }
 
 
-static void check_closed_connections(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    uint32_t connection_index;
-
-    sNETWORK_WATCHER_WATCH* relevant_watch;
-
-    for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
-    {
-        if (master_cblk_ptr->read_watches[connection_index].closed)
-        {
-            chat_connection_close(master_cblk_ptr, connection_index);
-        }
-    }
-}
-
-
-static void check_read_ready_connections(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    uint32_t connection_index;
-
-    sNETWORK_WATCHER_WATCH* relevant_watch;
-    sCHAT_CONNECTION*       relevant_connection;
-
-    bCHAT_EVENT_IO_RESULT chat_event_io_result;
-    sCHAT_EVENT           event_buffer;
-
-    uCHAT_CLIENTS_CBACK_DATA callback_data;
-
-    for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
-    {
-        relevant_watch      = &master_cblk_ptr->read_watches[connection_index];
-        relevant_connection = relevant_watch->fd_ptr - offsetof(sCHAT_CONNECTION, fd); // REVIEW should this just be the index in connections?
-
-        if (relevant_watch->active && relevant_watch->ready)
-        {
-            chat_event_io_result = chat_event_io_read_from_fd(relevant_connection->io,
-                                                              relevant_connection->fd);
-            switch (chat_event_io_result)
-            {
-                case CHAT_EVENT_IO_RESULT_READ_FINISHED:
-                {
-                    do
-                    {
-                        chat_event_io_result = chat_event_io_extract_read_event(relevant_connection->io,
-                                                                                &event_buffer);
-                        if (CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED & chat_event_io_result)
-                        {
-                            callback_data.incoming_event.user         = &relevant_connection->user;
-                            callback_data.incoming_event.event.type   = event_buffer.type;
-                            callback_data.incoming_event.event.origin = relevant_connection->user.id;
-                            callback_data.incoming_event.event.length = event_buffer.length;
-                            memcpy(callback_data.incoming_event.event.data,
-                                   event_buffer.data,
-                                   sizeof(callback_data.incoming_event.event.data));
-
-                            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                        CHAT_CLIENTS_EVENT_INCOMING_EVENT,
-                                                        &callback_data);
-                        }
-                    } while (CHAT_EVENT_IO_RESULT_EXTRACT_MORE & chat_event_io_result);
-
-                    break;
-                }
-                case CHAT_EVENT_IO_RESULT_FD_CLOSED:
-                {
-                    chat_connection_close(master_cblk_ptr, connection_index);
-                    break;
-                }
-            }
-        }
-    }
-}
-
-
 static void check_write_ready_connections(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
@@ -197,7 +121,7 @@ static eSTATUS realloc_clients(
          client_index < master_cblk_ptr->connection_count;
          client_index++)
     {
-        chat_clients_client_close(master_cblk_ptr->client_ptr_list[client_index]);
+        chat_clients_client_close(master_cblk_ptr->client_ptr_list[client_index]); // REVIEW need to close connections first?
     }
 
     // Copy any connections overlapping
@@ -283,6 +207,12 @@ static void open_processing(
     uint32_t       client_index;
     sCHAT_CLIENT** relevant_client_ptr;
 
+    sCHAT_CLIENTS_CBACK_DATA cback_data;
+    
+    sCHAT_CLIENT_AUTH* auth_object;
+    sCHAT_CLIENT*      auth_client;
+    sCHAT_EVENT        outgoing_event;
+
     switch (message->type)
     {
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
@@ -290,7 +220,7 @@ static void open_processing(
             if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
             {
                 status = realloc_clients(master_cblk_ptr,
-                                         master_cblk_ptr->max_clients + 10); // REVIEW make this 10 configurable?
+                                         master_cblk_ptr->max_clients + 10); // REVIEW make this '10' configurable?
                 if (STATUS_SUCCESS != status)
                 {
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -298,34 +228,151 @@ static void open_processing(
                                                 NULL);
                     break;
                 }
+            }
 
-                for (client_index = 1;
-                     client_index < master_cblk_ptr->max_clients;
-                     client_index++)
+            for (client_index = 1;
+                 client_index < master_cblk_ptr->max_clients;
+                 client_index++)
+            {
+                if (NULL == master_cblk_ptr->client_ptr_list[client_index])
                 {
-                    if (NULL == master_cblk_ptr->client_ptr_list[client_index])
-                    {
-                        relevant_client_ptr = &master_cblk_ptr->client_ptr_list[client_index];
-                        break;
-                    }
-                }
-
-                status = chat_clients_client_init(relevant_client_ptr,
-                                                  master_cblk_ptr,
-                                                  message->params.open_client.fd);
-                if (STATUS_SUCCESS != status)
-                {
-                    close(new_connection_fd);
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
-                                                NULL);
+                    relevant_client_ptr = &master_cblk_ptr->client_ptr_list[client_index];
+                    break;
                 }
             }
+
+            status = chat_clients_client_init(relevant_client_ptr,
+                                              master_cblk_ptr,
+                                              message->params.open_client.fd);
+            if (STATUS_SUCCESS != status)
+            {
+                close(new_connection_fd);
+                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                            CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
+                                            NULL);
+                break;
+            }
+
+            (*relevant_client_ptr)->state       = CHAT_CLIENT_STATE_AUTHENTICATING;
+            (*relevant_client_ptr)->auth->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
+
+            cback_data.request_authentication.auth_object = (*relevant_client_ptr)->auth;
+            cback_data.request_authentication.credentials = &(*relevant_client_ptr)->auth->credentials;
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                        &cback_data);
             break;
         }
-        case CHAT_CLIENTS_MESSAGE_AUTH_RESULT:
+        case CHAT_CLIENTS_MESSAGE_AUTH_EVENT:
         {
-            // TODO respond to auth results
+            auth_object = message->params.auth_result.auth_object;
+            
+            pthread_mutex_lock(&auth_ptr->mutex);
+
+            auth_client = (sCHAT_CLIENT_AUTH*)message->params.auth_result.auth_object->client_ptr;
+
+            if (CHAT_CLIENT_AUTH_STATE_CANCELLED == auth_ptr->state)
+            {
+                pthread_mutex_unlock(&auth_ptr->mutex);
+                chat_clients_client_close(auth_client);
+                break;
+            }
+
+            switch (auth_event->result)
+            {
+                case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED:
+                {
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_USERNAME_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 ""); // REVIEW decide what message to put here
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                         &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+
+                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED:
+                {
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_USERNAME_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 ""); // REVIEW decide what message to put here
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                         &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+                    
+                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED:
+                {
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_PASSWORD_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 ""); // REVIEW decide what message to put here
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                         &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+
+                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED:
+                {
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_PASSWORD_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 ""); // REVIEW decide what message to put here
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                         &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+
+                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED:
+                {
+                    auth_client->user_info.id = message->params.auth_result.auth_event.user_info->id;
+
+                    status = print_string_to_buffer(auth_client->user_info.name,
+                                                    message->params.auth_result.auth_event.user_info->name,
+                                                    sizeof(auth_client->user_info.name),
+                                                    NULL);
+                    assert(STATUS_SUCCESS == status);
+
+                    auth_client->auth  = NULL;
+                    auth_client->state = CHAT_CLIENT_STATE_ACTIVE;
+
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_AUTHENTICATED,
+                                                 CHAT_USER_ID_SERVER,
+                                                 ""); // REVIEW decide what message to put here
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                         &outgoing_event);
+                    assert(STATUS_SUCCESS == status);
+
+                    generic_deallocator(auth_object->credentials.username);
+                    generic_deallocator(auth_object->credentials.password);
+                    generic_deallocator(auth_object);
+
+                    break;
+                }
+            }
+
+            pthread_mutex_unlock(&auth_object->mutex);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:

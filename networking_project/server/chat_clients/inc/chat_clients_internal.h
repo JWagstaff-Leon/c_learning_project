@@ -47,11 +47,11 @@ typedef enum
 
 typedef enum
 {
+    CHAT_CLIENT_AUTH_STATE_INIT,
     CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY,
     CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY,
     CHAT_CLIENT_AUTH_STATE_PROCESSING,
-    CHAT_CLIENT_AUTH_STATE_CANCELLED,
-    CHAT_CLIENT_AUTH_STATE_COMPLETE
+    CHAT_CLIENT_AUTH_STATE_CANCELLED
 } eCHAT_CLIENT_AUTH_STATE;
 
 
@@ -72,7 +72,9 @@ typedef void* sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 typedef struct
 {
     eCHAT_CLIENT_STATE state;
-    sCHAT_CLIENT_AUTH* auth;
+    sCHAT_CLIENT_AUTH* auth;  // Is a dynamically allocated as it is:
+                              //  - short-lived
+                              //  - also used by the auth system (can live longer than the client)
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;

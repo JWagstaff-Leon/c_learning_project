@@ -2,9 +2,11 @@
 #include "chat_clients_internal.h"
 #include "chat_clients_fsm.h"
 
+#include <pthread.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "chat_user.h"
 #include "message_queue.h"
 #include "network_watcher.h"
 
@@ -89,7 +91,20 @@ eSTATUS chat_clients_open_client(
     CHAT_CLIENTS chat_clients,
     int fd)
 {
-    // TODO this
+    eSTATUS               status;
+    sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
+    sCHAT_CLIENTS_MESSAGE message;
+
+    assert(NULL != chat_clients);
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+
+    message.type                  = CHAT_CLIENTS_MESSAGE_OPEN_CLIENT;
+    message.params.open_client.fd = fd;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    return status;
 }
 
 
@@ -98,7 +113,27 @@ eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS_AUTH_OBJECT auth_object,
     sCHAT_CLIENTS_AUTH_EVENT auth_event)
 {
-    // TODO this
+    eSTATUS               status;
+    sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
+    sCHAT_CLIENTS_MESSAGE message;
+
+    sCHAT_CLIENT_AUTH* auth_ptr;
+
+    assert(NULL != chat_clients);
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+
+    assert(NULL != auth_object);
+    assert(auth_event.result != CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED || auth_event.user_info != NULL);
+
+    message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
+
+    message.params.auth_result.auth_object = auth_object;
+    message.params.auth_result.auth_event  = auth_event;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    return status;
 }
 
 
