@@ -10,6 +10,16 @@
 #include "message_queue.h"
 
 
+static const char* k_auth_strings[] = {
+    "Enter your username",  // CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED
+    "Invalid username",     // CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED
+    "Create your password", // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_CREATION
+    "Enter your password",  // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED
+    "Invalid password",     // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED
+    "Logged in"             // CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED
+};
+
+
 static eSTATUS fsm_cblk_init(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
@@ -39,66 +49,6 @@ static void fsm_cblk_close(
 }
 
 
-static void check_write_ready_connections(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    eSTATUS status;
-
-    uint32_t connection_index;
-
-    sNETWORK_WATCHER_WATCH* relevant_watch;
-    sCHAT_CONNECTION*       relevant_connection;
-
-    bCHAT_EVENT_IO_RESULT chat_event_io_result;
-    sCHAT_EVENT           event_buffer;
-
-    for (connection_index = 1; connection_index < master_cblk_ptr->connection_count; connection_index++)
-    {
-        relevant_watch      = &master_cblk_ptr->write_watches[connection_index];
-        relevant_connection = relevant_watch->fd_ptr - offsetof(sCHAT_CONNECTION, fd); // REVIEW should this just be the index in connections?
-
-        while (relevant_watch->active && relevant_watch->ready)
-        {
-            chat_event_io_result = chat_event_io_write_to_fd(relevant_connection->io,
-                                                             relevant_connection->fd);
-            switch (chat_event_io_result)
-            {
-                case CHAT_EVENT_IO_RESULT_WRITE_FINISHED:
-                {
-                    if (message_queue_get_count(relevant_connection->event_queue) > 0)
-                    {
-                        status = message_queue_get(relevant_connection->event_queue,
-                                                   &event_buffer,
-                                                   sizeof(event_buffer));
-                        assert(STATUS_SUCCESS == status);
-
-                        chat_event_io_result = chat_event_io_populate_writer(relevant_connection->io,
-                                                                             &event_buffer);
-                        assert(CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS == chat_event_io_result);
-                    }
-                    else
-                    {
-                        relevant_watch->active = false;
-                    }
-
-                    break;
-                }
-                case CHAT_EVENT_IO_RESULT_INCOMPLETE:
-                {
-                    relevant_watch->ready = false;
-                }
-                case CHAT_EVENT_IO_RESULT_FD_CLOSED:
-                {
-                    chat_connection_close(master_cblk_ptr, connection_index);
-                    relevant_watch->active = false;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-
 // REVIEW does this function need to interact with multithreading?
 static eSTATUS realloc_clients(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
@@ -116,7 +66,7 @@ static eSTATUS realloc_clients(
         goto fail_alloc_client_list;
     }
 
-    // Close any connections in excess of new_max_connections
+    // Close any clients in excess of new_max_clients
     for (client_index = new_max_clients;
          client_index < master_cblk_ptr->connection_count;
          client_index++)
@@ -124,7 +74,7 @@ static eSTATUS realloc_clients(
         chat_clients_client_close(master_cblk_ptr->client_ptr_list[client_index]); // REVIEW need to close connections first?
     }
 
-    // Copy any connections overlapping
+    // Copy any clients overlapping
     for (client_index = 0;
          client_index < master_cblk_ptr->max_connections && client_index < new_max_clients;
          client_index++)
@@ -132,7 +82,7 @@ static eSTATUS realloc_clients(
         new_client_ptr_list[client_index] = master_cblk_ptr->client_ptr_list[client_index];
     }
 
-    // Initialize any new connections
+    // Initialize any new clients
     for (client_index = master_cblk_ptr->max_connections;
          client_index < new_max_clients;
          client_index++)
@@ -152,51 +102,6 @@ fail_alloc_client_list:
 }
 
 
-static void check_new_connections(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    eSTATUS         status;
-    uint32_t        connection_index;
-    CHAT_CONNECTION relevant_connection;
-    int             new_connection_fd;
-
-    if (master_cblk_ptr->read_watches[0].ready)
-    {
-        if (master_cblk_ptr->connection_count >= master_cblk_ptr->max_connections)
-        {
-            realloc_connections(master_cblk_ptr,
-                                master_cblk_ptr->connection_count + 10); // REVIEW make this 10 configurable?
-        }
-
-        relevant_connection = NULL;
-        for (connection_index = 1;
-             relevant_connection == NULL && connection_index < master_cblk_ptr->max_connections;
-             connection_index++)
-        {
-            if (CHAT_CONNECTION_STATE_DISCONNECTED == master_cblk_ptr->connections[connection_index].state)
-            {
-                relevant_connection = &master_cblk_ptr->connections[connection_index];
-            }
-        }
-
-        if (NULL != relevant_connection)
-        {
-            status = chat_clients_accept_new_connection(master_cblk_ptr->connections[0].fd,
-                                                        &new_connection_fd);
-            if (STATUS_SUCCESS == status)
-            {
-
-                status = chat_connection_create()
-                if (STATUS_SUCCESS != status)
-                {
-                    close(new_connection_fd);
-                }
-            }
-        }
-    }
-}
-
-
 static void open_processing(
     sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENTS_MESSAGE* message)
@@ -208,10 +113,12 @@ static void open_processing(
     sCHAT_CLIENT** relevant_client_ptr;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-    
-    sCHAT_CLIENT_AUTH* auth_object;
-    sCHAT_CLIENT*      auth_client;
-    sCHAT_EVENT        outgoing_event;
+
+    sCHAT_CLIENT_AUTH*       auth_object;
+    sCHAT_CLIENT*            auth_client;
+    sCHAT_CLIENTS_AUTH_EVENT auth_event;
+
+    sCHAT_EVENT outgoing_event;
 
     switch (message->type)
     {
@@ -267,7 +174,7 @@ static void open_processing(
         case CHAT_CLIENTS_MESSAGE_AUTH_EVENT:
         {
             auth_object = message->params.auth_result.auth_object;
-            
+
             pthread_mutex_lock(&auth_ptr->mutex);
 
             auth_client = (sCHAT_CLIENT_AUTH*)message->params.auth_result.auth_object->client_ptr;
@@ -279,74 +186,56 @@ static void open_processing(
                 break;
             }
 
+            auth_event = message->params.auth_result.auth_event;
+
+            status = chat_event_populate(&outgoing_event,
+                                         CHAT_EVENT_USERNAME_REQUEST,
+                                         CHAT_USER_ID_SERVER,
+                                         k_auth_strings[auth_event->result]);
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_queue_event(auth_client_ptr->connection,
+                                                 &outgoing_event);
+            assert(STATUS_SUCCESS == status);
+
             switch (auth_event->result)
             {
                 case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED:
                 {
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_USERNAME_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 ""); // REVIEW decide what message to put here
-                    assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                         &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
-
                     auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
+                    pthread_mutex_unlock(&auth_object->mutex);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED:
                 {
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_USERNAME_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 ""); // REVIEW decide what message to put here
-                    assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                         &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
-                    
                     auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
+                    pthread_mutex_unlock(&auth_object->mutex);
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_CREATION:
+                {
+                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
+                    pthread_mutex_unlock(&auth_object->mutex);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED:
                 {
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_PASSWORD_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 ""); // REVIEW decide what message to put here
-                    assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                         &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
-
                     auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
+                    pthread_mutex_unlock(&auth_object->mutex);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED:
                 {
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_PASSWORD_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 ""); // REVIEW decide what message to put here
-                    assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                         &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
-
                     auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
+                    pthread_mutex_unlock(&auth_object->mutex);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED:
                 {
-                    auth_client->user_info.id = message->params.auth_result.auth_event.user_info->id;
+                    auth_client->user_info.id = auth_event.user_info->id;
 
                     status = print_string_to_buffer(auth_client->user_info.name,
-                                                    message->params.auth_result.auth_event.user_info->name,
+                                                    auth_event.user_info->name,
                                                     sizeof(auth_client->user_info.name),
                                                     NULL);
                     assert(STATUS_SUCCESS == status);
@@ -354,15 +243,8 @@ static void open_processing(
                     auth_client->auth  = NULL;
                     auth_client->state = CHAT_CLIENT_STATE_ACTIVE;
 
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_AUTHENTICATED,
-                                                 CHAT_USER_ID_SERVER,
-                                                 ""); // REVIEW decide what message to put here
-                    assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                         &outgoing_event);
-                    assert(STATUS_SUCCESS == status);
+                    pthread_mutex_unlock(&auth_object->mutex);
+                    pthread_mutex_destroy(&auth_object->mutex);
 
                     generic_deallocator(auth_object->credentials.username);
                     generic_deallocator(auth_object->credentials.password);
@@ -372,7 +254,6 @@ static void open_processing(
                 }
             }
 
-            pthread_mutex_unlock(&auth_object->mutex);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
