@@ -55,7 +55,7 @@ typedef void (*fCHAT_AUTH_USER_CBACK) (
 // Functions -------------------------------------------------------------------
 
 // REVIEW leave this as a singleton, or make it dynamic?
-eSTATUS chat_auth_init(
+eSTATUS chat_auth_open(
     void);
 
 
@@ -64,7 +64,7 @@ eSTATUS chat_auth_submit_credentials(
     sCHAT_USER_CREDENTIALS credentials);
 
 
-eSTATUS chat_auth_close(
+eSTATUS chat_auth_shutdown(
     void);
 
 
