@@ -20,7 +20,6 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_AUTH_STATE_INIT,
     CHAT_AUTH_STATE_OPEN,
     CHAT_AUTH_STATE_CLOSED
 } eCHAT_AUTH_STATE;
