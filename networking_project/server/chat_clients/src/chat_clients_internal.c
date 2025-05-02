@@ -516,7 +516,7 @@ void chat_clients_client_close(
         {
             pthread_mutex_unlock(&client_ptr->auth->mutex);
             pthread_mutex_destroy(&client_ptr->auth->mutex);
-            
+
             generic_deallocator(client_ptr->auth->credentials.username);
             generic_deallocator(client_ptr->auth->credentials.password);
             generic_deallocator(client_ptr->auth);

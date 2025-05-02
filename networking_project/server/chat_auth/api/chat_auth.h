@@ -52,13 +52,29 @@ typedef void (*fCHAT_AUTH_USER_CBACK) (
     sCHAT_AUTH_CBACK_DATA* data);
 
 
+typedef void* CHAT_AUTH;
+
+
 // Functions -------------------------------------------------------------------
 
-eSTATUS chat_auth_open(
-    void);
+eSTATUS chat_auth_create(
+    CHAT_AUTH*            out_chat_auth,
+    fCHAT_AUTH_USER_CBACK user_back,
+    void*                 user_arg);
+
+
+eSTATUS chat_auth_open_db(
+    CHAT_AUTH   chat_auth,
+    const char* db_path);
+
+
+eSTATUS chat_auth_close_db(
+    CHAT_AUTH   chat_auth,
+    const char* db_path);
 
 
 eSTATUS chat_auth_submit_credentials(
+    CHAT_AUTH              chat_auth,
     void*                  auth_object,
     sCHAT_USER_CREDENTIALS credentials);
 

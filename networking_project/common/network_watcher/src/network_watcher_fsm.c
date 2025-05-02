@@ -88,7 +88,7 @@ static void open_processing(
                     {
                         cback_data.watch_complete.modes_complete |= NETWORK_WATCHER_MODE_WRITE;
                     }
-                    
+
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                                 NETWORK_WATCHER_EVENT_WATCH_COMPLETE,
                                                 &cback_data);

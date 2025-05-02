@@ -99,12 +99,12 @@ eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION    restrict chat_connection,
     const sCHAT_EVENT* restrict event)
 {
-    
+
 }
 
 
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection)
 {
-    
+
 }

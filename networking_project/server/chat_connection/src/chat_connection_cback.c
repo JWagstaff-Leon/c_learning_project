@@ -16,14 +16,14 @@ void chat_connection_watcher_cback(
     sCHAT_CONNECTION_CBLK*   master_cblk_ptr;
     sCHAT_CONNECTION_MESSAGE message;
     eSTATUS                  status;
-    
+
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)arg;
-    
+
     if (event_mask & NETWORK_WATCHER_EVENT_WATCH_COMPLETE)
     {
         message.type = CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE;
-        
+
         assert(NULL != data);
         message.params.watch_complete.modes_complete = data->watch_complete.modes_complete;
 
@@ -36,7 +36,7 @@ void chat_connection_watcher_cback(
     if (event_mask & NETWORK_WATCHER_EVENT_WATCH_CANCELLED)
     {
         message.type = CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED;
-        
+
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,
                                    sizeof(message));

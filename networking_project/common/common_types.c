@@ -66,7 +66,7 @@ eSTATUS print_string_to_buffer(
 
         goto func_complete;
     }
-    
+
     if (snprintf_status > buffer_size)
     {
         snprintf_status = buffer_size;
@@ -74,11 +74,11 @@ eSTATUS print_string_to_buffer(
 
         goto func_complete;
     }
-    
+
     status = STATUS_SUCCESS;
     goto func_complete;
-    
-func_complete:   
+
+func_complete:
     if (NULL != out_printed_length)
     {
         *out_printed_length = snprintf_status;

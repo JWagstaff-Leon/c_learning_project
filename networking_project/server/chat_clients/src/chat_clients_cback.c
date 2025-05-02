@@ -61,7 +61,7 @@ void chat_clients_connection_cback(
     const uCHAT_CONNECTION_CBACK_DATA* data)
 {
     eSTATUS status;
-    
+
     sCHAT_CLIENTS_CBLK* master_cblk_ptr;
     sCHAT_CLIENT*       client_ptr;
 

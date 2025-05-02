@@ -33,7 +33,7 @@ typedef struct
     eNETWORK_WATCHER_STATE state;
 
     struct pollfd fds[2];
-    
+
     int             cancel_pipe[2];
     pthread_mutex_t cancel_mutex;
 

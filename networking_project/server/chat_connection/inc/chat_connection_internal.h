@@ -51,7 +51,7 @@ typedef struct
 
 void* chat_connection_thread_entry(
     void* arg);
-    
+
 
 void chat_connection_watcher_cback(
     void*                              arg,
