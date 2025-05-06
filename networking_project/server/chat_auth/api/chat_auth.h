@@ -17,7 +17,11 @@ extern "C" {
 // Types -----------------------------------------------------------------------
 
 typedef enum {
-    CHAT_AUTH_EVENT_TYPE_AUTH_RESULT = 1 >> 0
+    CHAT_AUTH_EVENT_DATABASE_OPENED       = 1 >> 0,
+    CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 >> 1,
+    CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 >> 2,
+    CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 >> 3,
+    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 >> 4
 } bCHAT_AUTH_EVENT_TYPE;
 
 
@@ -63,14 +67,13 @@ eSTATUS chat_auth_create(
     void*                 user_arg);
 
 
-eSTATUS chat_auth_open_db(
+eSTATUS chat_auth_open_database(
     CHAT_AUTH   chat_auth,
-    const char* db_path);
+    const char* path);
 
 
-eSTATUS chat_auth_close_db(
-    CHAT_AUTH   chat_auth,
-    const char* db_path);
+eSTATUS chat_auth_close_database(
+    CHAT_AUTH chat_auth);
 
 
 eSTATUS chat_auth_submit_credentials(
@@ -80,7 +83,7 @@ eSTATUS chat_auth_submit_credentials(
 
 
 eSTATUS chat_auth_close(
-    void);
+    CHAT_AUTH chat_auth);
 
 
 #ifdef __cplusplus

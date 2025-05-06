@@ -60,33 +60,42 @@ success:
 }
 
 
-eSTATUS chat_auth_open_db(
+eSTATUS chat_auth_open_database(
     CHAT_AUTH   chat_auth,
-    const char* db_path)
+    const char* path)
 {
     sCHAT_AUTH_CBLK*   master_cblk_ptr;
     sCHAT_AUTH_MESSAGE message;
     eSTATUS            status;
+    size_t             path_length;
 
     if (NULL == chat_auth)
     {
         return STATUS_INVALID_ARG;
     }
 
-    if (NULL == db_path)
+    if (NULL == path)
     {
         return STATUS_INVALID_ARG;
     }
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
-    message.type                      = CHAT_AUTH_MESSAGE_OPEN_DATABASE;
-    message.params.open_database.path = generic_allocator(strlen(db_path) + 1);
+    message.type = CHAT_AUTH_MESSAGE_OPEN_DATABASE;
+
+    path_length                       = strlen(path) + 1;
+    message.params.open_database.path = generic_allocator(path_length);
     if (NULL == message.params.open_database.path)
     {
         return STATUS_ALLOC_FAILED;
     }
-    strcpy(message.params.open_database.path, db_path);
+
+    status = print_string_to_buffer(message.params.open_database.path, path, path_length, NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        generic_deallocator(message.params.open_database.path);
+        return status;
+    }
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
@@ -94,14 +103,15 @@ eSTATUS chat_auth_open_db(
     if (STATUS_SUCCESS != status)
     {
         generic_deallocator(message.params.open_database.path);
+        return status;
     }
-    return status;
+
+    return STATUS_SUCCESS;
 }
 
 
-eSTATUS chat_auth_close_db(
-    CHAT_AUTH   chat_auth,
-    const char* db_path)
+eSTATUS chat_auth_close_database(
+    CHAT_AUTH chat_auth)
 {
     sCHAT_AUTH_CBLK*   master_cblk_ptr;
     sCHAT_AUTH_MESSAGE message;
@@ -111,29 +121,14 @@ eSTATUS chat_auth_close_db(
     {
         return STATUS_INVALID_ARG;
     }
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
-    message.type                       = CHAT_AUTH_MESSAGE_CLOSE_DATABASE;
-    message.params.close_database.path = NULL;
-
-    if (NULL != db_path)
-    {
-        master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
-
-        message.params.close_database.path = generic_allocator(strlen(db_path) + 1);
-        if (NULL == message.params.close_database.path)
-        {
-            return STATUS_ALLOC_FAILED;
-        }
-        strcpy(message.params.close_database.path, db_path);
-    }
+    message.type = CHAT_AUTH_MESSAGE_CLOSE_DATABASE;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
                                sizeof(message));
-    if (STATUS_SUCCESS != status)
-    {
-        generic_deallocator(message.params.close_database.path);
-    }
+
     return status;
 }
 

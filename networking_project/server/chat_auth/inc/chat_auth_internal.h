@@ -8,6 +8,8 @@ extern "C" {
 
 #include "chat_auth.h"
 
+#include "sqlite3.h"
+
 #include "message_queue.h"
 
 
@@ -33,6 +35,8 @@ typedef struct
 
     fCHAT_AUTH_USER_CBACK user_cback;
     void*                 user_arg;
+
+    sqlite3* database;
 } sCHAT_AUTH_CBLK;
 
 // Functions -------------------------------------------------------------------
@@ -40,15 +44,6 @@ typedef struct
 void* chat_auth_thread_entry(
     void* arg);
 
-
-eSTATUS chat_auth_read_database_file(
-    sCHAT_AUTH_CBLK* master_cblk_ptr,
-    const char*      path);
-
-    
-eSTATUS chat_auth_save_database_file(
-    sCHAT_AUTH_CBLK* master_cblk_ptr,
-    const char*      path);
 
 #ifdef __cplusplus
 }

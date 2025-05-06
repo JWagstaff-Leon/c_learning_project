@@ -27,7 +27,7 @@ typedef enum
 typedef struct
 {
     const char* path;
-} sCHAT_AUTH_MESSAGE_PARAMS_DATABASE_OPERATION;
+} sCHAT_AUTH_MESSAGE_PARAMS_OPEN_DATABASE;
 
 
 typedef struct
@@ -38,8 +38,7 @@ typedef struct
 
 typedef union
 {
-    sCHAT_AUTH_MESSAGE_PARAMS_DATABASE_OPERATION  open_database;
-    sCHAT_AUTH_MESSAGE_PARAMS_DATABASE_OPERATION  close_database;
+    sCHAT_AUTH_MESSAGE_PARAMS_OPEN_DATABASE       open_database;
     sCHAT_AUTH_MESSAGE_PARAMS_PROCESS_CREDENTIALS process_credentials;
 } uCHAT_AUTH_MESSAGE_PARAMS;
 
