@@ -33,6 +33,7 @@ typedef struct
 typedef struct
 {
     sCHAT_USER_CREDENTIALS credentials;
+    void*                  auth_object;
 } sCHAT_AUTH_MESSAGE_PARAMS_PROCESS_CREDENTIALS;
 
 
