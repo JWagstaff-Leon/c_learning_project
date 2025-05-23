@@ -154,8 +154,10 @@ eSTATUS chat_auth_submit_credentials(
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
-    message.type                                   = CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS;
+    message.type = CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS;
+
     message.params.process_credentials.credentials = credentials;
+    message.params.process_credentials.auth_object = auth_object;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

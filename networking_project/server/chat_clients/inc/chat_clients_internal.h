@@ -45,27 +45,6 @@ typedef enum
 } eCHAT_CLIENT_STATE;
 
 
-typedef enum
-{
-    CHAT_CLIENT_AUTH_STATE_INIT,
-    CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY,
-    CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY,
-    CHAT_CLIENT_AUTH_STATE_PROCESSING,
-    CHAT_CLIENT_AUTH_STATE_CANCELLED
-} eCHAT_CLIENT_AUTH_STATE;
-
-
-typedef struct
-{
-    pthread_mutex_t mutex;
-
-    eCHAT_CLIENT_AUTH_STATE state;
-    sCHAT_USER_CREDENTIALS  credentials;
-
-    void* client_ptr;
-} sCHAT_CLIENT_AUTH;
-
-
 typedef void* sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 
 

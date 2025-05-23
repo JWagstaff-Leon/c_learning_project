@@ -8,6 +8,8 @@ extern "C" {
 
 #include "chat_auth.h"
 
+#include <pthread.h>
+
 #include "sqlite3.h"
 
 #include "message_queue.h"
@@ -29,6 +31,24 @@ typedef enum
     CHAT_AUTH_STATE_OPEN,
     CHAT_AUTH_STATE_CLOSED
 } eCHAT_AUTH_STATE;
+
+
+typedef enum
+{
+    CHAT_AUTH_OPERATION_STATE_IDLE,
+    CHAT_AUTH_OPERATION_STATE_PROCESSING,
+    CHAT_AUTH_OPERATION_STATE_CANCELLED,
+    CHAT_AUTH_OPERATION_STATE_DONE
+} eCHAT_AUTH_OPERATION_STATE;
+
+
+typedef struct
+{
+    pthread_mutex_t            mutex;
+    eCHAT_AUTH_OPERATION_STATE state;
+    
+    void* consumer_arg;
+} sCHAT_AUTH;
 
 
 typedef struct
@@ -54,16 +74,12 @@ eSTATUS chat_auth_sql_init_database(
 
 eSTATUS chat_auth_sql_create_user(
     sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    CHAT_USER_ID           id);
 
 
-eSTATUS chat_auth_sql_auth_user(
+eSTATUS                      chat_auth_sql_auth_user(
     sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    sCHAT_USER*            out_user);
 
 
-#ifdef __cplusplus
+#ifdef                      __cplusplus
 }
 #endif

@@ -65,16 +65,25 @@ eSTATUS chat_clients_create(
         goto fail_create_message_queue;
     }
 
-    new_chat_clients_cblk->connections = generic_allocator(new_chat_clients_cblk->max_connections * sizeof(CHAT_CONNECTION));
-    if (NULL == new_chat_clients_cblk->connections)
+    new_chat_clients_cblk->client_ptr_list = generic_allocator(new_chat_clients_cblk->max_connections * sizeof(sCHAT_CLIENT*));
+    if (NULL == new_chat_clients_cblk->client_ptr_list)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_connection_list;
     }
     init_connections_list(new_chat_clients_cblk);
 
+    status = generic_create_thread(chat_clients_thread_entry, new_chat_clients_cblk);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_thread;
+    }
+
     *out_new_chat_clients = (CHAT_CLIENTS)new_chat_clients_cblk;
     return STATUS_SUCCESS;
+
+fail_create_thread:
+    generic_deallocator(new_chat_clients_cblk->client_ptr_list);
 
 fail_alloc_connection_list:
     message_queue_destroy(new_chat_clients_cblk->message_queue);

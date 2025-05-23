@@ -69,6 +69,7 @@ void chat_clients_connection_cback(
 
     assert(NULL != user_arg);
 
+    // FIXME make sure this is up to date for the definition of sCHAT_CLIENTS_CLIENT_CBACK ARG
     master_cblk_ptr = ((sCHAT_CLIENTS_CLIENT_CBACK_ARG*)user_arg)->master_cblk_ptr;
     assert(NULL != master_cblk_ptr);
 

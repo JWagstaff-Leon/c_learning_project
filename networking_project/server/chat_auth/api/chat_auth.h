@@ -17,11 +17,11 @@ extern "C" {
 // Types -----------------------------------------------------------------------
 
 typedef enum {
-    CHAT_AUTH_EVENT_DATABASE_OPENED       = 1 >> 0,
-    CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 >> 1,
-    CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 >> 2,
-    CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 >> 3,
-    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 >> 4
+    CHAT_AUTH_EVENT_DATABASE_OPENED       = 1 << 0,
+    CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 << 1,
+    CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 << 2,
+    CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 << 3,
+    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4
 } bCHAT_AUTH_EVENT_TYPE;
 
 

@@ -59,7 +59,7 @@ eSTATUS message_queue_put(
     const void*   message,
     size_t        message_size)
 {
-    sMESSAGE_QUEUE* message_queue;
+    sMESSAGE_QUEUE* message_queue_cblk;
     size_t          current_message_index;
     size_t          current_message_offset;
     void*           current_message_buffer;
@@ -68,36 +68,36 @@ eSTATUS message_queue_put(
     assert(NULL != message_queue);
     assert(NULL != message);
 
-    message_queue = (sMESSAGE_QUEUE*)message_queue;
+    message_queue_cblk = (sMESSAGE_QUEUE*)message_queue;
     pthread_mutex_lock(&message_queue->queue_mutex);
 
-    if (message_size > message_queue->message_size)
+    if (message_size > message_queue_cblk->message_size)
     {
         return_status = STATUS_INVALID_ARG;
         goto func_exit;
     }
 
-    if (message_queue->used_slots >= message_queue->queue_size)
+    if (message_queue_cblk->used_slots >= message_queue_cblk->queue_size)
     {
         return_status = STATUS_NO_SPACE;
         goto func_exit;
     }
 
-    current_message_index  = (message_queue->front_index + message_queue->used_slots) % message_queue->queue_size;
-    current_message_offset = current_message_index * message_queue->message_size;
-    current_message_buffer = (void*)((size_t)message_queue->queue_buffer + current_message_offset);
+    current_message_index  = (message_queue_cblk->front_index + message_queue_cblk->used_slots) % message_queue_cblk->queue_size;
+    current_message_offset = current_message_index * message_queue_cblk->message_size;
+    current_message_buffer = (void*)((size_t)message_queue_cblk->queue_buffer + current_message_offset);
 
     memcpy(current_message_buffer,
            message,
-           message_queue->message_size);
+           message_queue_cblk->message_size);
 
-    message_queue->used_slots += 1;
+    message_queue_cblk->used_slots += 1;
     return_status = STATUS_SUCCESS;
 
-    pthread_cond_signal(&message_queue->queue_cond_var);
+    pthread_cond_signal(&message_queue_cblk->queue_cond_var);
 
 func_exit:
-    pthread_mutex_unlock(&message_queue->queue_mutex);
+    pthread_mutex_unlock(&message_queue_cblk->queue_mutex);
     return return_status;
 }
 
