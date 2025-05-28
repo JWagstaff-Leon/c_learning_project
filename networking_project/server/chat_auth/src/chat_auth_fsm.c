@@ -14,6 +14,8 @@ static void no_database_processing(
     eSTATUS status;
     int     sqlite_status;
 
+    sCHAT_AUTH_CBACK_DATA cback_data;
+
     switch (message->type)
     {
         case CHAT_AUTH_MESSAGE_OPEN_DATABASE:
@@ -47,6 +49,17 @@ static void no_database_processing(
             
             break;
         }
+        case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
+        {
+            cback_data.auth_result.result      = CHAT_AUTH_RESULT_FAILURE;
+            cback_data.auth_result.auth_object = message->params.process_credentials.auth_object;
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_AUTH_EVENT_AUTH_RESULT,
+                                        &cback_data);
+            
+            break;
+        }
         case CHAT_AUTH_MESSAGE_SHUTDOWN:
         {
             master_cblk_ptr->state = CHAT_AUTH_STATE_CLOSED;
@@ -70,6 +83,7 @@ static void open_processing(
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
             // TODO check for finalization of auth_object; don't process if it's dead
+            // REVIEW find a way to send USERNAME_REJECTED?
             if (NULL == message->params.process_credentials.credentials.username)
             {
                 cback_data.auth_result.result      = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
@@ -200,7 +214,7 @@ static void dispatch_message(
 }
 
 
-static void message_cleanup(
+static void cleanup_message(
     const sCHAT_AUTH_MESSAGE* message)
 {
     switch (message->type)
@@ -232,6 +246,6 @@ void* chat_auth_thread_entry(
         assert(STATUS_SUCCESS == status);
 
         dispatch_message(master_cblk_ptr, &message);
-        message_cleanup(&message);
+        cleanup_message(&message);
     }
 }
