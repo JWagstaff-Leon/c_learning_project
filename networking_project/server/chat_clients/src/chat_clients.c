@@ -118,9 +118,10 @@ eSTATUS chat_clients_open_client(
 
 
 eSTATUS chat_clients_auth_event(
-    CHAT_CLIENTS             chat_clients,
-    CHAT_CLIENTS_AUTH_OBJECT auth_object,
-    sCHAT_CLIENTS_AUTH_EVENT auth_event)
+    CHAT_CLIENTS            chat_clients,
+    eCHAT_CLIENTS_AUTH_STEP auth_step,
+    sCHAT_USER              user_info,
+    sCHAT_CLIENT*           client)
 {
     eSTATUS               status;
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
@@ -129,15 +130,15 @@ eSTATUS chat_clients_auth_event(
     sCHAT_CLIENT_AUTH* auth_ptr;
 
     assert(NULL != chat_clients);
+    assert(NULL != client);
+    
     master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
-
-    assert(NULL != auth_object);
-    assert(auth_event.result != CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED || auth_event.user_info != NULL);
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
 
-    message.params.auth_result.auth_object = auth_object;
-    message.params.auth_result.auth_event  = auth_event;
+    message.params.auth_event.auth_step = auth_step;
+    message.params.auth_event.user_info = user_info;
+    message.params.auth_event.client    = client;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

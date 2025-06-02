@@ -18,6 +18,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#include "chat_auth.h"
 #include "chat_connection.h"
 #include "chat_event.h"
 #include "chat_event_io.h"
@@ -39,7 +40,11 @@ typedef enum
 typedef enum
 {
     CHAT_CLIENT_STATE_INIT,
-    CHAT_CLIENT_STATE_AUTHENTICATING,
+
+    CHAT_CLIENT_STATE_AUTHENTICATING_INIT,
+    CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME,
+    CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD,
+
     CHAT_CLIENT_STATE_DISCONNECTING,
     CHAT_CLIENT_STATE_ACTIVE
 } eCHAT_CLIENT_STATE;
@@ -51,9 +56,9 @@ typedef void* sCHAT_CLIENTS_CLIENT_CBACK_ARG;
 typedef struct
 {
     eCHAT_CLIENT_STATE state;
-    sCHAT_CLIENT_AUTH* auth;  // Is a dynamically allocated as it is:
-                              //  - short-lived
-                              //  - also used by the auth system (can live longer than the client)
+
+    void*                   auth_transaction;
+    sCHAT_USER_CREDENTIALS* auth_credentials;
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;

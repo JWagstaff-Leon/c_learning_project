@@ -2,6 +2,7 @@
 #include "chat_auth_internal.h"
 #include "chat_auth_fsm.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -135,34 +136,101 @@ eSTATUS chat_auth_close_database(
 
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
-    void*                  auth_object,
-    sCHAT_USER_CREDENTIALS credentials)
+    sCHAT_USER_CREDENTIALS credentials,
+    void*                  consumer_arg,
+    CHAT_AUTH_TRANSACTION* out_auth_transaction)
 {
     sCHAT_AUTH_CBLK*   master_cblk_ptr;
     sCHAT_AUTH_MESSAGE message;
     eSTATUS            status;
+
+    sCHAT_AUTH_TRANSACTION* new_auth_transaction;
 
     if (NULL == chat_auth)
     {
         return STATUS_INVALID_ARG;
     }
 
-    if (NULL == auth_object)
+    if (NULL == out_auth_transaction)
     {
         return STATUS_INVALID_ARG;
     }
 
-    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
+    new_auth_transaction = generic_allocator(sizeof(sCHAT_AUTH_TRANSACTION));
+    if (NULL == new_auth_transaction)
+    {
+        return STATUS_ALLOC_FAILED;
+    }
+
+    new_auth_transaction->consumer_arg = consumer_arg;
+    new_auth_transaction->state        = CHAT_AUTH_TRANSACTION_STATE_PROCESSING;
+    pthread_mutex_init(&new_auth_transaction->mutex);
 
     message.type = CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS;
 
     message.params.process_credentials.credentials = credentials;
-    message.params.process_credentials.auth_object = auth_object;
+    message.params.process_credentials.auth_object = new_auth_transaction;
+
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
                                sizeof(message));
-    return status;
+    if (status != STATUS_SUCCESS)
+    {
+        generic_deallocator(new_auth_transaction);
+        return status;
+    }
+
+    *out_auth_transaction = (CHAT_AUTH_TRANSACTION)new_auth_transaction;
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS chat_auth_finish_transaction(
+    CHAT_AUTH_TRANSACTION auth_transaction)
+{
+    sCHAT_AUTH_TRANSACTION* auth_transaction_cblk;
+
+    if (NULL == auth_transaction)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    auth_transaction_cblk = (sCHAT_AUTH_TRANSACTION*)auth_transaction;
+
+    pthread_mutex_lock(&auth_transaction_cblk->mutex);
+
+    switch (auth_transaction_cblk->state)
+    {
+        case CHAT_AUTH_TRANSACTION_STATE_PROCESSING:
+        {
+            auth_transaction_cblk->state = CHAT_AUTH_TRANSACTION_STATE_CANCELLED;
+            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
+            break;
+        }
+        case CHAT_AUTH_TRANSACTION_STATE_CANCELLED:
+        {
+            // Nothing to be done in this case
+            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
+            break;
+        }
+        case CHAT_AUTH_TRANSACTION_STATE_DONE:
+        {
+            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
+            pthread_mutex_destroy(&auth_transaction_cblk->mutex);
+            generic_deallocator(auth_transaction_cblk);
+            break;
+        }
+        default:
+        {
+            assert(0); // Should never get here
+            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
+            break;
+        }
+    }
+
+    return STATUS_SUCCESS;
 }
 
 

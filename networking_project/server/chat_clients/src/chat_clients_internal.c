@@ -97,11 +97,10 @@ static void handler_username_submit(
     sCHAT_EVENT   outgoing_event;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-    sCHAT_CLIENT_AUTH*       auth_object;
     char*                    new_username;
     size_t                   new_username_size;
 
-    if (CHAT_CLIENT_STATE_AUTHENTICATING != source_client->state)
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD < source_client->state)
     {
         status = chat_event_populate(&outgoing_event,
                                      CHAT_EVENT_USERNAME_REJECTED,
@@ -120,45 +119,12 @@ static void handler_username_submit(
         status = chat_event_populate(&outgoing_event,
                                      CHAT_EVENT_USERNAME_REJECTED,
                                      CHAT_USER_ID_SERVER,
-                                     "Username is too long");
+                                     "User is already logged in");
         assert(STATUS_SUCCESS == status);
 
         status = chat_connection_queue_event(source_client->connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
-        return;
-    }
-
-    auth_object = source_client->auth;
-
-    pthread_mutex_lock(&auth_object->mutex);
-
-    if (CHAT_CLIENT_AUTH_STATE_CANCELLED == auth_object->state)
-    {
-        pthread_mutex_unlock(&auth_object->mutex);
-
-        relevant_client = auth_object->client_ptr;
-        assert(relevant_client == source_client);
-
-        relevant_client->auth = NULL;
-
-        generic_deallocator(auth_object->credentials.username);
-        generic_deallocator(auth_object->credentials.password);
-        generic_deallocator(auth_object);
-
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_CONNECTION_FAILED,
-                                     CHAT_USER_ID_SERVER,
-                                     ""); // REVIEW add real message
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(relevant_client->connection,
-                                             &outgoing_event);
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_close(relevant_client->connection);
-        assert(STATUS_SUCCESS == status);
-
         return;
     }
 
@@ -174,8 +140,6 @@ static void handler_username_submit(
         status = chat_connection_queue_event(source_client->connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
-
-        pthread_mutex_unlock(&auth_object->mutex);
         return;
     }
     new_username_size = event->length;
@@ -197,47 +161,50 @@ static void handler_username_submit(
         assert(STATUS_SUCCESS == status);
 
         generic_deallocator(new_username);
-
-        pthread_mutex_unlock(&auth_object->mutex);
         return;
     }
 
-    switch (auth_object->state)
+    switch (source_client->state)
     {
-        case CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY:
+        case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
             // Free any previously entered password if going backwards in the flow
-            generic_deallocator(auth_object->credentials.password);
+            generic_deallocator(source_client->auth_credentials.password);
 
             auth_object->credentials.password      = NULL;
             auth_object->credentials.password_size = 0;
 
             // Fallthrough
         }
-        case CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY:
+        case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
         {
             generic_deallocator(auth_object->credentials.username);
 
             auth_object->credentials.username      = new_username;
             auth_object->credentials.username_size = new_username_size;
 
-            auth_object->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
-
-            cback_data.request_authentication.auth_object = auth_object;
-            cback_data.request_authentication.credentials = auth_object->credentials;
+            cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
+            cback_data.start_auth_transaction.client_ptr                 = source_client;
+            cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                        CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         cback_data);
             break;
         }
         default:
         {
-            // TODO send bad state message
+            status = chat_event_populate(&outgoing_event,
+                                         CHAT_EVENT_SERVER_ERROR,
+                                         CHAT_USER_ID_SERVER,
+                                         "Cannot process username submission now");
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_queue_event(source_client->connection,
+                                                 &outgoing_event);
+            assert(STATUS_SUCCESS == status);
         }
     }
-
-    pthread_mutex_unlock(&auth_object->mutex);
 }
 
 
@@ -252,11 +219,10 @@ static void handler_password_submit(
     sCHAT_EVENT   outgoing_event;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-    sCHAT_CLIENT_AUTH*       auth_object;
     char*                    new_password;
     size_t                   new_password_size;
 
-    if (CHAT_CLIENT_STATE_AUTHENTICATING != source_client->state)
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD < source_client->state)
     {
         status = chat_event_populate(&outgoing_event,
                                      CHAT_EVENT_SERVER_ERROR,
@@ -268,33 +234,6 @@ static void handler_password_submit(
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
         break;
-    }
-
-    auth_object = source_client->auth;
-
-    pthread_mutex_lock(&auth_object->mutex);
-
-    if (CHAT_CLIENT_AUTH_STATE_CANCELLED == auth_object->state)
-    {
-        relevant_client = auth_object->client_ptr;
-        assert(relevant_client == source_client);
-
-        relevant_client->auth = NULL;
-
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_CONNECTION_FAILED,
-                                     CHAT_USER_ID_SERVER,
-                                     ""); // REVIEW add real message
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(relevant_client->connection,
-                                             &outgoing_event);
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_close(relevant_client->connection);
-        assert(STATUS_SUCCESS == status);
-
-        return;
     }
 
     new_password = generic_allocator(event->length);
@@ -309,7 +248,6 @@ static void handler_password_submit(
         status = chat_connection_queue_event(source_client->connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
-        pthread_mutex_unlock(&auth_object->mutex);
         break;
     }
     new_password_size = event->length;
@@ -334,29 +272,36 @@ static void handler_password_submit(
         return;
     }
 
-    switch (auth_object->state)
+    switch (source_client->state)
     {
-        case CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY:
+        case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
             generic_deallocator(auth_object->credentials.password);
 
             auth_object->credentials.password      = new_password;
             auth_object->credentials.password_size = new_password_size;
 
-            auth_object->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
-
-            cback_data.request_authentication.auth_object = auth_object;
-            cback_data.request_authentication.credentials = auth_object->credentials;
+            cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
+            cback_data.start_auth_transaction.client_ptr                 = source_client;
+            cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                        CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         cback_data);
             break;
         }
-        case CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY:
+        case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
         default:
         {
-            // TODO send bad state message
+            status = chat_event_populate(&outgoing_event,
+                                         CHAT_EVENT_SERVER_ERROR,
+                                         CHAT_USER_ID_SERVER,
+                                         "Cannot process password submission now");
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_queue_event(source_client->connection,
+                                                 &outgoing_event);
+            assert(STATUS_SUCCESS == status);
         }
     }
 
@@ -463,13 +408,13 @@ eSTATUS chat_clients_client_init(
     }
     memset(new_client, 0, sizeof(sCHAT_CLIENT));
 
-    new_client->auth = generic_allocator(sizeof(sCHAT_CLIENT_AUTH));
-    if (NULL == new_client->auth)
+    new_client->auth_credentials = generic_allocator(sizeof(sCHAT_USER_CREDENTIALS));
+    if (NULL == new_client->auth_credentials)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_auth;
+        goto fail_alloc_credentials;
     }
-    memset(new_client->auth, 0, sizeof(sCHAT_CLIENT_AUTH));
+    memset(new_client->auth_credentials, 0, sizeof(sCHAT_USER_CREDENTIALS));
 
     status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
@@ -480,10 +425,7 @@ eSTATUS chat_clients_client_init(
         goto fail_create_connection;
     }
 
-    new_client->state       = CHAT_CLIENT_STATE_INIT;
-    new_client->auth->state = CHAT_CLIENT_AUTH_STATE_INIT;
-
-    pthread_mutex_init(&new_client->auth->mutex);
+    new_client->state = CHAT_CLIENT_STATE_INIT;
 
     new_client->container_ptr   = client_container_ptr;
     new_client->master_cblk_ptr = master_cblk_ptr;
@@ -493,9 +435,9 @@ eSTATUS chat_clients_client_init(
     return STATUS_SUCCESS;
 
 fail_create_connection:
-    generic_deallocator(new_client->auth);
+    generic_deallocator(new_client->auth_credentials);
 
-fail_alloc_auth:
+fail_alloc_credentials:
     generic_deallocator(new_client);
 
 fail_alloc_client:

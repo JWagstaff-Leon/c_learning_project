@@ -21,7 +21,8 @@ typedef enum {
     CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 << 1,
     CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 << 2,
     CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 << 3,
-    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4
+    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4,
+    CHAT_AUTH_EVENT_TRANSACTION_DONE      = 1 << 5
 } bCHAT_AUTH_EVENT_TYPE;
 
 
@@ -41,14 +42,20 @@ typedef enum {
 
 typedef struct
 {
-    void*             auth_object;
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
 } sCHAT_AUTH_CBACK_DATA_AUTH_RESULT;
 
 
+typedef struct
+{
+    void* consumer_arg;
+} sCHAT_AUTH_CBACK_DATA_TRANSACTION_DONE;
+
+
 typedef struct {
-    sCHAT_AUTH_CBACK_DATA_AUTH_RESULT auth_result;
+    sCHAT_AUTH_CBACK_DATA_AUTH_RESULT      auth_result;
+    sCHAT_AUTH_CBACK_DATA_TRANSACTION_DONE transaction_done;
 } sCHAT_AUTH_CBACK_DATA;
 
 
@@ -59,6 +66,7 @@ typedef void (*fCHAT_AUTH_USER_CBACK) (
 
 
 typedef void* CHAT_AUTH;
+typedef void* CHAT_AUTH_TRANSACTION;
 
 
 // Functions -------------------------------------------------------------------
@@ -80,8 +88,13 @@ eSTATUS chat_auth_close_database(
 
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
-    void*                  auth_object,
-    sCHAT_USER_CREDENTIALS credentials);
+    sCHAT_USER_CREDENTIALS credentials,
+    void*                  consumer_arg,
+    CHAT_AUTH_TRANSACTION* out_auth_transaction);
+
+
+eSTATUS chat_auth_finish_transaction(
+    CHAT_AUTH_TRANSACTION auth_transaction);
 
 
 eSTATUS chat_auth_close(

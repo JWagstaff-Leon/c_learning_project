@@ -11,12 +11,13 @@
 
 
 static const char* k_auth_strings[] = {
-    "Enter your username",  // CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED
-    "Invalid username",     // CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED
-    "Create your password", // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_CREATION
-    "Enter your password",  // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED
-    "Invalid password",     // CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED
-    "Logged in"             // CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED
+    "Enter your username",  // CHAT_CLIENTS_AUTH_STEP_USERNAME_REQUIRED
+    "Invalid username",     // CHAT_CLIENTS_AUTH_STEP_USERNAME_REJECTED
+    "Create your password", // CHAT_CLIENTS_AUTH_STEP_PASSWORD_CREATION
+    "Enter your password",  // CHAT_CLIENTS_AUTH_STEP_PASSWORD_REQUIRED
+    "Invalid password",     // CHAT_CLIENTS_AUTH_STEP_PASSWORD_REJECTED
+    "Logged in",            // CHAT_CLIENTS_AUTH_STEP_AUTHENTICATED
+    ""                      // CHAT_CLIENTS_AUTH_STEP_CLOSED
 };
 
 
@@ -114,9 +115,8 @@ static void open_processing(
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
 
-    sCHAT_CLIENT_AUTH*       auth_object;
+    eCHAT_CLIENTS_AUTH_STEP  auth_step;
     sCHAT_CLIENT*            auth_client;
-    sCHAT_CLIENTS_AUTH_EVENT auth_event;
 
     sCHAT_EVENT outgoing_event;
 
@@ -160,100 +160,95 @@ static void open_processing(
                 break;
             }
 
-            (*relevant_client_ptr)->state       = CHAT_CLIENT_STATE_AUTHENTICATING;
-            (*relevant_client_ptr)->auth->state = CHAT_CLIENT_AUTH_STATE_PROCESSING;
+            (*relevant_client_ptr)->state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
 
-            cback_data.request_authentication.auth_object = (*relevant_client_ptr)->auth;
-            cback_data.request_authentication.credentials = &(*relevant_client_ptr)->auth->credentials;
+            cback_data.request_authentication.auth_transaction_container = &(*relevant_client_ptr)->auth_transaction;
+
+            cback_data.request_authentication.credentials.username      = NULL;
+            cback_data.request_authentication.credentials.username_size = 0;
+
+            cback_data.request_authentication.credentials.password      = NULL;
+            cback_data.request_authentication.credentials.password_size = 0;
+
+            cback_data.request_authentication.client_ptr = relevant_client_ptr;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENTS_EVENT_REQUEST_AUTHENTICATION,
+                                        CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_AUTH_EVENT:
         {
-            auth_object = message->params.auth_result.auth_object;
+            auth_step   = message->params.auth_event.auth_step;
+            auth_client = message->params.auth_event.client;
 
-            pthread_mutex_lock(&auth_ptr->mutex);
-
-            auth_client = (sCHAT_CLIENT_AUTH*)message->params.auth_result.auth_object->client_ptr;
-
-            if (CHAT_CLIENT_AUTH_STATE_CANCELLED == auth_ptr->state)
+            switch (auth_step)
             {
-                pthread_mutex_unlock(&auth_ptr->mutex);
-                chat_clients_client_close(auth_client);
-                break;
-            }
+                case CHAT_CLIENTS_AUTH_STEP_USERNAME_REQUIRED:
+                case CHAT_CLIENTS_AUTH_STEP_USERNAME_REJECTED:
+                {
+                    auth_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME;
 
-            auth_event = message->params.auth_result.auth_event;
-
-            status = chat_event_populate(&outgoing_event,
-                                         CHAT_EVENT_USERNAME_REQUEST,
-                                         CHAT_USER_ID_SERVER,
-                                         k_auth_strings[auth_event->result]);
-            assert(STATUS_SUCCESS == status);
-
-            status = chat_connection_queue_event(auth_client_ptr->connection,
-                                                 &outgoing_event);
-            assert(STATUS_SUCCESS == status);
-
-            switch (auth_event->result)
-            {
-                case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REQUIRED:
-                {
-                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    break;
-                }
-                case CHAT_CLIENTS_AUTH_RESULT_USERNAME_REJECTED:
-                {
-                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_USERNAME_ENTRY;
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    break;
-                }
-                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_CREATION:
-                {
-                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    break;
-                }
-                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REQUIRED:
-                {
-                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    break;
-                }
-                case CHAT_CLIENTS_AUTH_RESULT_PASSWORD_REJECTED:
-                {
-                    auth_ptr->state = CHAT_CLIENT_AUTH_STATE_PASSWORD_ENTRY;
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    break;
-                }
-                case CHAT_CLIENTS_AUTH_RESULT_AUTHENTICATED:
-                {
-                    auth_client->user_info.id = auth_event.user_info->id;
-
-                    status = print_string_to_buffer(auth_client->user_info.name,
-                                                    auth_event.user_info->name,
-                                                    sizeof(auth_client->user_info.name),
-                                                    NULL);
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_USERNAME_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
 
-                    auth_client->auth  = NULL;
-                    auth_client->state = CHAT_CLIENT_STATE_ACTIVE;
-
-                    pthread_mutex_unlock(&auth_object->mutex);
-                    pthread_mutex_destroy(&auth_object->mutex);
-
-                    generic_deallocator(auth_object->credentials.username);
-                    generic_deallocator(auth_object->credentials.password);
-                    generic_deallocator(auth_object);
-
+                    status = chat_connection_queue_event(auth_client->connection,
+                                                         &outgoing_event);
                     break;
                 }
-            }
+                case CHAT_CLIENTS_AUTH_STEP_PASSWORD_CREATION:
+                case CHAT_CLIENTS_AUTH_STEP_PASSWORD_REQUIRED:
+                case CHAT_CLIENTS_AUTH_STEP_PASSWORD_REJECTED:
+                {
+                    auth_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD;
 
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_PASSWORD_REQUEST,
+                                                 CHAT_USER_ID_SERVER,
+                                                 k_auth_strings[auth_step]);
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client->connection,
+                                                         &outgoing_event);
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_STEP_AUTHENTICATED:
+                {
+                    auth_client->state = CHAT_CLIENT_STATE_ACTIVE;
+
+                    status = chat_event_populate(&outgoing_event,
+                                                 CHAT_EVENT_AUTHENTICATED,
+                                                 CHAT_USER_ID_SERVER,
+                                                 k_auth_strings[auth_step]);
+                    assert(STATUS_SUCCESS == status);
+
+                    status = chat_connection_queue_event(auth_client->connection,
+                                                         &outgoing_event);
+                    break;
+                }
+                case CHAT_CLIENTS_AUTH_STEP_CLOSED:
+                {
+                    generic_deallocator(auth_client->auth_credentials->username);
+                    generic_deallocator(auth_client->auth_credentials->password);
+                    generic_deallocator(auth_client->auth_credentials);
+
+                    auth_client->auth_credentials = NULL;
+                    break;
+                }
+
+                cback_data.finish_auth_transaction.client_ptr       = auth_client;
+                cback_data.finish_auth_transaction.auth_transaction = auth_client->auth_transaction;
+                
+                auth_client->auth_transaction = NULL;
+
+                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                            CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
+                                            &cback_data);
+            }
+                        
             break;
         }
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:

@@ -47,9 +47,10 @@ typedef struct
 
 typedef struct
 {
-    sCHAT_CLIENT_AUTH*       auth_object;
-    sCHAT_CLIENTS_AUTH_EVENT auth_event;
-} sCHAT_CLIENTS_AUTH_RESULT_PARAMS;
+    eCHAT_CLIENTS_AUTH_STEP auth_step;
+    sCHAT_USER              user_info;
+    sCHAT_CLIENT*           client;
+} sCHAT_CLIENTS_AUTH_EVENT_PARAMS;
 
 
 typedef union
@@ -57,7 +58,7 @@ typedef union
     sCHAT_CLIENTS_OPEN_CLIENT_PARAMS    open_client;
     sCHAT_CLIENTS_INCOMING_EVENT_PARAMS incoming_event;
     sCHAT_CLIENTS_CLIENT_CLOSED_PARAMS  client_closed;
-    sCHAT_CLIENTS_AUTH_RESULT_PARAMS    auth_result;
+    sCHAT_CLIENTS_AUTH_EVENT_PARAMS     auth_event;
 } uCHAT_CLIENTS_MESSAGE_PARAMS;
 
 

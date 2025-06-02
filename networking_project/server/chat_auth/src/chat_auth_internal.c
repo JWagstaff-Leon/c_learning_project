@@ -109,6 +109,7 @@ eSTATUS chat_auth_sql_create_user(
         {
             if (retry_count++ < CHAT_AUTH_SQL_MAX_TRIES)
             {
+                // FIXME make this a timer instead of a sleep
                 assert(0 == usleep(CHAT_AUTH_SQL_RETRY_MS));
             }
         }
@@ -171,6 +172,7 @@ eSTATUS chat_auth_sql_auth_user(
         {
             if (retry_count++ < CHAT_AUTH_SQL_MAX_TRIES)
             {
+                // FIXME make this a timer instead of a sleep
                 assert(0 == usleep(CHAT_AUTH_SQL_RETRY_MS));
             }
         }
