@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common_types.h"
 #include "message_queue.h"
 
 

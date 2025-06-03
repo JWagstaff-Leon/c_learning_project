@@ -1,0 +1,6 @@
+add_subdirectory(chat_event)
+add_subdirectory(chat_event_io)
+add_subdirectory(chat_user)
+add_subdirectory(common_types)
+add_subdirectory(message_queue)
+add_subdirectory(network_watcher)

@@ -1,5 +1,8 @@
 #include "chat_event.h"
 
+#include "chat_user.h"
+#include "common_types.h"
+
 
 eSTATUS chat_event_copy(
     sCHAT_EVENT*       restrict dst,

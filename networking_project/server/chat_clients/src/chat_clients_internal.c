@@ -9,6 +9,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "common_types.h"
+#include "chat_event.h"
+
 
 static char k_server_name[] = "Server";
 
@@ -445,6 +448,7 @@ fail_alloc_client:
 }
 
 
+// FIXME change for new auth flow
 void chat_clients_client_close(
     sCHAT_CLIENT* client_ptr)
 {
