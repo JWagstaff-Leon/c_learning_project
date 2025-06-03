@@ -1,10 +1,14 @@
 #pragma once
 
+#include <endian.h>
 
 #define BASE_STATUS_VALUE -1
 
 #define mSTRINGIFY(x) _m_stringify(x)
 #define _m_stringify(x) #x
+
+#define htonll htobe64
+#define ntohll be64toh
 
 
 typedef enum

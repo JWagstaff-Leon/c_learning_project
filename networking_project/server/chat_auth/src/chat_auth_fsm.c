@@ -82,7 +82,6 @@ static void open_processing(
     {
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
-            // REVIEW find a way to send USERNAME_REJECTED?
             pthread_mutex_lock(&message->params.process_credentials.auth_transaction->mutex);
             
             if (CHAT_AUTH_TRANSACTION_STATE_CANCELLED == message->params.process_credentials.auth_transaction->state)

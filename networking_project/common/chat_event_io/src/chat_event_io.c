@@ -3,6 +3,7 @@
 #include "chat_event_io_fsm.h"
 #include "chat_event_io_network_fsm.h"
 
+#include <arpa/inet.h>
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
@@ -119,7 +120,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     }
 
     event_buffer->type   = ntohl(reader->event.type);
-    event_buffer->origin = ntohl(reader->event.origin); // FIXME use 64-bit version, or switch ID to 32 bit
+    event_buffer->origin = ntohll(reader->event.origin);
     event_buffer->length = ntohs(reader->event.length);
     memcpy(event_buffer->data,
            &reader->event.data,
