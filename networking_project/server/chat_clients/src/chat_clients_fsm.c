@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "common_types.h"
 #include "message_queue.h"
@@ -58,11 +59,11 @@ static eSTATUS realloc_clients(
 {
     eSTATUS status;
 
-    uint32_t       client_index;
-    sCHAT_CLIENT** new_client_ptr_list;
+    uint32_t            client_index;
+    sCHAT_CLIENT_ENTRY* new_client_list;
 
-    new_client_ptr_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
-    if (NULL == new_client_ptr_list)
+    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT_ENTRY) * new_max_clients);
+    if (NULL == new_client_list)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_client_list;
@@ -70,32 +71,33 @@ static eSTATUS realloc_clients(
 
     // Close any clients in excess of new_max_clients
     for (client_index = new_max_clients;
-         client_index < master_cblk_ptr->connection_count;
+         client_index < master_cblk_ptr->client_count;
          client_index++)
     {
-        chat_clients_client_close(master_cblk_ptr->client_ptr_list[client_index]); // REVIEW need to close connections first?
+        chat_clients_client_close(master_cblk_ptr->client_list[client_index].client_ptr); // REVIEW need to close connections first?
     }
 
     // Copy any clients overlapping
     for (client_index = 0;
-         client_index < master_cblk_ptr->max_connections && client_index < new_max_clients;
+         client_index < master_cblk_ptr->max_clients && client_index < new_max_clients;
          client_index++)
     {
-        new_client_ptr_list[client_index] = master_cblk_ptr->client_ptr_list[client_index];
+        new_client_list[client_index] = master_cblk_ptr->client_list[client_index];
     }
 
     // Initialize any new clients
-    for (client_index = master_cblk_ptr->max_connections;
+    for (client_index = master_cblk_ptr->max_clients;
          client_index < new_max_clients;
          client_index++)
     {
-        new_client_ptr_list[client_index] = NULL;
+        new_client_list[client_index].client_ptr      = NULL;
+        new_client_list[client_index].master_cblk_ptr = master_cblk_ptr;
     }
 
-    generic_deallocator(master_cblk_ptr->client_ptr_list);
+    generic_deallocator(master_cblk_ptr->client_list);
 
-    master_cblk_ptr->client_ptr_list = new_client_ptr_list;
-    master_cblk_ptr->max_clients     = new_max_clients;
+    master_cblk_ptr->client_list = new_client_list;
+    master_cblk_ptr->max_clients = new_max_clients;
 
     return STATUS_SUCCESS;
 
@@ -142,13 +144,15 @@ static void open_processing(
                  client_index < master_cblk_ptr->max_clients;
                  client_index++)
             {
-                if (NULL == master_cblk_ptr->client_ptr_list[client_index])
+                if (NULL == master_cblk_ptr->client_list[client_index].client_ptr)
                 {
-                    relevant_client_ptr = &master_cblk_ptr->client_ptr_list[client_index];
+                    relevant_client_ptr = &master_cblk_ptr->client_list[client_index].client_ptr;
+                    master_cblk_ptr->client_list[client_index].master_cblk_ptr;
                     break;
                 }
             }
 
+            // TODO update this to use client entry
             status = chat_clients_client_init(relevant_client_ptr,
                                               master_cblk_ptr,
                                               message->params.open_client.fd);
@@ -163,15 +167,15 @@ static void open_processing(
 
             (*relevant_client_ptr)->state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
 
-            cback_data.request_authentication.auth_transaction_container = &(*relevant_client_ptr)->auth_transaction;
+            cback_data.start_auth_transaction.auth_transaction_container = &(*relevant_client_ptr)->auth_transaction;
 
-            cback_data.request_authentication.credentials.username      = NULL;
-            cback_data.request_authentication.credentials.username_size = 0;
+            cback_data.start_auth_transaction.credentials.username      = NULL;
+            cback_data.start_auth_transaction.credentials.username_size = 0;
 
-            cback_data.request_authentication.credentials.password      = NULL;
-            cback_data.request_authentication.credentials.password_size = 0;
+            cback_data.start_auth_transaction.credentials.password      = NULL;
+            cback_data.start_auth_transaction.credentials.password_size = 0;
 
-            cback_data.request_authentication.client_ptr = relevant_client_ptr;
+            cback_data.start_auth_transaction.client_ptr = relevant_client_ptr;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
@@ -351,6 +355,6 @@ void* chat_clients_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
-    fsm_close_cblk(master_cblk_ptr);
+    fsm_cblk_close(master_cblk_ptr);
     return NULL;
 }

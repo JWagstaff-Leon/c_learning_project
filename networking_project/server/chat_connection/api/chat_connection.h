@@ -6,6 +6,7 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include "chat_event.h"
 #include "chat_user.h"
 #include "common_types.h"
 
@@ -37,7 +38,7 @@ typedef union
 } uCHAT_CONNECTION_CBACK_DATA;
 
 
-typedef void (fCHAT_CONNECTION_USER_CBACK)(
+typedef void (*fCHAT_CONNECTION_USER_CBACK)(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
     const uCHAT_CONNECTION_CBACK_DATA* data);

@@ -6,10 +6,6 @@ target_include_directories(chat_event_io
 
   PRIVATE
     inc
-
-    Common::chat_event
-    Common::message_queue
-    Common::types
 )
 
 target_sources(chat_event_io
@@ -18,6 +14,14 @@ target_sources(chat_event_io
     src/chat_event_io_fsm.c
     src/chat_event_io_fsm_reader.c
     src/chat_event_io_fsm_writer.c
+)
+
+target_link_libraries(chat_event_io
+  PRIVATE
+    Common::chat_event
+    Common::chat_user
+    Common::message_queue
+    Common::types
 )
 
 add_library(Common::chat_event_io ALIAS chat_event_io)

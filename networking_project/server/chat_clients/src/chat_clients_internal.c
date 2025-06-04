@@ -42,13 +42,13 @@ static void handler_chat_message(
         status = chat_event_copy(&outgoing_event, event);
         assert(STATUS_SUCCESS == status);
 
-        outgoing_event->origin = source_client->user_info.id;
+        outgoing_event.origin = source_client->user_info.id;
 
         for (client_index = 1;
              client_index < master_cblk_ptr->max_clients;
              client_index++)
         {
-            relevant_client = master_cblk_ptr->client_ptr_list[client_index];
+            relevant_client = master_cblk_ptr->client_list[client_index].client_ptr;
 
             if (relevant_client == source_client)
             {
@@ -58,7 +58,7 @@ static void handler_chat_message(
             if (NULL != relevant_client && CHAT_CLIENT_STATE_ACTIVE == relevant_client->state)
             {
                 status = chat_connection_queue_event(relevant_client->connection,
-                                                     outgoing_event);
+                                                     &outgoing_event);
             }
             assert(STATUS_SUCCESS == status);
         }
@@ -83,7 +83,7 @@ static void handler_username_request(
         assert(STATUS_SUCCESS == status);
 
         status = chat_connection_queue_event(source_client->connection,
-                                             outgoing_event);
+                                             &outgoing_event);
         assert(STATUS_SUCCESS == status);
     }
 }
@@ -172,19 +172,19 @@ static void handler_username_submit(
         case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
             // Free any previously entered password if going backwards in the flow
-            generic_deallocator(source_client->auth_credentials.password);
+            generic_deallocator(source_client->auth_credentials->password);
 
-            auth_object->credentials.password      = NULL;
-            auth_object->credentials.password_size = 0;
+            source_client->auth_credentials->password      = NULL;
+            source_client->auth_credentials->password_size = 0;
 
             // Fallthrough
         }
         case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
         {
-            generic_deallocator(auth_object->credentials.username);
+            generic_deallocator(source_client->auth_credentials->username);
 
-            auth_object->credentials.username      = new_username;
-            auth_object->credentials.username_size = new_username_size;
+            source_client->auth_credentials->username      = new_username;
+            source_client->auth_credentials->username_size = new_username_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
             cback_data.start_auth_transaction.client_ptr                 = source_client;
@@ -192,7 +192,7 @@ static void handler_username_submit(
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
-                                        cback_data);
+                                        &cback_data);
             break;
         }
         default:
@@ -236,7 +236,7 @@ static void handler_password_submit(
         status = chat_connection_queue_event(source_client->connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
-        break;
+        return;
     }
 
     new_password = generic_allocator(event->length);
@@ -251,7 +251,7 @@ static void handler_password_submit(
         status = chat_connection_queue_event(source_client->connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
-        break;
+        return;
     }
     new_password_size = event->length;
 
@@ -279,10 +279,10 @@ static void handler_password_submit(
     {
         case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
-            generic_deallocator(auth_object->credentials.password);
+            generic_deallocator(source_client->auth_credentials->password);
 
-            auth_object->credentials.password      = new_password;
-            auth_object->credentials.password_size = new_password_size;
+            source_client->auth_credentials->password      = new_password;
+            source_client->auth_credentials->password_size = new_password_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
             cback_data.start_auth_transaction.client_ptr                 = source_client;
@@ -290,7 +290,7 @@ static void handler_password_submit(
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
-                                        cback_data);
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
@@ -307,8 +307,6 @@ static void handler_password_submit(
             assert(STATUS_SUCCESS == status);
         }
     }
-
-    pthread_mutex_unlock(&auth_object->mutex);
 }
 
 
@@ -374,30 +372,9 @@ void chat_clients_process_event(
 }
 
 
-eSTATUS chat_clients_accept_new_connection(
-    const sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    int*                      out_new_fd)
-{
-    struct sockaddr_storage incoming_address;
-    socklen_t               incoming_address_size;
-    int                     accept_status;
-
-    accept_status = accept(master_cblk_ptr->connection_listen_fd,
-                           &incoming_address,
-                           &incoming_address_size);
-    if (accept_status < 0)
-    {
-        return STATUS_FAILURE;
-    }
-
-    *out_new_fd = accept_status;
-    return STATUS_SUCCESS;
-}
-
-
 eSTATUS chat_clients_client_init(
     sCHAT_CLIENT**      client_container_ptr,
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    sCHAT_CLIENT_ENTRY* user_arg,
     int                 fd)
 {
     eSTATUS status;
@@ -421,7 +398,7 @@ eSTATUS chat_clients_client_init(
 
     status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
-                                    new_client,
+                                    user_arg,
                                     fd);
     if (STATUS_SUCCESS != status)
     {
@@ -430,11 +407,7 @@ eSTATUS chat_clients_client_init(
 
     new_client->state = CHAT_CLIENT_STATE_INIT;
 
-    new_client->container_ptr   = client_container_ptr;
-    new_client->master_cblk_ptr = master_cblk_ptr;
-
     *client_container_ptr = new_client;
-
     return STATUS_SUCCESS;
 
 fail_create_connection:

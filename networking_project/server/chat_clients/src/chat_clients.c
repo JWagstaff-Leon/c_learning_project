@@ -2,6 +2,7 @@
 #include "chat_clients_internal.h"
 #include "chat_clients_fsm.h"
 
+#include <assert.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <string.h>
@@ -20,16 +21,16 @@ static void init_cblk(
 }
 
 
-static void init_connections_list(
+static void init_clients_list(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr)
 {
-    uint32_t connection_index;
+    uint32_t client_index;
 
-    for (connection_index = 0;
-         connection_index < master_cblk_ptr->max_connections;
-         connection_index++)
+    for (client_index = 0;
+         client_index < master_cblk_ptr->max_clients;
+         client_index++)
     {
-        master_cblk_ptr->connections[connection_index] = NULL;
+        master_cblk_ptr->client_list[client_index].client_ptr = NULL;
     }
 }
 
@@ -54,8 +55,8 @@ eSTATUS chat_clients_create(
     new_chat_clients_cblk->user_cback = user_cback;
     new_chat_clients_cblk->user_arg   = user_arg;
 
-    new_chat_clients_cblk->connection_count = 0;
-    new_chat_clients_cblk->max_connections  = default_size;
+    new_chat_clients_cblk->client_count = 0;
+    new_chat_clients_cblk->max_clients  = default_size;
 
     status = message_queue_create(new_chat_clients_cblk->message_queue,
                                   CHAT_CONNECTION_MESSAGE_QUEUE_SIZE,
@@ -65,13 +66,13 @@ eSTATUS chat_clients_create(
         goto fail_create_message_queue;
     }
 
-    new_chat_clients_cblk->client_ptr_list = generic_allocator(new_chat_clients_cblk->max_connections * sizeof(sCHAT_CLIENT*));
-    if (NULL == new_chat_clients_cblk->client_ptr_list)
+    new_chat_clients_cblk->client_list = generic_allocator(new_chat_clients_cblk->max_clients * sizeof(sCHAT_CLIENT_ENTRY));
+    if (NULL == new_chat_clients_cblk->client_list)
     {
         status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_connection_list;
+        goto fail_alloc_client_list;
     }
-    init_connections_list(new_chat_clients_cblk);
+    init_clients_list(new_chat_clients_cblk);
 
     status = generic_create_thread(chat_clients_thread_entry, new_chat_clients_cblk);
     if (STATUS_SUCCESS != status)
@@ -83,9 +84,9 @@ eSTATUS chat_clients_create(
     return STATUS_SUCCESS;
 
 fail_create_thread:
-    generic_deallocator(new_chat_clients_cblk->client_ptr_list);
+    generic_deallocator(new_chat_clients_cblk->client_list);
 
-fail_alloc_connection_list:
+fail_alloc_client_list:
     message_queue_destroy(new_chat_clients_cblk->message_queue);
 
 fail_create_message_queue:
@@ -121,18 +122,18 @@ eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS            chat_clients,
     eCHAT_CLIENTS_AUTH_STEP auth_step,
     sCHAT_USER              user_info,
-    sCHAT_CLIENT*           client)
+    void*                   client_ptr)
 {
     eSTATUS               status;
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
     sCHAT_CLIENTS_MESSAGE message;
-
-    sCHAT_CLIENT_AUTH* auth_ptr;
+    sCHAT_CLIENT*         client;
 
     assert(NULL != chat_clients);
-    assert(NULL != client);
+    assert(NULL != client_ptr);
     
     master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+    client          = (sCHAT_CLIENT*)client_ptr;
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
 

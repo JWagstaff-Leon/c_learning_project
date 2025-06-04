@@ -24,8 +24,6 @@ typedef struct
 {
     void* queue_buffer;
 
-    fGENERIC_DEALLOCATOR deallocator;
-
     size_t message_size;
     size_t queue_size;
     size_t front_index;

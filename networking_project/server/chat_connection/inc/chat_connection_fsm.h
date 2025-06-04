@@ -8,6 +8,7 @@ extern "C" {
 
 #include "chat_event.h"
 #include "chat_user.h"
+#include "network_watcher.h"
 
 
 // Constants -------------------------------------------------------------------
@@ -29,7 +30,7 @@ typedef enum
 
 typedef struct
 {
-    bNETWORK_WATCHER_MODE modes_complete;
+    bNETWORK_WATCHER_MODE modes_ready;
 } sCHAT_CONNECTION_MESSAGE_PARAMS_WATCH_COMPLETE;
 
 

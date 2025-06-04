@@ -26,7 +26,7 @@ typedef enum
 
 typedef struct
 {
-    const char* path;
+    char* path;
 } sCHAT_AUTH_MESSAGE_PARAMS_OPEN_DATABASE;
 
 

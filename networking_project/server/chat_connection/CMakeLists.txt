@@ -6,13 +6,6 @@ target_include_directories(chat_connection
 
   PRIVATE
     inc
-
-    Common::chat_event
-    Common::chat_event_io
-    Common::chat_user
-    Common::message_queue
-    Common::network_watcher
-    Common::types
 )
 
 target_sources(chat_connection
@@ -20,4 +13,14 @@ target_sources(chat_connection
     src/chat_connection.c
     src/chat_connection_cback.c
     src/chat_connection_fsm.c
+)
+
+target_link_libraries(chat_connection
+  PRIVATE
+    Common::chat_event
+    Common::chat_event_io
+    Common::chat_user
+    Common::message_queue
+    Common::network_watcher
+    Common::types
 )

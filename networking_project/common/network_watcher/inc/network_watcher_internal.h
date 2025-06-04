@@ -8,6 +8,7 @@ extern "C" {
 
 #include "network_watcher.h"
 
+#include <poll.h>
 #include <pthread.h>
 
 #include "message_queue.h"

@@ -23,6 +23,7 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
+// REVIEW add state for complete/needing extract?
 typedef enum
 {
     CHAT_EVENT_IO_OPERATOR_STATE_READY,
@@ -61,12 +62,12 @@ bCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
     
 
 bCHAT_EVENT_IO_RESULT chat_event_io_reader_dispatch_message(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 
 bCHAT_EVENT_IO_RESULT chat_event_io_writer_dispatch_message(
-    sCHAT_EVENT_IO_CBLK*          master_cblk_ptr,
+    sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message);
 
 

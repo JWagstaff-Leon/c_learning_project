@@ -1,6 +1,7 @@
 #pragma once
 
 #include <endian.h>
+#include <stddef.h>
 
 #define BASE_STATUS_VALUE -1
 

@@ -63,30 +63,23 @@ static void open_processing(
     {
         case NETWORK_WATCHER_MESSAGE_WATCH:
         {
-            status = setup_watch(master_cblk_ptr,
-                                 message->params.new_watch.fd,
-                                 message->params.new_watch.mode);
-            if (STATUS_SUCCESS != status)
-            {
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            NETWORK_WATCHER_EVENT_WATCH_ERROR,
-                                            NULL);
-                break;
-            }
+            setup_watch(master_cblk_ptr,
+                        message->params.new_watch.fd,
+                        message->params.new_watch.mode);
 
             status = do_watch(master_cblk_ptr);
             switch (status)
             {
                 case STATUS_SUCCESS:
                 {
-                    cback_data.watch_complete.modes_complete = 0;
+                    cback_data.watch_complete.modes_ready = 0;
                     if (master_cblk_ptr->fds[0].revents & POLLIN)
                     {
-                        cback_data.watch_complete.modes_complete |= NETWORK_WATCHER_MODE_READ;
+                        cback_data.watch_complete.modes_ready |= NETWORK_WATCHER_MODE_READ;
                     }
                     if (master_cblk_ptr->fds[0].revents & POLLOUT)
                     {
-                        cback_data.watch_complete.modes_complete |= NETWORK_WATCHER_MODE_WRITE;
+                        cback_data.watch_complete.modes_ready |= NETWORK_WATCHER_MODE_WRITE;
                     }
 
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -161,7 +154,7 @@ static void fsm_cblk_close(
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
-    master_cblk_ptr->deallocator(master_cblk_ptr);
+    generic_deallocator(master_cblk_ptr);
 
     user_cback(user_arg,
                NETWORK_WATCHER_EVENT_CLOSED,

@@ -61,8 +61,8 @@ eSTATUS chat_auth_sql_create_user(
     sqlite_status = sqlite3_prepare_v2(database,
                                        sql_create_user,
                                        sizeof(sql_create_user),
-                                       NULL,
-                                       &sql_statement);
+                                       &sql_statement,
+                                       NULL);
     if (SQLITE_OK != sqlite_status || NULL == sql_statement)
     {
         return STATUS_ALLOC_FAILED;
@@ -102,25 +102,6 @@ eSTATUS chat_auth_sql_create_user(
         goto func_exit;
     }
 
-    do
-    {
-        sqlite_status = sqlite3_step(statement);
-        if (SQLITE_BUSY == sqlite_status)
-        {
-            if (retry_count++ < CHAT_AUTH_SQL_MAX_TRIES)
-            {
-                // FIXME make this a timer instead of a sleep
-                assert(0 == usleep(CHAT_AUTH_SQL_RETRY_MS));
-            }
-        }
-    } while(SQLITE_BUSY == sqlite_status && retry_count < CHAT_AUTH_SQL_MAX_TRIES);
-
-    if (retry_count >= CHAT_AUTH_SQL_MAX_TRIES)
-    {
-        status = STATUS_FAILURE;
-        goto func_exit;
-    }
-
     status = STATUS_SUCCESS;
 
 func_exit:
@@ -147,8 +128,8 @@ eSTATUS chat_auth_sql_auth_user(
     sqlite_status = sqlite3_prepare_v2(database,
                                        sql_select_first_user,
                                        sizeof(sql_select_first_user),
-                                       NULL,
-                                       &sql_statement);
+                                       &sql_statement,
+                                       NULL);
     if (SQLITE_OK != sqlite_status || NULL == sql_statement)
     {
         return STATUS_ALLOC_FAILED;
@@ -167,7 +148,7 @@ eSTATUS chat_auth_sql_auth_user(
 
     do
     {
-        sqlite_status = sqlite3_step(statement);
+        sqlite_status = sqlite3_step(sql_statement);
         if (SQLITE_BUSY == sqlite_status)
         {
             if (retry_count++ < CHAT_AUTH_SQL_MAX_TRIES)
@@ -188,7 +169,7 @@ eSTATUS chat_auth_sql_auth_user(
     {
         if (NULL != credentials.password) // Password given; check it
         {
-            strcmp_status = strcmp(credentials,
+            strcmp_status = strcmp(credentials.password,
                                    sqlite3_column_text(sql_statement, 2));
             if (0 == strcmp_status) // Password matches; user is authenticated
             {

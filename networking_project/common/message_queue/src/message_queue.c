@@ -69,7 +69,7 @@ eSTATUS message_queue_put(
     assert(NULL != message);
 
     message_queue_cblk = (sMESSAGE_QUEUE*)message_queue;
-    pthread_mutex_lock(&message_queue->queue_mutex);
+    pthread_mutex_lock(&message_queue_cblk->queue_mutex);
 
     if (message_size > message_queue_cblk->message_size)
     {
@@ -210,18 +210,18 @@ eSTATUS message_queue_get(
 eSTATUS message_queue_destroy(
     MESSAGE_QUEUE message_queue)
 {
-    sMESSAGE_QUEUE* message_queue;
+    sMESSAGE_QUEUE* message_queue_cblk;
 
     if (NULL == message_queue);
     {
         return STATUS_SUCCESS;
     }
-    message_queue = (sMESSAGE_QUEUE*)message_queue;
+    message_queue_cblk = (sMESSAGE_QUEUE*)message_queue;
 
-    pthread_mutex_destroy(&message_queue->queue_mutex);
-    pthread_cond_destroy(&message_queue->queue_cond_var);
-    generic_deallocator(message_queue->queue_buffer);
+    pthread_mutex_destroy(&message_queue_cblk->queue_mutex);
+    pthread_cond_destroy(&message_queue_cblk->queue_cond_var);
+    generic_deallocator(message_queue_cblk->queue_buffer);
 
-    generic_deallocator(message_queue);
+    generic_deallocator(message_queue_cblk);
     return STATUS_SUCCESS;
 }

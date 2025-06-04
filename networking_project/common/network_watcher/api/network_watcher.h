@@ -37,7 +37,7 @@ typedef enum
 
 typedef struct
 {
-    bNETWORK_WATCHER_MODE modes_complete;
+    bNETWORK_WATCHER_MODE modes_ready;
 } sNETWORK_WATCHER_CBACK_DATA_WATCH_COMPLETE;
 
 
@@ -47,7 +47,7 @@ typedef union
 } sNETWORK_WATCHER_CBACK_DATA;
 
 
-typedef void (fNETWORK_WATCHER_USER_CBACK*) (
+typedef void (*fNETWORK_WATCHER_USER_CBACK) (
     void*                              user_arg,
     bNETWORK_WATCHER_EVENT_TYPE        event_mask,
     const sNETWORK_WATCHER_CBACK_DATA* data);

@@ -7,10 +7,6 @@ target_include_directories(chat_auth
   PRIVATE
     inc
 
-    Common::chat_event
-    Common::chat_user
-    Common::types
-
     ../../sqlite
 )
 
@@ -21,4 +17,12 @@ target_sources(chat_auth
     src/chat_auth_internal.c
 
     ../../sqlite/sqlite3.c
+)
+
+target_link_libraries(chat_auth
+  PRIVATE
+    Common::chat_event
+    Common::chat_user
+    Common::message_queue
+    Common::types
 )

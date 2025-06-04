@@ -2,7 +2,7 @@ add_library(common_types OBJECT)
 
 target_include_directories(common_types
   PUBLIC
-    ./api
+    api
 )
 
 target_sources(common_types

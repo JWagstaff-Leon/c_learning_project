@@ -3,6 +3,7 @@
 #include "network_watcher_fsm.h"
 
 #include <assert.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <pthread.h>
 #include <string.h>
@@ -19,7 +20,7 @@ static void init_cblk(
 
     master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN;
 
-    pthread_mutex_init(&master_cblk_ptr->cancel_mutex);
+    pthread_mutex_init(&master_cblk_ptr->cancel_mutex, NULL);
 }
 
 
@@ -81,7 +82,7 @@ fail_create_thread:
 fail_create_pipe:
     message_queue_destroy(new_network_watcher->message_queue);
 
-fail_create_message_queue;
+fail_create_message_queue:
     generic_deallocator(new_network_watcher);
 
 fail_alloc_cblk:
@@ -118,7 +119,7 @@ eSTATUS network_watcher_start_watch(
 
     pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
 
-    while (read(master_cblk_ptr->control_pipe[PIPE_END_READ],
+    while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
            flush_buffer,
            sizeof(flush_buffer)) > 0);
 

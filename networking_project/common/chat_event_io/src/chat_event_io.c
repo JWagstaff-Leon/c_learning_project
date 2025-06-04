@@ -1,7 +1,6 @@
 #include "chat_event_io.h"
 #include "chat_event_io_internal.h"
 #include "chat_event_io_fsm.h"
-#include "chat_event_io_network_fsm.h"
 
 #include <arpa/inet.h>
 #include <assert.h>
@@ -18,8 +17,8 @@ static void init_cblk(
     assert(NULL != master_cblk_ptr);
     memset(master_cblk_ptr, 0, sizeof(sCHAT_EVENT_IO_CBLK));
 
-    master_cblk_ptr->reader.state = CHAT_EVENT_IO_STATE_READY;
-    master_cblk_ptr->writer.state = CHAT_EVENT_IO_STATE_READY;
+    master_cblk_ptr->reader.state = CHAT_EVENT_IO_OPERATOR_STATE_READY;
+    master_cblk_ptr->writer.state = CHAT_EVENT_IO_OPERATOR_STATE_READY;
 }
 
 
@@ -82,7 +81,6 @@ bCHAT_EVENT_IO_RESULT chat_event_io_read_from_fd(
     sCHAT_EVENT_IO_MESSAGE message;
 
     assert(NULL != chat_event_io);
-    assert(NULL != out_event);
 
     message.type = CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE;
 
@@ -98,8 +96,8 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     CHAT_EVENT_IO restrict chat_event_io,
     sCHAT_EVENT*  restrict event_buffer)
 {
-    sCHAT_EVENT_IO_OPERATOR reader;
-    uint32_t                extracted_event_size;
+    sCHAT_EVENT_IO_OPERATOR* reader;
+    uint32_t                 extracted_event_size;
 
     bCHAT_EVENT_IO_RESULT* result;
 
@@ -108,7 +106,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
 
     reader = &((sCHAT_EVENT_IO_CBLK*)chat_event_io)->reader;
 
-    if (CHAT_EVENT_IO_OPERATOR_STATE_READY != reader.state)
+    if (CHAT_EVENT_IO_OPERATOR_STATE_READY != reader->state)
     {
         return CHAT_EVENT_IO_RESULT_INCOMPLETE;
     }
@@ -129,8 +127,8 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     extracted_event_size = CHAT_EVENT_HEADER_SIZE + event_buffer->length;
     reader->processed_bytes -= extracted_event_size;
 
-    memmove(&(uint8_t*)(&reader->event)[0],
-            &(uint8_t*)(&reader->event)[extracted_event_size],
+    memmove(&(&reader->event)[0],
+            &(&reader->event)[extracted_event_size],
             reader->processed_bytes);
 
     if (reader->processed_bytes >= CHAT_EVENT_HEADER_SIZE &&

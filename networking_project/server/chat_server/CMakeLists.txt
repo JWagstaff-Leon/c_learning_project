@@ -18,5 +18,4 @@ target_sources(chat_server
     src/chat_server.c
     src/chat_server_cback.c
     src/chat_server_fsm.c
-    src/chat_server_network.c
 )

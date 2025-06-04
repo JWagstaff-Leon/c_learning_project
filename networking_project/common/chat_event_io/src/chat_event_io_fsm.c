@@ -23,11 +23,11 @@ bCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
             {
                 case CHAT_EVENT_IO_OPERATION_MODE_READ:
                 {
-                    return chat_event_io_reader_dispatch_message(&master_cblk_ptr->reader, &message);
+                    return chat_event_io_reader_dispatch_message(&master_cblk_ptr->reader, message);
                 }
                 case CHAT_EVENT_IO_OPERATION_MODE_WRITE:
                 {
-                    return chat_event_io_writer_dispatch_message(&master_cblk_ptr->writer, &message);
+                    return chat_event_io_writer_dispatch_message(&master_cblk_ptr->writer, message);
                 }
                 default:
                 {
@@ -38,7 +38,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_dispatch_message(
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER:
         {
-            return chat_event_io_writer_dispatch_message(&master_cblk_ptr->writer, &message);
+            return chat_event_io_writer_dispatch_message(&master_cblk_ptr->writer, message);
         }
     }
 

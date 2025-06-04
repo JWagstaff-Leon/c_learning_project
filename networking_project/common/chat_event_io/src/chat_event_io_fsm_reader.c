@@ -157,7 +157,7 @@ static bCHAT_EVENT_IO_RESULT ready_processing(
 }
 
 
-static void flushing_processing(
+static bCHAT_EVENT_IO_RESULT flushing_processing(
     sCHAT_EVENT_IO_OPERATOR*      reader,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
@@ -177,7 +177,8 @@ static void flushing_processing(
             {
                 case STATUS_SUCCESS:
                 {
-                    return CHAT_EVENT_IO_RESULT_FLUSH_FINISHED;
+                    reader->state = CHAT_EVENT_IO_OPERATOR_STATE_READY;
+                    // Fallthrough
                 }
                 case STATUS_INCOMPLETE:
                 {

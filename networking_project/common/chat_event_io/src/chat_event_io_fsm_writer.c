@@ -50,8 +50,7 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
     sCHAT_EVENT_IO_OPERATOR*      writer,
     const sCHAT_EVENT_IO_MESSAGE* message)
 {
-    eSTATUS               status;
-    bCHAT_EVENT_IO_RESULT result;
+    eSTATUS status;
 
     assert(NULL != writer);
     assert(NULL != message);
@@ -67,17 +66,14 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
                    message->params.populate_writer.event.data,
                    message->params.populate_writer.event.length);
 
-            result.event = CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS;
-
             writer->state = CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS;
-            return result;
+            return CHAT_EVENT_IO_RESULT_POPULATE_SUCCESS;
         }
         case CHAT_EVENT_IO_MESSAGE_TYPE_OPERATE:
         {
             if (CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS != writer->state)
             {
-                result.event = CHAT_EVENT_IO_RESULT_NOT_POPULATED;
-                return result;
+                return CHAT_EVENT_IO_RESULT_NOT_POPULATED;
             }
             status = do_write(writer,
                               message->params.operate.fd);

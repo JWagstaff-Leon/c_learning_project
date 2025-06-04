@@ -28,12 +28,7 @@ eSTATUS chat_connection_create(
 
     new_chat_connection->user_cback = user_cback;
     new_chat_connection->user_arg   = user_arg;
-
-    new_chat_connection->state = CHAT_CONNECTION_STATE_INIT;
-    new_chat_connection->fd    = fd;
-
-    new_chat_connection->user.id.value = CHAT_USER_INVALID_ID;
-    memset(new_chat_connection->user.name, 0, sizeof(connection->user.name));
+    new_chat_connection->fd         = fd;
 
     status = chat_event_io_create(&new_chat_connection->io);
     if (STATUS_SUCCESS != status)
@@ -99,12 +94,12 @@ eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION    restrict chat_connection,
     const sCHAT_EVENT* restrict event)
 {
-
+    // TODO this
 }
 
 
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection)
 {
-
+    // TODO this
 }

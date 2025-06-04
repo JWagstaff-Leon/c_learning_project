@@ -6,13 +6,16 @@ target_include_directories(message_queue
 
   PRIVATE
     inc
-
-    Common::types
 )
 
 target_sources(message_queue
   PRIVATE
     src/message_queue.c
+)
+
+target_link_libraries(message_queue
+  PRIVATE
+    Common::types
 )
 
 add_library(Common::message_queue ALIAS message_queue)
