@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "chat_user.h"
+#include "common_types.h"
 #include "message_queue.h"
 #include "network_watcher.h"
 
@@ -30,7 +31,7 @@ static void init_clients_list(
          client_index < master_cblk_ptr->max_clients;
          client_index++)
     {
-        master_cblk_ptr->client_list[client_index].client_ptr = NULL;
+        master_cblk_ptr->client_list[client_index] = NULL;
     }
 }
 
@@ -66,7 +67,7 @@ eSTATUS chat_clients_create(
         goto fail_create_message_queue;
     }
 
-    new_chat_clients_cblk->client_list = generic_allocator(new_chat_clients_cblk->max_clients * sizeof(sCHAT_CLIENT_ENTRY));
+    new_chat_clients_cblk->client_list = generic_allocator(new_chat_clients_cblk->max_clients * sizeof(sCHAT_CLIENT*));
     if (NULL == new_chat_clients_cblk->client_list)
     {
         status = STATUS_ALLOC_FAILED;

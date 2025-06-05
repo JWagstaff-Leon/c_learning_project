@@ -68,9 +68,7 @@ void chat_server_cback(
 }
 
 
-int main(
-    int argc,
-    char *argv[])
+int main(int argc, char *argv[])
 {
     eSTATUS       status;
     MESSAGE_QUEUE message_queue;

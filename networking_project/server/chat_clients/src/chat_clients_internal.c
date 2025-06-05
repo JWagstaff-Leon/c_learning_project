@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "common_types.h"
+#include "chat_connection.h"
 #include "chat_event.h"
 
 
@@ -48,7 +49,7 @@ static void handler_chat_message(
              client_index < master_cblk_ptr->max_clients;
              client_index++)
         {
-            relevant_client = master_cblk_ptr->client_list[client_index].client_ptr;
+            relevant_client = master_cblk_ptr->client_list[client_index];
 
             if (relevant_client == source_client)
             {
@@ -374,7 +375,7 @@ void chat_clients_process_event(
 
 eSTATUS chat_clients_client_init(
     sCHAT_CLIENT**      client_container_ptr,
-    sCHAT_CLIENT_ENTRY* user_arg,
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     int                 fd)
 {
     eSTATUS status;
@@ -398,14 +399,16 @@ eSTATUS chat_clients_client_init(
 
     status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
-                                    user_arg,
+                                    new_client,
                                     fd);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_connection;
     }
 
-    new_client->state = CHAT_CLIENT_STATE_INIT;
+    new_client->state            = CHAT_CLIENT_STATE_INIT;
+    new_client->master_cblk_ptr  = master_cblk_ptr;
+    new_client->client_container = client_container_ptr;
 
     *client_container_ptr = new_client;
     return STATUS_SUCCESS;
@@ -421,32 +424,9 @@ fail_alloc_client:
 }
 
 
-// FIXME change for new auth flow
 void chat_clients_client_close(
     sCHAT_CLIENT* client_ptr)
 {
-    eSTATUS  status;
-    uint32_t client_index;
-
-    if (NULL != client_ptr->auth)
-    {
-        pthread_mutex_lock(&client_ptr->auth->mutex);
-        if (CHAT_CLIENT_AUTH_STATE_PROCESSING != client_ptr->auth->state)
-        {
-            pthread_mutex_unlock(&client_ptr->auth->mutex);
-            pthread_mutex_destroy(&client_ptr->auth->mutex);
-
-            generic_deallocator(client_ptr->auth->credentials.username);
-            generic_deallocator(client_ptr->auth->credentials.password);
-            generic_deallocator(client_ptr->auth);
-        }
-        else
-        {
-            client_ptr->auth->state = CHAT_CLIENT_AUTH_STATE_CANCELLED;
-            pthread_mutex_unlock(&client_ptr->auth->mutex);
-        }
-    }
-
-    client_ptr->container_ptr = NULL;
+    client_ptr->client_container = NULL;
     generic_deallocator(client_ptr);
 }

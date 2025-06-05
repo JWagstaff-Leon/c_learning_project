@@ -17,11 +17,12 @@ target_sources(chat_event_io
 )
 
 target_link_libraries(chat_event_io
-  PRIVATE
+  PUBLIC
     Common::chat_event
-    Common::chat_user
-    Common::message_queue
     Common::types
+
+  PRIVATE
+    Common::message_queue
 )
 
 add_library(Common::chat_event_io ALIAS chat_event_io)

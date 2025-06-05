@@ -4,11 +4,15 @@
 
 #include <assert.h>
 
+#include "chat_event.h"
+#include "common_types.h"
+#include "message_queue.h"
+
 
 void chat_clients_connection_cback(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
-    const uCHAT_CONNECTION_CBACK_DATA* data)
+    const sCHAT_CONNECTION_CBACK_DATA* data)
 {
     eSTATUS status;
 
@@ -19,10 +23,10 @@ void chat_clients_connection_cback(
 
     assert(NULL != user_arg);
 
-    master_cblk_ptr = ((sCHAT_CLIENT_ENTRY*)user_arg)->master_cblk_ptr;
+    master_cblk_ptr = ((sCHAT_CLIENT*)user_arg)->master_cblk_ptr;
     assert(NULL != master_cblk_ptr);
 
-    client_ptr = ((sCHAT_CLIENT_ENTRY*)user_arg)->client_ptr;
+    client_ptr = (sCHAT_CLIENT*)user_arg;
     assert(NULL != client_ptr);
 
     if (event_mask & CHAT_CONNECTION_EVENT_INCOMING_EVENT)

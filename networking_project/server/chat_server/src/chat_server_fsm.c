@@ -2,12 +2,14 @@
 #include "chat_server_internal.h"
 #include "chat_server_fsm.h"
 
+#include <arpa/inet.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include "chat_connection.h"
+#include "chat_clients.h"
 #include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
@@ -133,18 +135,93 @@ static void dispatch_message(
 }
 
 
-static void fsm_cblk_init(
-    sCHAT_SERVER_CBLK *master_cblk_ptr)
+static eSTATUS open_listen_socket(
+    int* out_fd)
 {
-    eSTATUS                  status;
+    eSTATUS status;
 
+    int listen_fd;
+    int std_lib_status;
+    int opt_value = 1;
+
+    struct sockaddr_in address;
+    
     assert(NULL != master_cblk_ptr);
 
-    status = chat_connections_create(&master_cblk_ptr->connections,
-                                     chat_server_connections_cback,
-                                     master_cblk_ptr,
-                                     CHAT_SERVER_DEFAULT_MAX_CONNECTIONS);
-    assert(STATUS_SUCCESS == status); // FIXME make this a proper, recoverable operation
+    listen_fd = socket(AF_INET,
+                       SOCK_STREAM,
+                       0);
+    if (listen_fd < 0)
+    {
+        return STATUS_FAILURE;
+    }
+
+    std_lib_status = setsockopt(listen_fd,
+                                SOL_SOCKET,
+                                SO_REUSEADDR | SO_REUSEPORT,
+                                &opt_value,
+                                sizeof(opt_value));
+    if (0 != std_lib_status)
+    {
+        status = STATUS_FAILURE;
+        goto fail_post_open_socket;
+    }
+
+    address.sin_family      = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port        = htons(8080);
+    memset(address.sin_zero, 0, sizeof(address.sin_zero));
+
+    std_lib_status = bind(listen_fd,
+                          (struct sockaddr *)&address,
+                          sizeof(address));
+    if (std_lib_status < 0)
+    {
+        status = STATUS_FAILURE;
+        goto fail_post_open_socket;
+    }
+
+    std_lib_status = listen(listen_fd,
+                            16); // REVIEW change this to something dynamic?
+    if(std_lib_status < 0)
+    {
+        status = STATUS_FAILURE;
+        goto fail_post_open_socket;
+    }
+
+    status = STATUS_SUCCESS;
+    goto success;
+
+fail_post_open_socket:
+    close(listen_socket_fd);
+
+success:
+    return status;
+}
+
+
+static eSTATUS fsm_cblk_init(
+    sCHAT_SERVER_CBLK *master_cblk_ptr)
+{
+    eSTATUS status;
+
+    status = open_listen_socket(&master_cblk_ptr->listen_fd);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+    
+    status = network_watcher_start_watch(master_cblk_ptr->listening_connection,
+                                         NETWORK_WATCHER_MODE_READ,
+                                         master_cblk_ptr->listen_fd);
+    if (STATUS_SUCCESS != status)
+    {
+        close(master_cblk_ptr->listen_fd);
+        master_cblk_ptr->listen_fd = -1;
+        return status;
+    }
+
+    return status;
 }
 
 
@@ -157,18 +234,13 @@ static void fsm_cblk_close(
 
     assert(NULL != master_cblk_ptr);
 
-    status = network_watcher_close(master_cblk_ptr->write_network_watcher);
+    status = network_watcher_close(master_cblk_ptr->listening_connection);
     assert(STATUS_SUCCESS == status);
-
-    status = network_watcher_close(master_cblk_ptr->read_network_watcher);
-    assert(STATUS_SUCCESS == status);
-
-    chat_server_network_close(&master_cblk_ptr->connections);
+    
+    close(master_cblk_ptr->listen_fd);
 
     status = message_queue_destroy(master_cblk_ptr->message_queue);
     assert(STATUS_SUCCESS == status);
-
-    free(master_cblk_ptr->connections.list);
 
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
@@ -191,7 +263,9 @@ void* chat_server_thread_entry(
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_SERVER_CBLK*)arg;
 
-    fsm_cblk_init(master_cblk_ptr);
+    // FIXME if this fails, callback with a respective event
+    status = fsm_cblk_init(master_cblk_ptr);
+    assert(STATUS_SUCCESS == status);
 
     while (CHAT_SERVER_STATE_CLOSED != master_cblk_ptr->state)
     {

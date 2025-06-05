@@ -6,11 +6,6 @@ target_include_directories(chat_server
 
   PRIVATE
     inc
-
-    Common::chat_event
-    Common::chat_event_io
-    Common::message_queue
-    Common::types
 )
 
 target_sources(chat_server
@@ -18,4 +13,16 @@ target_sources(chat_server
     src/chat_server.c
     src/chat_server_cback.c
     src/chat_server_fsm.c
+)
+
+target_link_libraries(chat_server
+  PUBLIC
+    Common::types
+
+  PRIVATE
+    chat_auth
+    chat_clients
+
+    Common::message_queue
+    Common::network_watcher
 )

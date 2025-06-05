@@ -14,7 +14,7 @@ target_sources(chat_event
 )
 
 target_link_libraries(chat_event
-  PRIVATE
+  PUBLIC
     Common::chat_user
     Common::types
 )

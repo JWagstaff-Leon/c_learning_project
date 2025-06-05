@@ -35,13 +35,13 @@ typedef struct
 typedef union
 {
     sCHAT_CONNECTION_CBACK_DATA_INCOMING_EVENT incoming_event;
-} uCHAT_CONNECTION_CBACK_DATA;
+} sCHAT_CONNECTION_CBACK_DATA;
 
 
 typedef void (*fCHAT_CONNECTION_USER_CBACK)(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
-    const uCHAT_CONNECTION_CBACK_DATA* data);
+    const sCHAT_CONNECTION_CBACK_DATA* data);
 
 
 typedef void* CHAT_CONNECTION;

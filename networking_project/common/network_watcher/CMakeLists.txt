@@ -15,9 +15,11 @@ target_sources(network_watcher
 )
 
 target_link_libraries(network_watcher
+  PUBLIC
+    Common::types
+
   PRIVATE
     Common::message_queue
-    Common::types
 )
 
 add_library(Common::network_watcher ALIAS network_watcher)

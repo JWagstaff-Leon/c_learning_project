@@ -59,23 +59,10 @@ typedef struct
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
+
+    void* master_cblk_ptr;
+    void* client_container;
 } sCHAT_CLIENT;
-
-
-// This is forward-declared like this to allow both sCHAT_CLIENT_ENTRY and
-// sCHAT_CLIENTS_CBLK to refer to each other properly within the type system.
-// Since you can't forward declare with a typedef, one of them would have to
-// come first; without forward-declarations, it would have to use void*.
-struct s_chat_clients_cblk;
-
-
-
-// This is used as a cback arg to contain both the master_cblk_ptr and client
-typedef struct
-{
-    sCHAT_CLIENT                client;
-    struct s_chat_clients_cblk* master_cblk_ptr;
-} sCHAT_CLIENT_ENTRY;
 
 
 typedef struct s_chat_clients_cblk
@@ -86,11 +73,11 @@ typedef struct s_chat_clients_cblk
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    // NOTE this needs to be a double pointer since the address of the entry can
-    // change, and the entry pointer is needed for callbacks
-    sCHAT_CLIENT_ENTRY** client_list;
-    uint32_t             client_count;
-    uint32_t             max_clients;
+    // NOTE this needs to be a double pointer since the address of the list can
+    // change, and the client pointer is needed for callbacks
+    sCHAT_CLIENT** client_list;
+    uint32_t       client_count;
+    uint32_t       max_clients;
 } sCHAT_CLIENTS_CBLK;
 
 
@@ -113,11 +100,11 @@ void chat_clients_process_event(
 
 eSTATUS chat_clients_client_init(
     sCHAT_CLIENT**      client_container_ptr,
-    sCHAT_CLIENT_ENTRY* user_arg,
+    sCHAT_CLIENTS_CBLK* user_arg,
     int                 fd);
 
 
-eSTATUS chat_clients_client_close(
+void chat_clients_client_close(
     sCHAT_CLIENT* client);
 
 
@@ -130,7 +117,7 @@ void chat_clients_new_connections_cback(
 void chat_clients_connection_cback(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
-    const uCHAT_CONNECTION_CBACK_DATA* data);
+    const sCHAT_CONNECTION_CBACK_DATA* data);
 
 
 #ifdef __cplusplus

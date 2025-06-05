@@ -14,7 +14,7 @@ target_sources(message_queue
 )
 
 target_link_libraries(message_queue
-  PRIVATE
+  PUBLIC
     Common::types
 )
 

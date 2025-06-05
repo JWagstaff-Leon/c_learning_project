@@ -63,9 +63,9 @@ typedef struct
 
 
 typedef void (*fCHAT_CLIENTS_USER_CBACK) (
-    void*                     user_arg,
-    bCHAT_CLIENTS_EVENT_TYPE  event_mask,
-    sCHAT_CLIENTS_CBACK_DATA* data);
+    void*                           user_arg,
+    bCHAT_CLIENTS_EVENT_TYPE        event_mask,
+    const sCHAT_CLIENTS_CBACK_DATA* data);
 
 
 typedef void* CHAT_CLIENTS;

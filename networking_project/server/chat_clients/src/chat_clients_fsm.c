@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
 
@@ -52,17 +53,16 @@ static void fsm_cblk_close(
 }
 
 
-// REVIEW does this function need to interact with multithreading?
 static eSTATUS realloc_clients(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     uint32_t            new_max_clients)
 {
     eSTATUS status;
 
-    uint32_t            client_index;
-    sCHAT_CLIENT_ENTRY* new_client_list;
+    uint32_t       client_index;
+    sCHAT_CLIENT** new_client_list;
 
-    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT_ENTRY) * new_max_clients);
+    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
     if (NULL == new_client_list)
     {
         status = STATUS_ALLOC_FAILED;
@@ -74,7 +74,7 @@ static eSTATUS realloc_clients(
          client_index < master_cblk_ptr->client_count;
          client_index++)
     {
-        chat_clients_client_close(master_cblk_ptr->client_list[client_index].client_ptr); // REVIEW need to close connections first?
+        chat_clients_client_close(master_cblk_ptr->client_list[client_index]); // REVIEW need to close clients' connections first?
     }
 
     // Copy any clients overlapping
@@ -83,6 +83,7 @@ static eSTATUS realloc_clients(
          client_index++)
     {
         new_client_list[client_index] = master_cblk_ptr->client_list[client_index];
+        new_client_list[client_index]->client_container = &new_client_list[client_index];
     }
 
     // Initialize any new clients
@@ -90,8 +91,7 @@ static eSTATUS realloc_clients(
          client_index < new_max_clients;
          client_index++)
     {
-        new_client_list[client_index].client_ptr      = NULL;
-        new_client_list[client_index].master_cblk_ptr = master_cblk_ptr;
+        new_client_list[client_index] = NULL;
     }
 
     generic_deallocator(master_cblk_ptr->client_list);
@@ -144,15 +144,13 @@ static void open_processing(
                  client_index < master_cblk_ptr->max_clients;
                  client_index++)
             {
-                if (NULL == master_cblk_ptr->client_list[client_index].client_ptr)
+                if (NULL == master_cblk_ptr->client_list[client_index])
                 {
-                    relevant_client_ptr = &master_cblk_ptr->client_list[client_index].client_ptr;
-                    master_cblk_ptr->client_list[client_index].master_cblk_ptr;
+                    relevant_client_ptr = &master_cblk_ptr->client_list[client_index];
                     break;
                 }
             }
 
-            // TODO update this to use client entry
             status = chat_clients_client_init(relevant_client_ptr,
                                               master_cblk_ptr,
                                               message->params.open_client.fd);
@@ -265,8 +263,7 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            status = chat_clients_client_close(message->params.client_closed.client_ptr);
-            assert(STATUS_SUCCESS == status);
+            chat_clients_client_close(message->params.client_closed.client_ptr);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:

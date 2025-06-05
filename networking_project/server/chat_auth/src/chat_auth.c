@@ -12,7 +12,7 @@
 
 eSTATUS chat_auth_create(
     CHAT_AUTH*            out_chat_auth,
-    fCHAT_AUTH_USER_CBACK user_back,
+    fCHAT_AUTH_USER_CBACK user_cback,
     void*                 user_arg)
 {
     eSTATUS            status;

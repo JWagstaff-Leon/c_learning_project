@@ -26,19 +26,19 @@ target_link_libraries(server
     Common::types
 )
 
-target_include_directories(server
-  PRIVATE
-    chat_auth
-    chat_clients
-    chat_connection
-    chat_server
+# target_include_directories(server
+#   PRIVATE
+#     chat_auth
+#     chat_clients
+#     chat_connection
+#     chat_server
 
-    Common::chat_event
-    Common::chat_event_io
-    Common::chat_user
-    Common::message_queue
-    Common::network_watcher
-)
+#     Common::chat_event
+#     Common::chat_event_io
+#     Common::chat_user
+#     Common::message_queue
+#     Common::network_watcher
+# )
 
 target_sources(server
   PRIVATE

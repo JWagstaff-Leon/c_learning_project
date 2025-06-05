@@ -17,32 +17,40 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_SERVER_MESSAGE_OPEN,
     CHAT_SERVER_MESSAGE_CLOSE,
 
-    CHAT_SERVER_MESSAGE_READ_READY,
-    CHAT_SERVER_MESSAGE_WRITE_READY
+    CHAT_SERVER_MESSAGE_CLIENTS_CLIENT_OPEN_FAILED,
+    CHAT_SERVER_MESSAGE_CLIENTS_START_AUTH_TRANSACTION,
+    CHAT_SERVER_MESSAGE_CLIENTS_FINISH_AUTH_TRANSACTION,
+    CHAT_SERVER_MESSAGE_CLIENTS_CLOSED
 } eCHAT_SERVER_MESSAGE_TYPE;
 
 
 typedef struct
 {
-    uint32_t* connection_indecies;
-    uint32_t  index_count;
-} sCHAT_SERVER_READ_READY_PARAMS;
+    void*                  client_ptr;
+    void**                 auth_transaction_container;
+    sCHAT_USER_CREDENTIALS credentials;
+} sCHAT_SERVER_MESSAGE_PARAMS_CLIENTS_START_AUTH_TRANSACTION;
 
 
 typedef struct
 {
-    uint32_t* connection_indecies;
-    uint32_t  index_count;
-} sCHAT_SERVER_WRITE_READY_PARAMS;
+    void* client_ptr;
+    void* auth_transaction;
+} sCHAT_SERVER_MESSAGE_PARAMS_CLIENTS_FINISH_AUTH_TRANSACTION;
 
 
 typedef union
 {
-    sCHAT_SERVER_READ_READY_PARAMS  read_ready;
-    sCHAT_SERVER_WRITE_READY_PARAMS write_ready;
+    sCHAT_SERVER_MESSAGE_PARAMS_CLIENTS_START_AUTH_TRANSACTION  start_auth_transaction;
+    sCHAT_SERVER_MESSAGE_PARAMS_CLIENTS_FINISH_AUTH_TRANSACTION finish_auth_transaction;
+} uCHAT_SERVER_MESSAGE_PARAMS_CLIENTS;
+
+
+typedef union
+{
+    uCHAT_SERVER_MESSAGE_PARAMS_CLIENTS clients;
 } uCHAT_SERVER_MESSAGE_PARAMS;
 
 

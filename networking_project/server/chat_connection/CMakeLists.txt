@@ -16,11 +16,13 @@ target_sources(chat_connection
 )
 
 target_link_libraries(chat_connection
-  PRIVATE
+  PUBLIC
     Common::chat_event
-    Common::chat_event_io
     Common::chat_user
+    Common::types
+
+  PRIVATE
+    Common::chat_event_io
     Common::message_queue
     Common::network_watcher
-    Common::types
 )

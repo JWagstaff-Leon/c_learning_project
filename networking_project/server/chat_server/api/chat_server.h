@@ -21,13 +21,13 @@ typedef enum
 } bCHAT_SERVER_EVENT_TYPE;
 
 
-typedef void uCHAT_SERVER_CBACK_DATA;
+typedef void sCHAT_SERVER_CBACK_DATA;
 
 
 typedef void (*fCHAT_SERVER_USER_CBACK) (
-    void*                    user_arg,
-    bCHAT_SERVER_EVENT_TYPE  event_mask,
-    uCHAT_SERVER_CBACK_DATA* data);
+    void*                          user_arg,
+    bCHAT_SERVER_EVENT_TYPE        event_mask,
+    const sCHAT_SERVER_CBACK_DATA* data);
 
 
 typedef enum
@@ -45,10 +45,6 @@ eSTATUS chat_server_create(
     CHAT_SERVER*            out_new_chat_server,
     fCHAT_SERVER_USER_CBACK user_cback,
     void*                   user_arg);
-
-
-eSTATUS chat_server_open(
-    CHAT_SERVER chat_server);
 
 
 eSTATUS chat_server_reset(

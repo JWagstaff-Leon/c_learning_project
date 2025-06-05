@@ -9,12 +9,13 @@
 #include "chat_event_io.h"
 #include "common_types.h"
 #include "message_queue.h"
+#include "network_watcher.h"
 
 
 static eSTATUS read_ready(
     sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
-    uCHAT_CONNECTION_CBACK_DATA cback_data;
+    sCHAT_CONNECTION_CBACK_DATA cback_data;
 
     bCHAT_EVENT_IO_RESULT main_io_result;
     bCHAT_EVENT_IO_RESULT extract_result;

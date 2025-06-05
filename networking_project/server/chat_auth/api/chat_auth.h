@@ -60,9 +60,9 @@ typedef struct {
 
 
 typedef void (*fCHAT_AUTH_USER_CBACK) (
-    void*                  user_arg,
-    bCHAT_AUTH_EVENT_TYPE  event_mask,
-    sCHAT_AUTH_CBACK_DATA* data);
+    void*                        user_arg,
+    bCHAT_AUTH_EVENT_TYPE        event_mask,
+    const sCHAT_AUTH_CBACK_DATA* data);
 
 
 typedef void* CHAT_AUTH;
@@ -73,7 +73,7 @@ typedef void* CHAT_AUTH_TRANSACTION;
 
 eSTATUS chat_auth_create(
     CHAT_AUTH*            out_chat_auth,
-    fCHAT_AUTH_USER_CBACK user_back,
+    fCHAT_AUTH_USER_CBACK user_cback,
     void*                 user_arg);
 
 
