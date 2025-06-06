@@ -26,10 +26,8 @@ extern "C" {
 
 // Types -----------------------------------------------------------------------
 
-// TODO redo the typing for this module
 typedef enum
 {
-    CHAT_SERVER_STATE_INIT = 0,
     CHAT_SERVER_STATE_OPEN,
     CHAT_SERVER_STATE_CLOSED
 } eCHAT_SERVER_STATE;
@@ -47,7 +45,7 @@ typedef struct
     CHAT_AUTH    auth;
 
     int             listen_fd;
-    NETWORK_WATCHER listening_connection;
+    NETWORK_WATCHER connection_listener;
 } sCHAT_SERVER_CBLK;
 
 

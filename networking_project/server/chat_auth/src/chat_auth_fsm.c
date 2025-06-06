@@ -51,10 +51,11 @@ static void no_database_processing(
         }
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
-            cback_data.auth_result.result = CHAT_AUTH_RESULT_FAILURE;
+            cback_data.auth_result.result            = CHAT_AUTH_RESULT_FAILURE;
+            cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_AUTH_EVENT_AUTH_RESULT,
+                                        CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
                                         &cback_data);
 
             break;
@@ -99,10 +100,11 @@ static void open_processing(
 
             if (NULL == message->params.process_credentials.credentials.username)
             {
-                cback_data.auth_result.result = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
+                cback_data.auth_result.result            = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
+                cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_AUTH_EVENT_AUTH_RESULT,
+                                            CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
                                             &cback_data);
 
                 pthread_mutex_unlock(&message->params.process_credentials.auth_transaction->mutex);
@@ -141,8 +143,9 @@ static void open_processing(
                 }
             }
 
+            cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_AUTH_EVENT_AUTH_RESULT,
+                                        CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
                                         &cback_data);
 
             pthread_mutex_unlock(&message->params.process_credentials.auth_transaction->mutex);

@@ -81,12 +81,12 @@ eSTATUS chat_server_create(
         goto fail_create_auth;
     }
 
-    status = network_watcher_create(&new_master_cblk_ptr->listening_connection,
-                                    chat_server_listening_connection_cback,
+    status = network_watcher_create(&new_master_cblk_ptr->connection_listener,
+                                    chat_server_connection_listener_cback,
                                     new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        goto fail_create_listening_connection;
+        goto fail_create_connection_listener;
     }
 
     status = generic_create_thread(chat_server_thread_entry, new_master_cblk_ptr);
@@ -100,9 +100,9 @@ eSTATUS chat_server_create(
     goto func_exit;
 
 fail_create_thread:
-    network_watcher_close(new_master_cblk_ptr->listening_connection);
+    network_watcher_close(new_master_cblk_ptr->connection_listener);
 
-fail_create_listening_connection:
+fail_create_connection_listener:
     chat_auth_close(new_master_cblk_ptr->auth);
 
 fail_create_auth:

@@ -211,7 +211,7 @@ static eSTATUS fsm_cblk_init(
         return status;
     }
     
-    status = network_watcher_start_watch(master_cblk_ptr->listening_connection,
+    status = network_watcher_start_watch(master_cblk_ptr->connection_listener,
                                          NETWORK_WATCHER_MODE_READ,
                                          master_cblk_ptr->listen_fd);
     if (STATUS_SUCCESS != status)
@@ -234,7 +234,7 @@ static void fsm_cblk_close(
 
     assert(NULL != master_cblk_ptr);
 
-    status = network_watcher_close(master_cblk_ptr->listening_connection);
+    status = network_watcher_close(master_cblk_ptr->connection_listener);
     assert(STATUS_SUCCESS == status);
     
     close(master_cblk_ptr->listen_fd);
@@ -263,7 +263,6 @@ void* chat_server_thread_entry(
     assert(NULL != arg);
     master_cblk_ptr = (sCHAT_SERVER_CBLK*)arg;
 
-    // FIXME if this fails, callback with a respective event
     status = fsm_cblk_init(master_cblk_ptr);
     assert(STATUS_SUCCESS == status);
 

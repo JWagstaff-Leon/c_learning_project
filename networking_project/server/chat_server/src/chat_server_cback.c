@@ -4,6 +4,7 @@
 
 #include <assert.h>
 
+#include "chat_auth.h"
 #include "chat_clients.h"
 #include "common_types.h"
 #include "message_queue.h"
@@ -14,7 +15,7 @@ void chat_server_clients_cback(
     const sCHAT_CLIENTS_CBACK_DATA* data)
 {
     eSTATUS status;
-    
+
     sCHAT_SERVER_CBLK*   master_cblk_ptr;
     sCHAT_SERVER_MESSAGE message;
 
@@ -31,10 +32,10 @@ void chat_server_clients_cback(
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
-    
+
     if (event_mask & CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION)
     {
-        message.type = CHAT_SERVER_MESSAGE_CLIENTS_START_AUTH_TRANSACTION;
+        message.type = CHAT_SERVER_MESSAGE_START_AUTH_TRANSACTION;
 
         message.params.clients.start_auth_transaction.client_ptr                 = data->start_auth_transaction.client_ptr;
         message.params.clients.start_auth_transaction.auth_transaction_container = data->start_auth_transaction.auth_transaction_container;
@@ -45,10 +46,10 @@ void chat_server_clients_cback(
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
-    
+
     if (event_mask & CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION)
     {
-        message.type = CHAT_SERVER_MESSAGE_CLIENTS_FINISH_AUTH_TRANSACTION;
+        message.type = CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION;
 
         message.params.clients.finish_auth_transaction.client_ptr       = data->finish_auth_transaction.client_ptr;
         message.params.clients.finish_auth_transaction.auth_transaction = data->finish_auth_transaction.auth_transaction;
@@ -58,7 +59,7 @@ void chat_server_clients_cback(
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
-    
+
     if (event_mask & CHAT_CLIENTS_EVENT_CLOSED)
     {
         message.type = CHAT_SERVER_MESSAGE_CLIENTS_CLOSED;
@@ -76,14 +77,132 @@ void chat_server_auth_cback(
     bCHAT_AUTH_EVENT_TYPE        event_mask,
     const sCHAT_AUTH_CBACK_DATA* data)
 {
-    // TODO this
+    eSTATUS status;
+
+    sCHAT_SERVER_CBLK*   master_cblk_ptr;
+    sCHAT_SERVER_MESSAGE message;
+
+    assert(NULL != user_arg);
+    master_cblk_ptr = user_arg;
+
+    if (event_mask & CHAT_AUTH_EVENT_DATABASE_OPENED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPENED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPEN_FAILED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & CHAT_AUTH_EVENT_DATABASE_CLOSED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSE_FAILED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & CHAT_AUTH_EVENT_AUTH_RESULT)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_RESULT;
+
+        message.params.auth.auth_result.result    = data->auth_result.result;
+        message.params.auth.auth_result.user_info = data->auth_result.user_info;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & CHAT_AUTH_EVENT_TRANSACTION_DONE)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_TRANSACTION_DONE;
+
+        message.params.auth.transaction_done.consumer_arg = data->transaction_done.consumer_arg;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
 }
 
 
-void chat_server_listening_connection_cback(
+void chat_server_connection_listener_cback(
     void*                              user_arg,
     bNETWORK_WATCHER_EVENT_TYPE        event_mask,
     const sNETWORK_WATCHER_CBACK_DATA* data)
 {
-    // TODO this
+    eSTATUS status;
+
+    sCHAT_SERVER_CBLK*   master_cblk_ptr;
+    sCHAT_SERVER_MESSAGE message;
+
+    assert(NULL != user_arg);
+    master_cblk_ptr = user_arg;
+
+    if (event_mask & NETWORK_WATCHER_EVENT_WATCH_COMPLETE)
+    {
+        message.type = CHAT_SERVER_MESSAGE_INCOMING_CONNECTION;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & NETWORK_WATCHER_EVENT_WATCH_ERROR)
+    {
+        message.type = CHAT_SERVER_MESSAGE_LISTENER_ERROR;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & NETWORK_WATCHER_EVENT_WATCH_CANCELLED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_LISTENER_CANCELLED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (event_mask & NETWORK_WATCHER_EVENT_CLOSED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_LISTENER_CLOSED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
 }
