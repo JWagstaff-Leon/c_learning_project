@@ -59,6 +59,8 @@ static void open_processing(
 
     sNETWORK_WATCHER_CBACK_DATA cback_data;
 
+    uint8_t flush_buffer[128];
+
     switch (message->type)
     {
         case NETWORK_WATCHER_MESSAGE_WATCH:
@@ -87,6 +89,21 @@ static void open_processing(
                                                 &cback_data);
                     break;
                 }
+                case STATUS_CLOSED:
+                {
+                    pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
+
+                    while (read(master_cblk_ptr->cancel_pipe[PIPE_END_READ],
+                                flush_buffer,
+                                sizeof(flush_buffer)) > 0);
+
+                    pthread_mutex_unlock(&master_cblk_ptr->cancel_mutex);
+
+                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                                NETWORK_WATCHER_EVENT_WATCH_CANCELLED,
+                                                NULL);
+                    break;
+                }
                 default:
                 {
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -95,13 +112,6 @@ static void open_processing(
                     break;
                 }
             }
-            break;
-        }
-        case NETWORK_WATCHER_MESSAGE_CANCEL:
-        {
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        NETWORK_WATCHER_EVENT_WATCH_CANCELLED,
-                                        NULL);
             break;
         }
         case NETWORK_WATCHER_MESSAGE_CLOSE:

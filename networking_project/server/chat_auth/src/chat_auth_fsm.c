@@ -51,11 +51,11 @@ static void no_database_processing(
         }
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
-            cback_data.auth_result.result            = CHAT_AUTH_RESULT_FAILURE;
-            cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
+            cback_data.auth_result.result       = CHAT_AUTH_RESULT_FAILURE;
+            cback_data.auth_result.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
+                                        CHAT_AUTH_EVENT_AUTH_RESULT,
                                         &cback_data);
 
             break;
@@ -78,36 +78,35 @@ static void open_processing(
 
     sCHAT_AUTH_CBACK_DATA cback_data;
 
+    sCHAT_AUTH_TRANSACTION* auth_transaction;
+
     switch (message->type)
     {
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
-            pthread_mutex_lock(&message->params.process_credentials.auth_transaction->mutex);
-            
-            if (CHAT_AUTH_TRANSACTION_STATE_CANCELLED == message->params.process_credentials.auth_transaction->state)
-            {
-                pthread_mutex_unlock(&message->params.process_credentials.auth_transaction->mutex);
-                pthread_mutex_destroy(&message->params.process_credentials.auth_transaction->mutex);
-                generic_deallocator(message->params.process_credentials.auth_transaction);
-                
-                cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
+            auth_transaction = message->params.process_credentials.auth_transaction;
+            pthread_mutex_lock(&auth_transaction->mutex);
 
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_AUTH_EVENT_TRANSACTION_DONE,
-                                            &cback_data);
+            if (CHAT_AUTH_TRANSACTION_STATE_CANCELLED == auth_transaction->state)
+            {
+                pthread_mutex_unlock(&auth_transaction->mutex);
+                pthread_mutex_destroy(&auth_transaction->mutex);
+                generic_deallocator(auth_transaction);
+                
+                auth_transaction = NULL;
                 break;
             }
 
             if (NULL == message->params.process_credentials.credentials.username)
             {
-                cback_data.auth_result.result            = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
-                cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
+                cback_data.auth_result.result       = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
+                cback_data.auth_result.consumer_arg = auth_transaction->consumer_arg;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
+                                            CHAT_AUTH_EVENT_AUTH_RESULT,
                                             &cback_data);
 
-                pthread_mutex_unlock(&message->params.process_credentials.auth_transaction->mutex);
+                pthread_mutex_unlock(&auth_transaction->mutex);
                 break;
             }
 
@@ -143,12 +142,14 @@ static void open_processing(
                 }
             }
 
-            cback_data.transaction_done.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
+            auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
+
+            cback_data.auth_result.consumer_arg = auth_transaction->consumer_arg;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_AUTH_EVENT_AUTH_RESULT & CHAT_AUTH_EVENT_TRANSACTION_DONE,
+                                        CHAT_AUTH_EVENT_AUTH_RESULT,
                                         &cback_data);
 
-            pthread_mutex_unlock(&message->params.process_credentials.auth_transaction->mutex);
+            pthread_mutex_unlock(&auth_transaction->mutex);
             break;
         }
         case CHAT_AUTH_MESSAGE_CLOSE_DATABASE:

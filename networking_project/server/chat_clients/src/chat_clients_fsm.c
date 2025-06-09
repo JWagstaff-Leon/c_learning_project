@@ -65,8 +65,7 @@ static eSTATUS realloc_clients(
     new_client_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
     if (NULL == new_client_list)
     {
-        status = STATUS_ALLOC_FAILED;
-        goto fail_alloc_client_list;
+        return STATUS_ALLOC_FAILED;
     }
 
     // Close any clients in excess of new_max_clients
@@ -100,9 +99,6 @@ static eSTATUS realloc_clients(
     master_cblk_ptr->max_clients = new_max_clients;
 
     return STATUS_SUCCESS;
-
-fail_alloc_client_list:
-    return status;
 }
 
 
@@ -127,15 +123,14 @@ static void open_processing(
     {
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
+            new_connection_fd = message->params.open_client.fd;
             if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
             {
                 status = realloc_clients(master_cblk_ptr,
                                          master_cblk_ptr->max_clients + 10); // REVIEW make this '10' configurable?
                 if (STATUS_SUCCESS != status)
                 {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
-                                                NULL);
+                    close(new_connection_fd);
                     break;
                 }
             }
@@ -157,9 +152,6 @@ static void open_processing(
             if (STATUS_SUCCESS != status)
             {
                 close(new_connection_fd);
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED,
-                                            NULL);
                 break;
             }
 
@@ -230,19 +222,26 @@ static void open_processing(
 
                     status = chat_connection_queue_event(auth_client->connection,
                                                          &outgoing_event);
-                    break;
+                    // Fallthrough
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:
                 {
+                    memset(auth_client->auth_credentials->username,
+                           0,
+                           auth_client->auth_credentials->username_size);
+                    memset(auth_client->auth_credentials->password,
+                           0,
+                           auth_client->auth_credentials->password_size);
+
                     generic_deallocator(auth_client->auth_credentials->username);
                     generic_deallocator(auth_client->auth_credentials->password);
+                    
                     generic_deallocator(auth_client->auth_credentials);
 
                     auth_client->auth_credentials = NULL;
                     break;
                 }
 
-                cback_data.finish_auth_transaction.client_ptr       = auth_client;
                 cback_data.finish_auth_transaction.auth_transaction = auth_client->auth_transaction;
                 
                 auth_client->auth_transaction = NULL;

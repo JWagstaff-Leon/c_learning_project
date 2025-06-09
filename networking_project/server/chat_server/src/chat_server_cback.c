@@ -22,17 +22,6 @@ void chat_server_clients_cback(
     assert(NULL != user_arg);
     master_cblk_ptr = user_arg;
 
-    // TODO handle events
-    if (event_mask & CHAT_CLIENTS_EVENT_CLIENT_OPEN_FAILED)
-    {
-        message.type = CHAT_SERVER_MESSAGE_CLIENTS_CLIENT_OPEN_FAILED;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
     if (event_mask & CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION)
     {
         message.type = CHAT_SERVER_MESSAGE_START_AUTH_TRANSACTION;
@@ -51,7 +40,6 @@ void chat_server_clients_cback(
     {
         message.type = CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION;
 
-        message.params.clients.finish_auth_transaction.client_ptr       = data->finish_auth_transaction.client_ptr;
         message.params.clients.finish_auth_transaction.auth_transaction = data->finish_auth_transaction.auth_transaction;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
@@ -129,27 +117,15 @@ void chat_server_auth_cback(
     {
         message.type = CHAT_SERVER_MESSAGE_AUTH_RESULT;
 
-        message.params.auth.auth_result.result    = data->auth_result.result;
-        message.params.auth.auth_result.user_info = data->auth_result.user_info;
+        message.params.auth.auth_result.result     = data->auth_result.result;
+        message.params.auth.auth_result.user_info  = data->auth_result.user_info;
+        message.params.auth.auth_result.client_ptr = data->auth_result.consumer_arg;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
-
-    if (event_mask & CHAT_AUTH_EVENT_TRANSACTION_DONE)
-    {
-        message.type = CHAT_SERVER_MESSAGE_AUTH_TRANSACTION_DONE;
-
-        message.params.auth.transaction_done.consumer_arg = data->transaction_done.consumer_arg;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
 }
 
 

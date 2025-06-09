@@ -6,6 +6,8 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include "chat_server.h"
+
 #include <stdint.h>
 
 #include "chat_auth.h"
@@ -22,7 +24,6 @@ typedef enum
 {
     CHAT_SERVER_MESSAGE_CLOSE,
 
-    CHAT_SERVER_MESSAGE_CLIENTS_CLIENT_OPEN_FAILED,
     CHAT_SERVER_MESSAGE_START_AUTH_TRANSACTION,
     CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION,
     CHAT_SERVER_MESSAGE_CLIENTS_CLOSED,
@@ -51,7 +52,6 @@ typedef struct
 
 typedef struct
 {
-    void* client_ptr;
     void* auth_transaction;
 } sCHAT_SERVER_MESSAGE_PARAMS_CLIENTS_FINISH_AUTH_TRANSACTION;
 
@@ -67,6 +67,7 @@ typedef struct
 {
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
+    void*             client_ptr;
 } sCHAT_SERVER_MESSAGE_PARAMS_AUTH_RESULT;
 
 

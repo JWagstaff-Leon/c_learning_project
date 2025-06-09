@@ -13,6 +13,7 @@ target_sources(chat_server
     src/chat_server.c
     src/chat_server_cback.c
     src/chat_server_fsm.c
+    src/chat_server_internal.c
 )
 
 target_link_libraries(chat_server

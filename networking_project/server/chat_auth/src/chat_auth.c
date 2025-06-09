@@ -61,6 +61,7 @@ success:
 }
 
 
+// TODO make opening part of creation
 eSTATUS chat_auth_open_database(
     CHAT_AUTH   chat_auth,
     const char* path)
@@ -200,7 +201,6 @@ eSTATUS chat_auth_finish_transaction(
     auth_transaction_cblk = (sCHAT_AUTH_TRANSACTION*)auth_transaction;
 
     pthread_mutex_lock(&auth_transaction_cblk->mutex);
-
     switch (auth_transaction_cblk->state)
     {
         case CHAT_AUTH_TRANSACTION_STATE_PROCESSING:

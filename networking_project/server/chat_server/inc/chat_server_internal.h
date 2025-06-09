@@ -4,12 +4,6 @@
 extern "C" {
 #endif
 
-// Defines ---------------------------------------------------------------------
-
-#define CHAT_SERVER_DEFAULT_MAX_CONNECTIONS 8
-
-#define CHAT_SERVER_MESSAGE_QUEUE_SIZE 32
-
 
 // Includes --------------------------------------------------------------------
 
@@ -24,11 +18,21 @@ extern "C" {
 #include "network_watcher.h"
 
 
+// Defines ---------------------------------------------------------------------
+
+#ifndef CHAT_SERVER_DEFAULT_MAX_CONNECTIONS
+#define CHAT_SERVER_DEFAULT_MAX_CONNECTIONS 8
+#endif
+
+#define CHAT_SERVER_MESSAGE_QUEUE_SIZE 32
+
+
 // Types -----------------------------------------------------------------------
 
 typedef enum
 {
     CHAT_SERVER_STATE_OPEN,
+    CHAT_SERVER_STATE_CLOSING,
     CHAT_SERVER_STATE_CLOSED
 } eCHAT_SERVER_STATE;
 
@@ -44,8 +48,8 @@ typedef struct
     CHAT_CLIENTS clients;
     CHAT_AUTH    auth;
 
-    int             listen_fd;
     NETWORK_WATCHER connection_listener;
+    int             listen_fd;
 } sCHAT_SERVER_CBLK;
 
 
@@ -53,6 +57,15 @@ typedef struct
 
 void* chat_server_thread_entry(
     void* arg);
+
+
+eSTATUS open_listen_socket(
+    int* out_fd);
+
+
+chat_server_accept_connection(
+    sCHAT_SERVER_CBLK* master_cblk_ptr,
+    int*               new_connection_fd)
 
 
 void chat_server_clients_cback(
@@ -66,7 +79,8 @@ void chat_server_auth_cback(
     bCHAT_AUTH_EVENT_TYPE  event_mask,
     const sCHAT_AUTH_CBACK_DATA* data);
 
-void chat_server_listening_connection_cback(
+
+void chat_server_connection_listener_cback(
     void*                              user_arg,
     bNETWORK_WATCHER_EVENT_TYPE        event_mask,
     const sNETWORK_WATCHER_CBACK_DATA* data);

@@ -21,8 +21,7 @@ typedef enum {
     CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 << 1,
     CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 << 2,
     CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 << 3,
-    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4,
-    CHAT_AUTH_EVENT_TRANSACTION_DONE      = 1 << 5
+    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4
 } bCHAT_AUTH_EVENT_TYPE;
 
 
@@ -44,18 +43,12 @@ typedef struct
 {
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
+    void*             consumer_arg;
 } sCHAT_AUTH_CBACK_DATA_AUTH_RESULT;
-
-
-typedef struct
-{
-    void* consumer_arg;
-} sCHAT_AUTH_CBACK_DATA_TRANSACTION_DONE;
 
 
 typedef struct {
     sCHAT_AUTH_CBACK_DATA_AUTH_RESULT      auth_result;
-    sCHAT_AUTH_CBACK_DATA_TRANSACTION_DONE transaction_done;
 } sCHAT_AUTH_CBACK_DATA;
 
 
