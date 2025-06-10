@@ -44,7 +44,7 @@ void chat_clients_connection_cback(
         assert(STATUS_SUCCESS == status);
     }
 
-    if (event_mask & CHAT_CONNECTION_EVENT_CONNECTION_CLOSED)
+    if (event_mask & CHAT_CONNECTION_EVENT_CLOSED)
     {
         message.type                            = CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED;
         message.params.client_closed.client_ptr = client_ptr;

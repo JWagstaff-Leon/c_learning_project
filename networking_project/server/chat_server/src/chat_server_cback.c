@@ -86,6 +86,16 @@ void chat_server_auth_cback(
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
+
+    if (event_mask & CHAT_AUTH_EVENT_CLOSED)
+    {
+        message.type = CHAT_SERVER_MESSAGE_AUTH_CLOSED;
+        
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
 }
 
 

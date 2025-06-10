@@ -33,7 +33,7 @@ eSTATUS chat_auth_create(
     memset(new_auth_chat_cblk, 0, sizeof(sCHAT_AUTH_CBLK));
     new_auth_chat_cblk->state = CHAT_AUTH_STATE_OPEN;
 
-    status = message_queue_create(new_auth_chat_cblk->message_queue,
+    status = message_queue_create(&new_auth_chat_cblk->message_queue,
                                   CHAT_AUTH_MESSAGE_QUEUE_SIZE,
                                   sizeof(sCHAT_AUTH_MESSAGE));
     if (STATUS_SUCCESS != status)

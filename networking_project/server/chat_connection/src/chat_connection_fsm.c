@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <poll.h>
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include "chat_event.h"
 #include "chat_event_io.h"
@@ -33,8 +34,6 @@ static eSTATUS read_ready(
 
         if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
         {
-            // Force a close here; if the fd is closed, the connection has no context anymore
-            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED; // REVIEW make this a message?
             return STATUS_CLOSED;
         }
 
@@ -79,8 +78,6 @@ static eSTATUS write_ready(
 
         if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
         {
-            // Force a close here; if the fd is closed, the connection has no context anymore
-            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED; // REVIEW change this to an FSM message?
             return STATUS_CLOSED;
         }
 
@@ -121,10 +118,10 @@ static void reading_processing(
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
                     break;
                 }
             }
-
 
             status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
                                                  NETWORK_WATCHER_MODE_READ,
@@ -176,6 +173,7 @@ static void reading_writing_processing(
                 status = write_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
                     break;
                 }
             }
@@ -185,6 +183,7 @@ static void reading_writing_processing(
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
                     break;
                 }
             }
@@ -244,6 +243,7 @@ static void cancelling_processing(
                 status = write_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
                     break;
                 }
             }
@@ -253,6 +253,7 @@ static void cancelling_processing(
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
                     break;
                 }
             }
@@ -301,12 +302,52 @@ static void closing_processing(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
+    eSTATUS               status;
+    bNETWORK_WATCHER_MODE watch_mode;
+
     switch (message->type)
     {
-        // FIXME add logic to empty event queue before closing
+        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        {
+            if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_WRITE)
+            {
+                status = write_ready(master_cblk_ptr);
+                if (STATUS_CLOSED == status)
+                {
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    break;
+                }
+            }
+
+            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
+            {
+                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                break;
+            }
+
+            watch_mode = NETWORK_WATCHER_MODE_WRITE;
+
+            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                 watch_mode,
+                                                 master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
         case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
         {
-            master_cblk_ptr->state - CHAT_CONNECTION_STATE_CLOSED;
+            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
+            {
+                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                break;
+            }
+
+            watch_mode = NETWORK_WATCHER_MODE_WRITE;
+
+            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                 watch_mode,
+                                                 master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
             break;
         }
     }
@@ -383,7 +424,7 @@ static void fsm_cblk_close(
     assert(STATUS_SUCCESS == status);
 
     user_cback = master_cblk_ptr->user_cback;
-    user_arg = master_cblk_ptr->user_arg;
+    user_arg   = master_cblk_ptr->user_arg;
 
     generic_deallocator(master_cblk_ptr);
 

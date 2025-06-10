@@ -424,9 +424,50 @@ fail_alloc_client:
 }
 
 
-void chat_clients_client_close(
-    sCHAT_CLIENT* client_ptr)
+eSTATUS realloc_clients(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    uint32_t            new_max_clients)
 {
-    client_ptr->client_container = NULL;
-    generic_deallocator(client_ptr);
+    eSTATUS status;
+
+    uint32_t       client_index;
+    sCHAT_CLIENT** new_client_list;
+
+    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
+    if (NULL == new_client_list)
+    {
+        return STATUS_ALLOC_FAILED;
+    }
+
+    // Close any clients in excess of new_max_clients
+    for (client_index = new_max_clients;
+         client_index < master_cblk_ptr->client_count;
+         client_index++)
+    {
+        chat_clients_client_close(master_cblk_ptr->client_list[client_index]); // REVIEW need to close clients' connections first?
+    }
+
+    // Copy any clients overlapping
+    for (client_index = 0;
+         client_index < master_cblk_ptr->max_clients && client_index < new_max_clients;
+         client_index++)
+    {
+        new_client_list[client_index] = master_cblk_ptr->client_list[client_index];
+        new_client_list[client_index]->client_container = &new_client_list[client_index];
+    }
+
+    // Initialize any new clients
+    for (client_index = master_cblk_ptr->max_clients;
+         client_index < new_max_clients;
+         client_index++)
+    {
+        new_client_list[client_index] = NULL;
+    }
+
+    generic_deallocator(master_cblk_ptr->client_list);
+
+    master_cblk_ptr->client_list = new_client_list;
+    master_cblk_ptr->max_clients = new_max_clients;
+
+    return STATUS_SUCCESS;
 }

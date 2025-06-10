@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "chat_connection.h"
 #include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
@@ -22,84 +23,6 @@ static const char* k_auth_strings[] = {
     "Logged in",            // CHAT_CLIENTS_AUTH_STEP_AUTHENTICATED
     ""                      // CHAT_CLIENTS_AUTH_STEP_CLOSED
 };
-
-
-static eSTATUS fsm_cblk_init(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    // TODO this
-    return STATUS_SUCCESS;
-}
-
-
-static void fsm_cblk_close(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    fCHAT_CLIENTS_USER_CBACK user_cback;
-    void*                        user_arg;
-
-    assert(NULL != master_cblk_ptr);
-
-    // TODO close the cblk
-
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    // TODO free the cblk
-
-    user_cback(user_arg,
-               CHAT_CLIENTS_EVENT_CLOSED,
-               NULL);
-}
-
-
-static eSTATUS realloc_clients(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t            new_max_clients)
-{
-    eSTATUS status;
-
-    uint32_t       client_index;
-    sCHAT_CLIENT** new_client_list;
-
-    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
-    if (NULL == new_client_list)
-    {
-        return STATUS_ALLOC_FAILED;
-    }
-
-    // Close any clients in excess of new_max_clients
-    for (client_index = new_max_clients;
-         client_index < master_cblk_ptr->client_count;
-         client_index++)
-    {
-        chat_clients_client_close(master_cblk_ptr->client_list[client_index]); // REVIEW need to close clients' connections first?
-    }
-
-    // Copy any clients overlapping
-    for (client_index = 0;
-         client_index < master_cblk_ptr->max_clients && client_index < new_max_clients;
-         client_index++)
-    {
-        new_client_list[client_index] = master_cblk_ptr->client_list[client_index];
-        new_client_list[client_index]->client_container = &new_client_list[client_index];
-    }
-
-    // Initialize any new clients
-    for (client_index = master_cblk_ptr->max_clients;
-         client_index < new_max_clients;
-         client_index++)
-    {
-        new_client_list[client_index] = NULL;
-    }
-
-    generic_deallocator(master_cblk_ptr->client_list);
-
-    master_cblk_ptr->client_list = new_client_list;
-    master_cblk_ptr->max_clients = new_max_clients;
-
-    return STATUS_SUCCESS;
-}
 
 
 static void open_processing(
@@ -127,7 +50,7 @@ static void open_processing(
             if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
             {
                 status = realloc_clients(master_cblk_ptr,
-                                         master_cblk_ptr->max_clients + 10); // REVIEW make this '10' configurable?
+                                         master_cblk_ptr->max_clients + 10);
                 if (STATUS_SUCCESS != status)
                 {
                     close(new_connection_fd);
@@ -262,12 +185,18 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            chat_clients_client_close(message->params.client_closed.client_ptr);
+            message->params.client_closed.client_ptr->client_container = NULL;
+            generic_deallocator(message->params.client_closed.client_ptr);
+            master_cblk_ptr->client_count -= 1;
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
         {
-            // TODO start closing
+            for (client_index = 0; client_index < master_cblk_ptr->max_clients; client_index++)
+            {
+                status = chat_connection_close(master_cblk_ptr->client_list[client_index]->connection);
+                assert(STATUS_SUCCESS == status);
+            }
             break;
         }
         default:
@@ -294,6 +223,14 @@ static void closing_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
+            message->params.client_closed.client_ptr->client_container = NULL;
+            generic_deallocator(message->params.client_closed.client_ptr);
+            master_cblk_ptr->client_count -= 1;
+
+            if (master_cblk_ptr->client_count <= 0)
+            {
+                master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSED;
+            }
             break;
         }
     }
@@ -328,6 +265,30 @@ void dispatch_message(
 }
 
 
+static void fsm_cblk_close(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
+{
+    eSTATUS status;
+
+    fCHAT_CLIENTS_USER_CBACK user_cback;
+    void*                    user_arg;
+
+    assert(NULL != master_cblk_ptr);
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    user_cback = master_cblk_ptr->user_cback;
+    user_arg   = master_cblk_ptr->user_arg;
+
+    generic_deallocator(master_cblk_ptr);
+
+    user_cback(user_arg,
+               CHAT_CLIENTS_EVENT_CLOSED,
+               NULL);
+}
+
+
 void* chat_clients_thread_entry(
     void* arg)
 {
@@ -338,9 +299,6 @@ void* chat_clients_thread_entry(
 
     assert(NULL != arg);
     master_cblk_ptr = arg;
-
-    status = fsm_cblk_init(master_cblk_ptr);
-    assert(STATUS_SUCCESS == status);
 
     while (CHAT_CLIENTS_STATE_CLOSED != master_cblk_ptr->state)
     {

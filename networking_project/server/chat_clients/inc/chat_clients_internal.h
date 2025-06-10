@@ -65,7 +65,7 @@ typedef struct
 } sCHAT_CLIENT;
 
 
-typedef struct s_chat_clients_cblk
+typedef struct
 {
     MESSAGE_QUEUE       message_queue;
     eCHAT_CLIENTS_STATE state;
@@ -104,14 +104,9 @@ eSTATUS chat_clients_client_init(
     int                 fd);
 
 
-void chat_clients_client_close(
-    sCHAT_CLIENT* client);
-
-
-void chat_clients_new_connections_cback(
-    void*                              user_arg,
-    bNETWORK_WATCHER_EVENT_TYPE        event_mask,
-    const sNETWORK_WATCHER_CBACK_DATA* data);
+eSTATUS realloc_clients(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    uint32_t            new_max_clients);
 
 
 void chat_clients_connection_cback(

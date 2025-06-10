@@ -139,6 +139,7 @@ eSTATUS network_watcher_cancel_watch(
 {
     sNETWORK_WATCHER_CBLK* master_cblk_ptr;
     eSTATUS                status;
+    ssize_t                write_status;
 
     if(NULL == network_watcher)
     {
@@ -147,7 +148,12 @@ eSTATUS network_watcher_cancel_watch(
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
 
     pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
-    write(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE], " ", 2); // TODO add error checking
+    
+    do
+    {
+        write_status = write(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE], " ", 2);
+    } while (write_status < 1);
+
     pthread_mutex_unlock(&master_cblk_ptr->cancel_mutex);
 
     return STATUS_SUCCESS;

@@ -59,7 +59,7 @@ eSTATUS chat_clients_create(
     new_chat_clients_cblk->client_count = 0;
     new_chat_clients_cblk->max_clients  = default_size;
 
-    status = message_queue_create(new_chat_clients_cblk->message_queue,
+    status = message_queue_create(&new_chat_clients_cblk->message_queue,
                                   CHAT_CONNECTION_MESSAGE_QUEUE_SIZE,
                                   sizeof(sCHAT_CLIENTS_MESSAGE));
     if (STATUS_SUCCESS != status);

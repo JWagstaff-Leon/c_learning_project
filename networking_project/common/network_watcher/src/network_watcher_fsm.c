@@ -147,7 +147,7 @@ static void dispatch_message(
 static void fsm_cblk_init(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
-    // TODO this
+    // no-op
 }
 
 
@@ -161,6 +161,11 @@ static void fsm_cblk_close(
 
     pthread_mutex_destroy(&master_cblk_ptr->cancel_mutex);
 
+    close(master_cblk_ptr->cancel_pipe[PIPE_END_READ]);
+    close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
+    
+    message_queue_destroy(master_cblk_ptr->message_queue);
+    
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
@@ -178,8 +183,6 @@ void* network_watcher_thread_entry(
     sNETWORK_WATCHER_CBLK*   master_cblk_ptr;
     eSTATUS                  status;
     sNETWORK_WATCHER_MESSAGE message;
-
-    uint8_t flush_buffer[128];
 
     assert(NULL != arg);
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)arg;

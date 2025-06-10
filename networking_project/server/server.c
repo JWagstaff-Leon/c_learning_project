@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,8 +12,7 @@
 typedef enum
 {
     MAIN_MESSAGE_SERVER_OPENED,
-    MAIN_MESSAGE_SERVER_CLOSED,
-    MAIN_MESSAGE_CLOSE_SERVER
+    MAIN_MESSAGE_SERVER_CLOSED
 } eMAIN_MESSAGE_TYPE;
 
 
@@ -27,10 +27,16 @@ typedef enum
     MAIN_FSM_STATE_OPEN,
     MAIN_FSM_STATE_CLOSING,
     MAIN_FSM_STATE_CLOSED
-} sMAIN_FSM_STATE;
+} eMAIN_FSM_STATE;
 
 
-static bCHAT_SERVER_EVENT_TYPE k_last_event;
+typedef struct
+{
+    eMAIN_FSM_STATE state;
+    MESSAGE_QUEUE   message_queue;
+
+    CHAT_SERVER chat_server;
+} sMAIN_CBLK;
 
 
 #define MAIN_MESSAGE_QUEUE_SIZE 8
@@ -54,35 +60,51 @@ void chat_server_cback(
     bCHAT_SERVER_EVENT_TYPE        event_mask,
     const sCHAT_SERVER_CBACK_DATA* data)
 {
+    eSTATUS       status;
+    sMAIN_CBLK*   master_cblk_ptr;
+    sMAIN_MESSAGE message;
+
+    assert(NULL != user_arg);
+    master_cblk_ptr = (sMAIN_CBLK*)user_arg;
+
     (void)data;
 
-    k_last_event = event_mask;
+    if (event_mask & CHAT_SERVER_EVENT_CLOSED)
+    {
+        master_cblk_ptr->state = MAIN_FSM_STATE_CLOSED;
+        // message.type = MAIN_MESSAGE_SERVER_CLOSED;
+        // status = message_queue_put(master_cblk_ptr->message_queue,
+        //                            &message,
+        //                            sizeof(message));
+        // assert(STATUS_SUCCESS == status);
+    }
 }
 
 
 int main(int argc, char *argv[])
 {
-    eSTATUS       status;
-    MESSAGE_QUEUE message_queue;
-    CHAT_SERVER   server;
+    eSTATUS status;
+
+    sMAIN_CBLK master_cblk;
 
     char*   user_input;
     ssize_t user_input_size;
-    status = chat_server_create(&server,
+
+    status = chat_server_create(&master_cblk.chat_server,
                                 chat_server_cback,
-                                NULL);
+                                &master_cblk);
     if (STATUS_SUCCESS != status)
     {
         fprintf(stderr, "Failed to create server with status %d\n", status);
         return 1;
     }
 
-    while (CHAT_SERVER_EVENT_CLOSED != k_last_event)
+    while (MAIN_FSM_STATE_CLOSED != master_cblk.state)
     {
         getline(&user_input, &user_input_size, stdin);
         if (!strncmp(user_input, "close\n", sizeof("close\n")))
         {
-            chat_server_close(server);
+            chat_server_close(master_cblk.chat_server);
         }
     }
 
