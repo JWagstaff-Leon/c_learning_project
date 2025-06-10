@@ -444,7 +444,8 @@ eSTATUS realloc_clients(
          client_index < master_cblk_ptr->client_count;
          client_index++)
     {
-        chat_clients_client_close(master_cblk_ptr->client_list[client_index]); // REVIEW need to close clients' connections first?
+        chat_connection_destroy(master_cblk_ptr->client_list[client_index]->connection);
+        chat_clients_client_close(master_cblk_ptr->client_list[client_index]);
     }
 
     // Copy any clients overlapping

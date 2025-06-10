@@ -103,3 +103,9 @@ eSTATUS chat_connection_close(
 {
     // TODO this
 }
+
+eSTATUS chat_connection_destroy(
+    CHAT_CONNECTION chat_connection)
+{
+    // TODO this
+}

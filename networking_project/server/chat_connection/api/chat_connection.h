@@ -63,6 +63,11 @@ eSTATUS chat_connection_queue_event(
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection);
 
+
+eSTATUS chat_connection_destroy(
+    CHAT_CONNECTION chat_connection);
+
+
 #ifdef __cplusplus
 }
 #endif

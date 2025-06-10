@@ -60,9 +60,18 @@ typedef struct
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
 
-    void* master_cblk_ptr;
     void* client_container;
 } sCHAT_CLIENT;
+
+// TODO make clients use a doubly linked list
+typedef struct s_chat_client_list_node
+{
+    sCHAT_CLIENT client;
+    void* master_cblk_ptr;
+
+    struct s_chat_client_list_node* prev;
+    struct s_chat_client_list_node* next;
+} sCHAT_CLIENT_LIST_NODE;
 
 
 typedef struct
@@ -73,11 +82,8 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    // NOTE this needs to be a double pointer since the address of the list can
-    // change, and the client pointer is needed for callbacks
-    sCHAT_CLIENT** client_list;
-    uint32_t       client_count;
-    uint32_t       max_clients;
+    sCHAT_CLIENT_LIST_NODE* client_list_head;
+    sCHAT_CLIENT_LIST_NODE* client_list_tail;
 } sCHAT_CLIENTS_CBLK;
 
 
