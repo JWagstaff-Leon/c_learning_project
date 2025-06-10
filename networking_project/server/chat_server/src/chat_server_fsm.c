@@ -3,15 +3,13 @@
 #include "chat_server_fsm.h"
 
 #include <assert.h>
+#include <unistd.h>
 
 #include "chat_auth.h"
 #include "chat_clients.h"
 #include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
-
-
-static const char k_database_path[] = "./chat_users.db";
 
 
 static void open_processing(
@@ -86,6 +84,7 @@ static void open_processing(
             status = chat_clients_close(master_cblk_ptr->clients);
             assert(STATUS_SUCCESS == status);
 
+            // FIXME wait for the clients to be closed before closing the auth
             status = chat_auth_close(master_cblk_ptr->auth);
             assert(STATUS_SUCCESS == status);
 
@@ -109,26 +108,6 @@ static void open_processing(
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSING;
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPENED:
-        {
-            // TODO remove this as part of fusing the auth creation and database opening
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPEN_FAILED:
-        {
-            // TODO remove this as part of fusing the auth creation and database opening
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSED:
-        {
-            // TODO remove this as part of fusing the auth and database closures
-            break;
-        }
-        case CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSE_FAILED:
-        {
-            // TODO remove this as part of fusing the auth and database closures
             break;
         }
         case CHAT_SERVER_MESSAGE_AUTH_RESULT:
@@ -178,10 +157,6 @@ static void open_processing(
             assert(STATUS_SUCCESS == status);
             break;
         }
-        case CHAT_SERVER_MESSAGE_AUTH_TRANSACTION_DONE:
-        {
-            break;
-        }
         default:
         {
             // Should never get here
@@ -191,7 +166,7 @@ static void open_processing(
 }
 
 
-static void close_processing(
+static void closing_processing(
     const sCHAT_SERVER_MESSAGE* message,
     sCHAT_SERVER_CBLK*          master_cblk_ptr)
 {
@@ -234,10 +209,6 @@ static void fsm_cblk_init(
 {
     eSTATUS status;
 
-    status = chat_auth_open_database(master_cblk_ptr->auth,
-                                     k_database_path);
-    assert(STATUS_SUCCESS == status);
-
     status = open_listen_socket(&master_cblk_ptr->listen_fd);
     assert(STATUS_SUCCESS == status);
     
@@ -268,7 +239,7 @@ static void fsm_cblk_close(
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
-    master_cblk_ptr->deallocator(master_cblk_ptr);
+    generic_deallocator(master_cblk_ptr);
 
     user_cback(user_arg,
                CHAT_SERVER_EVENT_CLOSED,

@@ -14,6 +14,11 @@
 #include "message_queue.h"
 
 
+// Constants -------------------------------------------------------------------
+
+static const char k_database_path[] = "./chat_users.db";
+
+
 // Function Implementations ----------------------------------------------------
 
 static eSTATUS init_cblk(
@@ -75,6 +80,7 @@ eSTATUS chat_server_create(
     }
 
     status = chat_auth_create(&new_chat_server->auth,
+                              k_database_path,
                               chat_server_auth_cback,
                               new_chat_server);
     if (STATUS_SUCCESS != status)

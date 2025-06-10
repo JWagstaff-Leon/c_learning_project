@@ -17,11 +17,9 @@ extern "C" {
 // Types -----------------------------------------------------------------------
 
 typedef enum {
-    CHAT_AUTH_EVENT_DATABASE_OPENED       = 1 << 0,
-    CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED  = 1 << 1,
-    CHAT_AUTH_EVENT_DATABASE_CLOSED       = 1 << 2,
-    CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED = 1 << 3,
-    CHAT_AUTH_EVENT_AUTH_RESULT           = 1 << 4
+    CHAT_AUTH_EVENT_AUTH_RESULT = 1 << 0,
+
+    CHAT_AUTH_EVENT_CLOSED = 1 << 31,
 } bCHAT_AUTH_EVENT_TYPE;
 
 
@@ -48,7 +46,7 @@ typedef struct
 
 
 typedef struct {
-    sCHAT_AUTH_CBACK_DATA_AUTH_RESULT      auth_result;
+    sCHAT_AUTH_CBACK_DATA_AUTH_RESULT auth_result;
 } sCHAT_AUTH_CBACK_DATA;
 
 
@@ -66,6 +64,7 @@ typedef void* CHAT_AUTH_TRANSACTION;
 
 eSTATUS chat_auth_create(
     CHAT_AUTH*            out_chat_auth,
+    const char*           database_path,
     fCHAT_AUTH_USER_CBACK user_cback,
     void*                 user_arg);
 

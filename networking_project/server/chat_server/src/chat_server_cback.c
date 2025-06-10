@@ -73,46 +73,6 @@ void chat_server_auth_cback(
     assert(NULL != user_arg);
     master_cblk_ptr = user_arg;
 
-    if (event_mask & CHAT_AUTH_EVENT_DATABASE_OPENED)
-    {
-        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPENED;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
-    if (event_mask & CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED)
-    {
-        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_OPEN_FAILED;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
-    if (event_mask & CHAT_AUTH_EVENT_DATABASE_CLOSED)
-    {
-        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSED;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
-    if (event_mask & CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED)
-    {
-        message.type = CHAT_SERVER_MESSAGE_AUTH_DATABASE_CLOSE_FAILED;
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                   &message,
-                                   sizeof(message));
-        assert(STATUS_SUCCESS == status);
-    }
-
     if (event_mask & CHAT_AUTH_EVENT_AUTH_RESULT)
     {
         message.type = CHAT_SERVER_MESSAGE_AUTH_RESULT;

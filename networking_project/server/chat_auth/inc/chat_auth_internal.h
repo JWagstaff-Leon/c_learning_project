@@ -27,7 +27,6 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_AUTH_STATE_NO_DATABASE,
     CHAT_AUTH_STATE_OPEN,
     CHAT_AUTH_STATE_CLOSED
 } eCHAT_AUTH_STATE;
@@ -77,7 +76,7 @@ eSTATUS chat_auth_sql_create_user(
     CHAT_USER_ID           id);
 
 
-eSTATUS chat_auth_sql_auth_user(
+eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
     sqlite3*               database,
     sCHAT_USER_CREDENTIALS credentials,
     sCHAT_USER*            out_user);

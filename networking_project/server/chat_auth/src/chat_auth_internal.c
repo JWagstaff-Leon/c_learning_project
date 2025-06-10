@@ -112,18 +112,17 @@ func_exit:
 }
 
 
-eSTATUS chat_auth_sql_auth_user(
+eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
     sqlite3*               database,
     sCHAT_USER_CREDENTIALS credentials,
     sCHAT_USER*            out_user)
 {
-    eSTATUS status;
-    int     sqlite_status;
-    int     strcmp_status;
+    eSTATUS           status;
+    eCHAT_AUTH_RESULT result;
+    int               sqlite_status;
+    int               strcmp_status;
 
     sqlite3_stmt* sql_statement = NULL;
-
-    int retry_count = 0;
 
     sqlite_status = sqlite3_prepare_v2(database,
                                        sql_select_first_user,
@@ -132,7 +131,13 @@ eSTATUS chat_auth_sql_auth_user(
                                        NULL);
     if (SQLITE_OK != sqlite_status || NULL == sql_statement)
     {
-        return STATUS_ALLOC_FAILED;
+        return CHAT_AUTH_RESULT_FAILURE;
+    }
+
+    if (NULL == credentials.username)
+    {
+        result = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
+        goto func_exit;
     }
 
     sqlite_status = sqlite3_bind_text(sql_statement,
@@ -142,26 +147,14 @@ eSTATUS chat_auth_sql_auth_user(
                                       SQLITE_STATIC);
     if (SQLITE_OK != sqlite_status)
     {
-        status = STATUS_FAILURE;
+        result = CHAT_AUTH_RESULT_FAILURE;
         goto func_exit;
     }
 
-    do
+    sqlite_status = sqlite3_step(sql_statement);
+    if (SQLITE_OK != sqlite_status && SQLITE_ROW != sqlite_status)
     {
-        sqlite_status = sqlite3_step(sql_statement);
-        if (SQLITE_BUSY == sqlite_status)
-        {
-            if (retry_count++ < CHAT_AUTH_SQL_MAX_TRIES)
-            {
-                // FIXME make this a timer instead of a sleep
-                assert(0 == usleep(CHAT_AUTH_SQL_RETRY_MS));
-            }
-        }
-    } while(SQLITE_BUSY == sqlite_status && retry_count < CHAT_AUTH_SQL_MAX_TRIES);
-
-    if (retry_count >= CHAT_AUTH_SQL_MAX_TRIES)
-    {
-        status = STATUS_FAILURE;
+        result = CHAT_AUTH_RESULT_FAILURE;
         goto func_exit;
     }
 
@@ -178,23 +171,29 @@ eSTATUS chat_auth_sql_auth_user(
                                                       sqlite3_column_text(sql_statement, 1),
                                                       sizeof(out_user->name),
                                                       NULL);
-                assert(STATUS_SUCCESS == status);
+                if (STATUS_SUCCESS != status)
+                {
+                    result = CHAT_AUTH_RESULT_FAILURE;
+                }
+                else
+                {
+                    result = CHAT_AUTH_RESULT_AUTHENTICATED;
+                }
                 
-                status = STATUS_SUCCESS;
             }
             else // 0 != strcmp_status; Provided password does not match
             {
-                status = STATUS_INCOMPLETE;
+                result = CHAT_AUTH_RESULT_PASSWORD_REJECTED;
             }
         }
         else // NULL == credentials.password; No password provided
         {
-            status = STATUS_EMPTY;
+            result = CHAT_AUTH_RESULT_PASSWORD_REQUIRED;
         }
     }
     else // SQLITE_ROW != sqlite_status; User does not exist in the database
     {
-        status = STATUS_NOT_FOUND;
+        result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
     }
 
 func_exit:

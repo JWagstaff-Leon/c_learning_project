@@ -2,6 +2,7 @@
 #include "chat_server_internal.h"
 
 #include <arpa/inet.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +21,6 @@ eSTATUS open_listen_socket(
 
     struct sockaddr_in address;
     
-    assert(NULL != master_cblk_ptr);
-
     listen_fd = socket(AF_INET,
                        SOCK_STREAM,
                        0);
@@ -67,14 +66,14 @@ eSTATUS open_listen_socket(
     goto success;
 
 fail_post_open_socket:
-    close(listen_socket_fd);
+    close(listen_fd);
 
 success:
     return status;
 }
 
 
-chat_server_accept_connection(
+eSTATUS chat_server_accept_connection(
     sCHAT_SERVER_CBLK* master_cblk_ptr,
     int*               new_connection_fd)
 {

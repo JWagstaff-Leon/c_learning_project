@@ -6,18 +6,20 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "sqlite3.h"
+
 #include "chat_user.h"
 #include "common_types.h"
 
 
 eSTATUS chat_auth_create(
     CHAT_AUTH*            out_chat_auth,
+    const char*           database_path,
     fCHAT_AUTH_USER_CBACK user_cback,
     void*                 user_arg)
 {
-    eSTATUS            status;
-    sCHAT_AUTH_MESSAGE message;
-
+    eSTATUS status;
+    int     sqlite_status;
 
     sCHAT_AUTH_CBLK* new_auth_chat_cblk;
 
@@ -29,7 +31,7 @@ eSTATUS chat_auth_create(
     }
 
     memset(new_auth_chat_cblk, 0, sizeof(sCHAT_AUTH_CBLK));
-    new_auth_chat_cblk->state = CHAT_AUTH_STATE_NO_DATABASE;
+    new_auth_chat_cblk->state = CHAT_AUTH_STATE_OPEN;
 
     status = message_queue_create(new_auth_chat_cblk->message_queue,
                                   CHAT_AUTH_MESSAGE_QUEUE_SIZE,
@@ -37,6 +39,16 @@ eSTATUS chat_auth_create(
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_message_queue;
+    }
+
+    sqlite_status = sqlite3_open_v2(database_path,
+                                    &new_auth_chat_cblk->database,
+                                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                                    NULL);
+    if(SQLITE_OK != sqlite_status)
+    {
+        status = STATUS_FAILURE;
+        goto fail_open_database;
     }
 
     status = generic_create_thread(chat_auth_thread_entry, new_auth_chat_cblk);
@@ -50,6 +62,9 @@ eSTATUS chat_auth_create(
     goto success;
 
 fail_create_thread:
+    sqlite3_close_v2(new_auth_chat_cblk->database);
+
+fail_open_database:
     message_queue_destroy(new_auth_chat_cblk->message_queue);
 
 fail_create_message_queue:
@@ -57,80 +72,6 @@ fail_create_message_queue:
 
 fail_alloc_cblk:
 success:
-    return status;
-}
-
-
-// TODO make opening part of creation
-eSTATUS chat_auth_open_database(
-    CHAT_AUTH   chat_auth,
-    const char* path)
-{
-    sCHAT_AUTH_CBLK*   master_cblk_ptr;
-    sCHAT_AUTH_MESSAGE message;
-    eSTATUS            status;
-    size_t             path_length;
-
-    if (NULL == chat_auth)
-    {
-        return STATUS_INVALID_ARG;
-    }
-
-    if (NULL == path)
-    {
-        return STATUS_INVALID_ARG;
-    }
-
-    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
-
-    message.type = CHAT_AUTH_MESSAGE_OPEN_DATABASE;
-
-    path_length                       = strlen(path) + 1;
-    message.params.open_database.path = generic_allocator(path_length);
-    if (NULL == message.params.open_database.path)
-    {
-        return STATUS_ALLOC_FAILED;
-    }
-
-    status = print_string_to_buffer(message.params.open_database.path, path, path_length, NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        generic_deallocator(message.params.open_database.path);
-        return status;
-    }
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-    if (STATUS_SUCCESS != status)
-    {
-        generic_deallocator(message.params.open_database.path);
-        return status;
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
-eSTATUS chat_auth_close_database(
-    CHAT_AUTH chat_auth)
-{
-    sCHAT_AUTH_CBLK*   master_cblk_ptr;
-    sCHAT_AUTH_MESSAGE message;
-    eSTATUS            status;
-
-    if (NULL == chat_auth)
-    {
-        return STATUS_INVALID_ARG;
-    }
-    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
-
-    message.type = CHAT_AUTH_MESSAGE_CLOSE_DATABASE;
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-
     return status;
 }
 
@@ -248,7 +189,7 @@ eSTATUS chat_auth_close(
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
-    message.type = CHAT_AUTH_MESSAGE_SHUTDOWN;
+    message.type = CHAT_AUTH_MESSAGE_CLOSE;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

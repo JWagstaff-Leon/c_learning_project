@@ -7,74 +7,12 @@
 #include "sqlite3.h"
 
 
-static void no_database_processing(
-    sCHAT_AUTH_CBLK*          master_cblk_ptr,
-    const sCHAT_AUTH_MESSAGE* message)
-{
-    eSTATUS status;
-    int     sqlite_status;
-
-    sCHAT_AUTH_CBACK_DATA cback_data;
-
-    switch (message->type)
-    {
-        case CHAT_AUTH_MESSAGE_OPEN_DATABASE:
-        {
-            sqlite_status = sqlite3_open_v2(message->params.open_database.path,
-                                            &master_cblk_ptr->database,
-                                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                                            NULL);
-            switch (sqlite_status)
-            {
-                case SQLITE_OK:
-                {
-                    master_cblk_ptr->state = CHAT_AUTH_STATE_OPEN;
-
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_OPENED,
-                                                NULL);
-                    break;
-                }
-                default:
-                {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_OPEN_FAILED,
-                                                NULL);
-                    break;
-                }
-            }
-
-            status = chat_auth_sql_init_database(master_cblk_ptr->database);
-            assert(STATUS_SUCCESS == status);
-
-            break;
-        }
-        case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
-        {
-            cback_data.auth_result.result       = CHAT_AUTH_RESULT_FAILURE;
-            cback_data.auth_result.consumer_arg = message->params.process_credentials.auth_transaction->consumer_arg;
-
-            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_AUTH_EVENT_AUTH_RESULT,
-                                        &cback_data);
-
-            break;
-        }
-        case CHAT_AUTH_MESSAGE_SHUTDOWN:
-        {
-            master_cblk_ptr->state = CHAT_AUTH_STATE_CLOSED;
-            break;
-        }
-    }
-}
-
-
 static void open_processing(
     sCHAT_AUTH_CBLK*          master_cblk_ptr,
     const sCHAT_AUTH_MESSAGE* message)
 {
-    eSTATUS status;
-    int     sqlite_status;
+    eCHAT_AUTH_RESULT auth_result;
+    int               sqlite_status;
 
     sCHAT_AUTH_CBACK_DATA cback_data;
 
@@ -110,41 +48,16 @@ static void open_processing(
                 break;
             }
 
-            status = chat_auth_sql_auth_user(master_cblk_ptr->database,
-                                             message->params.process_credentials.credentials,
-                                             &cback_data.auth_result.user_info);
-            switch (status)
-            {
-                case STATUS_SUCCESS:
-                {
-                    cback_data.auth_result.result = CHAT_AUTH_RESULT_AUTHENTICATED;
-                    break;
-                }
-                case STATUS_INCOMPLETE:
-                {
-                    cback_data.auth_result.result = CHAT_AUTH_RESULT_PASSWORD_REJECTED;
-                    break;
-                }
-                case STATUS_NOT_FOUND:
-                {
-                    cback_data.auth_result.result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
-                    break;
-                }
-                case STATUS_EMPTY:
-                {
-                    cback_data.auth_result.result = CHAT_AUTH_RESULT_PASSWORD_REQUIRED;
-                    break;
-                }
-                default:
-                {
-                    cback_data.auth_result.result = CHAT_AUTH_RESULT_FAILURE;
-                    break;
-                }
-            }
+            auth_result = chat_auth_sql_auth_user(master_cblk_ptr->database,
+                                                  message->params.process_credentials.credentials,
+                                                  &cback_data.auth_result.user_info);
+            assert(CHAT_AUTH_RESULT_FAILURE != auth_result); // TODO make this do a retry
 
             auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
 
+            cback_data.auth_result.result       = auth_result;
             cback_data.auth_result.consumer_arg = auth_transaction->consumer_arg;
+            
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_AUTH_EVENT_AUTH_RESULT,
                                         &cback_data);
@@ -152,53 +65,11 @@ static void open_processing(
             pthread_mutex_unlock(&auth_transaction->mutex);
             break;
         }
-        case CHAT_AUTH_MESSAGE_CLOSE_DATABASE:
+        case CHAT_AUTH_MESSAGE_CLOSE:
         {
             sqlite_status = sqlite3_close_v2(master_cblk_ptr->database);
-            switch (sqlite_status)
-            {
-                case SQLITE_OK:
-                {
-                    master_cblk_ptr->database = NULL;
-                    master_cblk_ptr->state = CHAT_AUTH_STATE_NO_DATABASE;
-
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_CLOSED,
-                                                NULL);
-                    break;
-                }
-                default:
-                {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED,
-                                                NULL);
-                    break;
-                }
-            }
-        }
-        case CHAT_AUTH_MESSAGE_SHUTDOWN:
-        {
-            sqlite_status = sqlite3_close_v2(master_cblk_ptr->database);
-            switch (sqlite_status)
-            {
-                case SQLITE_OK:
-                {
-                    master_cblk_ptr->database = NULL;
-                    master_cblk_ptr->state = CHAT_AUTH_STATE_CLOSED;
-
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_CLOSED,
-                                                NULL);
-                    break;
-                }
-                default:
-                {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_AUTH_EVENT_DATABASE_CLOSE_FAILED,
-                                                NULL);
-                    break;
-                }
-            }
+            assert(SQLITE_OK == sqlite_status);
+            master_cblk_ptr->state = CHAT_AUTH_STATE_CLOSED;
             break;
         }
     }
@@ -211,11 +82,6 @@ static void dispatch_message(
 {
     switch(master_cblk_ptr->state)
     {
-        case CHAT_AUTH_STATE_NO_DATABASE:
-        {
-            no_database_processing(master_cblk_ptr, message);
-            break;
-        }
         case CHAT_AUTH_STATE_OPEN:
         {
             open_processing(master_cblk_ptr, message);
@@ -226,20 +92,6 @@ static void dispatch_message(
         {
             // Should never get here
             assert(0);
-            break;
-        }
-    }
-}
-
-
-static void cleanup_message(
-    const sCHAT_AUTH_MESSAGE* message)
-{
-    switch (message->type)
-    {
-        case CHAT_AUTH_MESSAGE_OPEN_DATABASE:
-        {
-            generic_deallocator(message->params.open_database.path);
             break;
         }
     }
@@ -264,6 +116,5 @@ void* chat_auth_thread_entry(
         assert(STATUS_SUCCESS == status);
 
         dispatch_message(master_cblk_ptr, &message);
-        cleanup_message(&message);
     }
 }

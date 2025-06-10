@@ -17,17 +17,9 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_AUTH_MESSAGE_OPEN_DATABASE,
     CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS,
-    CHAT_AUTH_MESSAGE_CLOSE_DATABASE,
-    CHAT_AUTH_MESSAGE_SHUTDOWN
+    CHAT_AUTH_MESSAGE_CLOSE
 } eCHAT_AUTH_MESSAGE_TYPE;
-
-
-typedef struct
-{
-    char* path;
-} sCHAT_AUTH_MESSAGE_PARAMS_OPEN_DATABASE;
 
 
 typedef struct
@@ -39,7 +31,6 @@ typedef struct
 
 typedef union
 {
-    sCHAT_AUTH_MESSAGE_PARAMS_OPEN_DATABASE       open_database;
     sCHAT_AUTH_MESSAGE_PARAMS_PROCESS_CREDENTIALS process_credentials;
 } uCHAT_AUTH_MESSAGE_PARAMS;
 

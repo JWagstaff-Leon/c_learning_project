@@ -63,9 +63,9 @@ eSTATUS open_listen_socket(
     int* out_fd);
 
 
-chat_server_accept_connection(
+eSTATUS chat_server_accept_connection(
     sCHAT_SERVER_CBLK* master_cblk_ptr,
-    int*               new_connection_fd)
+    int*               new_connection_fd);
 
 
 void chat_server_clients_cback(
