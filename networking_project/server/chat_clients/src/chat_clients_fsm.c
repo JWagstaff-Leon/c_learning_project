@@ -32,12 +32,13 @@ static void open_processing(
     eSTATUS status;
     int     new_connection_fd;
 
-    uint32_t       client_index;
-    sCHAT_CLIENT** relevant_client_ptr;
-
+    uint32_t            client_index;
+    sCHAT_CLIENT_ENTRY* relevant_client_entry;
+    
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-
+    
     eCHAT_CLIENTS_AUTH_STEP  auth_step;
+    sCHAT_CLIENT_ENTRY**     auth_client_entry_ptr;
     sCHAT_CLIENT*            auth_client;
 
     sCHAT_EVENT outgoing_event;
@@ -47,40 +48,32 @@ static void open_processing(
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
             new_connection_fd = message->params.open_client.fd;
-            if (master_cblk_ptr->client_count >= master_cblk_ptr->max_clients)
-            {
-                status = realloc_clients(master_cblk_ptr,
-                                         master_cblk_ptr->max_clients + 10);
-                if (STATUS_SUCCESS != status)
-                {
-                    close(new_connection_fd);
-                    break;
-                }
-            }
-
-            for (client_index = 1;
-                 client_index < master_cblk_ptr->max_clients;
-                 client_index++)
-            {
-                if (NULL == master_cblk_ptr->client_list[client_index])
-                {
-                    relevant_client_ptr = &master_cblk_ptr->client_list[client_index];
-                    break;
-                }
-            }
-
-            status = chat_clients_client_init(relevant_client_ptr,
-                                              master_cblk_ptr,
-                                              message->params.open_client.fd);
+            
+            status = chat_clients_client_create(&relevant_client_entry,
+                                                master_cblk_ptr,
+                                                new_connection_fd);
             if (STATUS_SUCCESS != status)
             {
                 close(new_connection_fd);
                 break;
             }
+            
+            if (NULL == master_cblk_ptr->client_list_head)
+            {
+                assert(NULL == master_cblk_ptr->client_list_tail);
+                master_cblk_ptr->client_list_head = relevant_client_entry;
+                master_cblk_ptr->client_list_tail = relevant_client_entry;
+            }
+            else
+            {
+                master_cblk_ptr->client_list_tail->next = relevant_client_entry;
+                relevant_client_entry->prev             = master_cblk_ptr->client_list_tail;
+                master_cblk_ptr->client_list_tail       = relevant_client_entry;
+            }
 
-            (*relevant_client_ptr)->state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
+            (*relevant_client_entry)->client.state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
 
-            cback_data.start_auth_transaction.auth_transaction_container = &(*relevant_client_ptr)->auth_transaction;
+            cback_data.start_auth_transaction.auth_transaction_container = &(*relevant_client_entry)->client.auth_transaction;
 
             cback_data.start_auth_transaction.credentials.username      = NULL;
             cback_data.start_auth_transaction.credentials.username_size = 0;
@@ -88,7 +81,7 @@ static void open_processing(
             cback_data.start_auth_transaction.credentials.password      = NULL;
             cback_data.start_auth_transaction.credentials.password_size = 0;
 
-            cback_data.start_auth_transaction.client_ptr = relevant_client_ptr;
+            cback_data.start_auth_transaction.client_ptr = relevant_client_entry;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
@@ -97,8 +90,13 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_AUTH_EVENT:
         {
-            auth_step   = message->params.auth_event.auth_step;
-            auth_client = message->params.auth_event.client;
+            auth_step             = message->params.auth_event.auth_step;
+            auth_client_entry_ptr = message->params.auth_event.client_entry_ptr;
+            if (NULL == *auth_client_entry_ptr)
+            {
+                break;
+            }
+            auth_client = (*auth_client_entry_ptr)->client;
 
             switch (auth_step)
             {
@@ -145,6 +143,7 @@ static void open_processing(
 
                     status = chat_connection_queue_event(auth_client->connection,
                                                          &outgoing_event);
+                    // FIXME make this not a fallthrough; closing should close the client too
                     // Fallthrough
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:
@@ -185,9 +184,8 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            message->params.client_closed.client_ptr->client_container = NULL;
-            generic_deallocator(message->params.client_closed.client_ptr);
-            master_cblk_ptr->client_count -= 1;
+            chat_clients_client_destroy(master_cblk_ptr,
+                                        message->params.client_closed.client_entry);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
@@ -215,6 +213,8 @@ static void closing_processing(
 {
     eSTATUS status;
 
+    sCHAT_CLIENT_ENTRY* relevant_client_entry;
+
     switch (message->type)
     {
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
@@ -223,12 +223,31 @@ static void closing_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            message->params.client_closed.client_ptr->client_container = NULL;
-            generic_deallocator(message->params.client_closed.client_ptr);
-            master_cblk_ptr->client_count -= 1;
+            relevant_client_entry = message->params.client_closed.client_entry;
 
-            if (master_cblk_ptr->client_count <= 0)
+            if (NULL != relevant_client_entry->prev)
             {
+                relevant_client_entry->prev->next = relevant_client_entry->next;
+            }
+            if (NULL != relevant_client_entry->next)
+            {
+                relevant_client_entry->next->prev = relevant_client_entry->prev;
+            }
+            if (master_cblk_ptr->client_list_head == relevant_client_entry)
+            {
+                master_cblk_ptr->client_list_head = relevant_client_entry->next;
+            }
+            if (master_cblk_ptr->client_list_tail == relevant_client_entry)
+            {
+                master_cblk_ptr->client_list_tail = relevant_client_entry->prev;
+            }
+
+            
+            generic_deallocator(relevant_client_entry);
+
+            if (NULL == master_cblk_ptr->client_list_head)
+            {
+                assert(NULL == master_cblk_ptr->client_list_tail);
                 master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSED;
             }
             break;

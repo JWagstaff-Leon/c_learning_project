@@ -373,102 +373,92 @@ void chat_clients_process_event(
 }
 
 
-eSTATUS chat_clients_client_init(
-    sCHAT_CLIENT**      client_container_ptr,
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    int                 fd)
+eSTATUS chat_clients_client_create(
+    sCHAT_CLIENT_ENTRY** out_new_entry,
+    sCHAT_CLIENTS_CBLK*  master_cblk_ptr,
+    int                  fd)
 {
-    eSTATUS status;
-    sCHAT_CLIENT* new_client;
+    eSTATUS             status;
+    sCHAT_CLIENT_ENTRY* new_client_entry;
 
-    new_client = generic_allocator(sizeof(sCHAT_CLIENT));
+    new_client_entry = generic_allocator(sizeof(sCHAT_CLIENT_ENTRY));
     if (NULL == new_client)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_client;
     }
-    memset(new_client, 0, sizeof(sCHAT_CLIENT));
+    memset(new_client_entry, 0, sizeof(sCHAT_CLIENT_ENTRY));
 
-    new_client->auth_credentials = generic_allocator(sizeof(sCHAT_USER_CREDENTIALS));
-    if (NULL == new_client->auth_credentials)
+    new_client_entry->master_cblk_ptr = master_cblk_ptr;
+
+    // REVIEW is the life time of the credentials properly managed if the auth module closes second?
+    new_client_entry->client.auth_credentials = generic_allocator(sizeof(sCHAT_USER_CREDENTIALS));
+    if (NULL == new_client_entry->client.auth_credentials)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_credentials;
     }
-    memset(new_client->auth_credentials, 0, sizeof(sCHAT_USER_CREDENTIALS));
+    memset(new_client_entry->client.auth_credentials, 0, sizeof(sCHAT_USER_CREDENTIALS));
 
-    status = chat_connection_create(&new_client->connection,
+    status = chat_connection_create(&new_client_entry->client.connection,
                                     chat_clients_connection_cback,
-                                    new_client,
+                                    new_client_entry,
                                     fd);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_connection;
     }
 
-    new_client->state            = CHAT_CLIENT_STATE_INIT;
-    new_client->master_cblk_ptr  = master_cblk_ptr;
-    new_client->client_container = client_container_ptr;
+    new_client_entry->client.state = CHAT_CLIENT_STATE_INIT;
 
-    *client_container_ptr = new_client;
+    *out_new_entry = new_client_entry;
     return STATUS_SUCCESS;
 
 fail_create_connection:
-    generic_deallocator(new_client->auth_credentials);
+    generic_deallocator(new_client_entry->client.auth_credentials);
 
 fail_alloc_credentials:
-    generic_deallocator(new_client);
+    generic_deallocator(new_client_entry);
 
 fail_alloc_client:
     return status;
 }
 
-
-eSTATUS realloc_clients(
+eSTATUS chat_clients_client_destroy(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t            new_max_clients)
+    sCHAT_CLIENT_ENTRY* client_entry)
 {
-    eSTATUS status;
+    sCHAT_CLIENTS_CBACK_DATA cback_data;
 
-    uint32_t       client_index;
-    sCHAT_CLIENT** new_client_list;
-
-    new_client_list = generic_allocator(sizeof(sCHAT_CLIENT*) * new_max_clients);
-    if (NULL == new_client_list)
+    if (NULL != client_entry->prev)
     {
-        return STATUS_ALLOC_FAILED;
+        client_entry->prev->next = client_entry->next;
+    }
+    if (NULL != client_entry->next)
+    {
+        client_entry->next->prev = client_entry->prev;
+    }
+    if (master_cblk_ptr->client_list_head == client_entry)
+    {
+        master_cblk_ptr->client_list_head = client_entry->next;
+    }
+    if (master_cblk_ptr->client_list_tail == client_entry)
+    {
+        master_cblk_ptr->client_list_tail = client_entry->prev;
     }
 
-    // Close any clients in excess of new_max_clients
-    for (client_index = new_max_clients;
-         client_index < master_cblk_ptr->client_count;
-         client_index++)
+    if (NULL != client_entry->client.auth_transaction)
     {
-        chat_connection_destroy(master_cblk_ptr->client_list[client_index]->connection);
-        chat_clients_client_close(master_cblk_ptr->client_list[client_index]);
+        cback_data.finish_auth_transaction.auth_transaction = client_entry->client.auth_transaction;
+
+        // NOTE This callback NEEDS to call the auth finish transaction on THIS
+        //      thread. If it doesn't there could be a race condition on when
+        //      the auth module processes the finish transaction and when the
+        //      clients module processes the auth event.
+        master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                    CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
+                                    &cback_data);
     }
-
-    // Copy any clients overlapping
-    for (client_index = 0;
-         client_index < master_cblk_ptr->max_clients && client_index < new_max_clients;
-         client_index++)
-    {
-        new_client_list[client_index] = master_cblk_ptr->client_list[client_index];
-        new_client_list[client_index]->client_container = &new_client_list[client_index];
-    }
-
-    // Initialize any new clients
-    for (client_index = master_cblk_ptr->max_clients;
-         client_index < new_max_clients;
-         client_index++)
-    {
-        new_client_list[client_index] = NULL;
-    }
-
-    generic_deallocator(master_cblk_ptr->client_list);
-
-    master_cblk_ptr->client_list = new_client_list;
-    master_cblk_ptr->max_clients = new_max_clients;
-
-    return STATUS_SUCCESS;
+    // TODO make sure the auth is finished before this
+    generic_deallocator(client_entry);
 }

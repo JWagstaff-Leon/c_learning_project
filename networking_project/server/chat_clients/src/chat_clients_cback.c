@@ -17,22 +17,22 @@ void chat_clients_connection_cback(
     eSTATUS status;
 
     sCHAT_CLIENTS_CBLK* master_cblk_ptr;
-    sCHAT_CLIENT*       client_ptr;
+    sCHAT_CLIENT*       client_entry;
 
     sCHAT_CLIENTS_MESSAGE message;
 
     assert(NULL != user_arg);
 
-    master_cblk_ptr = ((sCHAT_CLIENT*)user_arg)->master_cblk_ptr;
+    master_cblk_ptr = ((sCHAT_CLIENT_ENTRY*)user_arg)->master_cblk_ptr;
     assert(NULL != master_cblk_ptr);
 
-    client_ptr = (sCHAT_CLIENT*)user_arg;
-    assert(NULL != client_ptr);
+    client_entry = (sCHAT_CLIENT_ENTRY*)user_arg;
+    assert(NULL != client_entry);
 
     if (event_mask & CHAT_CONNECTION_EVENT_INCOMING_EVENT)
     {
-        message.type                             = CHAT_CLIENTS_MESSAGE_INCOMING_EVENT;
-        message.params.incoming_event.client_ptr = client_ptr;
+        message.type                               = CHAT_CLIENTS_MESSAGE_INCOMING_EVENT;
+        message.params.incoming_event.client_entry = client_entry;
 
         status = chat_event_copy(&message.params.incoming_event.event,
                                  &data->incoming_event.event);
@@ -46,8 +46,8 @@ void chat_clients_connection_cback(
 
     if (event_mask & CHAT_CONNECTION_EVENT_CLOSED)
     {
-        message.type                            = CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED;
-        message.params.client_closed.client_ptr = client_ptr;
+        message.type                              = CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED;
+        message.params.client_closed.client_entry = client_entry;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,

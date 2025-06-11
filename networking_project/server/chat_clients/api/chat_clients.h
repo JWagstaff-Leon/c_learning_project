@@ -87,7 +87,7 @@ eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS            chat_clients,
     eCHAT_CLIENTS_AUTH_STEP auth_step,
     sCHAT_USER              user_info,
-    void*                   client);
+    void**                  client_ptr_ptr);
 
 
 eSTATUS chat_clients_close(

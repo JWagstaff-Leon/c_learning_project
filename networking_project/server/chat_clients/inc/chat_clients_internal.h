@@ -59,19 +59,17 @@ typedef struct
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
-
-    void* client_container;
 } sCHAT_CLIENT;
 
-// TODO make clients use a doubly linked list
-typedef struct s_chat_client_list_node
+
+typedef struct s_chat_client_entry
 {
     sCHAT_CLIENT client;
     void* master_cblk_ptr;
 
-    struct s_chat_client_list_node* prev;
-    struct s_chat_client_list_node* next;
-} sCHAT_CLIENT_LIST_NODE;
+    struct s_chat_client_entry* prev;
+    struct s_chat_client_entry* next;
+} sCHAT_CLIENT_ENTRY;
 
 
 typedef struct
@@ -82,8 +80,8 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    sCHAT_CLIENT_LIST_NODE* client_list_head;
-    sCHAT_CLIENT_LIST_NODE* client_list_tail;
+    sCHAT_CLIENT_ENTRY* client_list_head;
+    sCHAT_CLIENT_ENTRY* client_list_tail;
 } sCHAT_CLIENTS_CBLK;
 
 
@@ -104,15 +102,10 @@ void chat_clients_process_event(
     const sCHAT_EVENT*  event);
 
 
-eSTATUS chat_clients_client_init(
-    sCHAT_CLIENT**      client_container_ptr,
-    sCHAT_CLIENTS_CBLK* user_arg,
-    int                 fd);
-
-
-eSTATUS realloc_clients(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    uint32_t            new_max_clients);
+eSTATUS chat_clients_client_create(
+    sCHAT_CLIENT_ENTRY** out_new_entry,
+    sCHAT_CLIENTS_CBLK*  master_cblk_ptr,
+    int                  fd);
 
 
 void chat_clients_connection_cback(

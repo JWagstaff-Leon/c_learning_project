@@ -141,7 +141,7 @@ static void open_processing(
             status = chat_clients_auth_event(master_cblk_ptr->clients,
                                              auth_step,
                                              message->params.auth.auth_result.user_info,
-                                             message->params.auth.auth_result.client_ptr);
+                                             message->params.auth.auth_result.client_ptr_ptr);
             assert(STATUS_SUCCESS == status);
             break;
         }

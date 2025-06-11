@@ -36,14 +36,14 @@ typedef struct
 
 typedef struct
 {
-    sCHAT_EVENT   event;
-    sCHAT_CLIENT* client_ptr;
+    sCHAT_EVENT         event;
+    sCHAT_CLIENT_ENTRY* client_entry;
 } sCHAT_CLIENTS_INCOMING_EVENT_PARAMS;
 
 
 typedef struct
 {
-    sCHAT_CLIENT* client_ptr;
+    sCHAT_CLIENT_ENTRY* client_entry;
 } sCHAT_CLIENTS_CLIENT_CLOSED_PARAMS;
 
 
@@ -51,7 +51,7 @@ typedef struct
 {
     eCHAT_CLIENTS_AUTH_STEP auth_step;
     sCHAT_USER              user_info;
-    sCHAT_CLIENT*           client;
+    sCHAT_CLIENT_ENTRY**    client_entry_ptr;
 } sCHAT_CLIENTS_AUTH_EVENT_PARAMS;
 
 

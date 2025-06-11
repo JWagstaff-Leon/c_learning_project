@@ -142,6 +142,9 @@ eSTATUS chat_auth_finish_transaction(
     auth_transaction_cblk = (sCHAT_AUTH_TRANSACTION*)auth_transaction;
 
     pthread_mutex_lock(&auth_transaction_cblk->mutex);
+
+    auth_transaction_cblk->consumer_arg = NULL;
+
     switch (auth_transaction_cblk->state)
     {
         case CHAT_AUTH_TRANSACTION_STATE_PROCESSING:

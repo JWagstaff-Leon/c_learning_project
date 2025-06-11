@@ -55,8 +55,8 @@ static void open_processing(
 
             auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
 
-            cback_data.auth_result.result       = auth_result;
-            cback_data.auth_result.consumer_arg = auth_transaction->consumer_arg;
+            cback_data.auth_result.result           = auth_result;
+            cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg;
             
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_AUTH_EVENT_AUTH_RESULT,

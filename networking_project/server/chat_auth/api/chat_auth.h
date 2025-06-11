@@ -41,7 +41,7 @@ typedef struct
 {
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
-    void*             consumer_arg;
+    void**            consumer_arg_ptr;
 } sCHAT_AUTH_CBACK_DATA_AUTH_RESULT;
 
 
