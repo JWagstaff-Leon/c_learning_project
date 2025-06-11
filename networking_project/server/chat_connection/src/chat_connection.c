@@ -90,6 +90,31 @@ fail_alloc_chat_connection:
 }
 
 
+eSTATUS chat_connection_queue_new_event(
+    CHAT_CONNECTION  restrict chat_connection,
+    eCHAT_EVENT_TYPE          event_type,
+    CHAT_USER_ID              event_origin,
+    const char*      restrict event_data)
+{
+    eSTATUS     status;
+    sCHAT_EVENT event;
+
+    status = chat_event_populate(&event,
+                                 event_type,
+                                 event_origin,
+                                 event_data);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    status = chat_connection_queue_event(chat_connection,
+                                         &event);
+    
+    return status;
+}
+
+
 eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION    restrict chat_connection,
     const sCHAT_EVENT* restrict event)

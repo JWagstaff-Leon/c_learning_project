@@ -17,7 +17,7 @@ void chat_clients_connection_cback(
     eSTATUS status;
 
     sCHAT_CLIENTS_CBLK* master_cblk_ptr;
-    sCHAT_CLIENT*       client_entry;
+    sCHAT_CLIENT_ENTRY* client_entry;
 
     sCHAT_CLIENTS_MESSAGE message;
 

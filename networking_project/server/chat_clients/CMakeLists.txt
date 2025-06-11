@@ -22,6 +22,7 @@ target_link_libraries(chat_clients
     Common::chat_user
     Common::types
     Common::network_watcher
+    Common::shared_ptr
 
   PRIVATE
     chat_auth

@@ -39,7 +39,7 @@ static void open_processing(
         case CHAT_SERVER_MESSAGE_START_AUTH_TRANSACTION:
         {
             status = chat_auth_submit_credentials(master_cblk_ptr->auth,
-                                                  message->params.clients.start_auth_transaction.credentials,
+                                                  message->params.clients.start_auth_transaction.credentials_ptr,
                                                   message->params.clients.start_auth_transaction.client_ptr,
                                                   message->params.clients.start_auth_transaction.auth_transaction_container);
             if (STATUS_SUCCESS != status)

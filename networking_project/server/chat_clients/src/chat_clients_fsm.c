@@ -12,6 +12,7 @@
 #include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
+#include "shared_ptr.h"
 
 
 static const char* k_auth_strings[] = {
@@ -71,17 +72,11 @@ static void open_processing(
                 master_cblk_ptr->client_list_tail       = relevant_client_entry;
             }
 
-            (*relevant_client_entry)->client.state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
+            relevant_client_entry->client.state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
 
-            cback_data.start_auth_transaction.auth_transaction_container = &(*relevant_client_entry)->client.auth_transaction;
-
-            cback_data.start_auth_transaction.credentials.username      = NULL;
-            cback_data.start_auth_transaction.credentials.username_size = 0;
-
-            cback_data.start_auth_transaction.credentials.password      = NULL;
-            cback_data.start_auth_transaction.credentials.password_size = 0;
-
-            cback_data.start_auth_transaction.client_ptr = relevant_client_entry;
+            cback_data.start_auth_transaction.client_ptr                 = relevant_client_entry;
+            cback_data.start_auth_transaction.auth_transaction_container = &relevant_client_entry->client.auth_transaction;
+            cback_data.start_auth_transaction.credentials                = shared_ptr_share(relevant_client_entry->client.auth_credentials_ptr);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
@@ -96,7 +91,7 @@ static void open_processing(
             {
                 break;
             }
-            auth_client = (*auth_client_entry_ptr)->client;
+            auth_client = &(*auth_client_entry_ptr)->client;
 
             switch (auth_step)
             {
@@ -143,24 +138,14 @@ static void open_processing(
 
                     status = chat_connection_queue_event(auth_client->connection,
                                                          &outgoing_event);
-                    // FIXME make this not a fallthrough; closing should close the client too
-                    // Fallthrough
+                    
+                    shared_ptr_release(auth_client->auth_credentials_ptr);
+                    auth_client->auth_credentials = NULL;
+                    break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:
                 {
-                    memset(auth_client->auth_credentials->username,
-                           0,
-                           auth_client->auth_credentials->username_size);
-                    memset(auth_client->auth_credentials->password,
-                           0,
-                           auth_client->auth_credentials->password_size);
-
-                    generic_deallocator(auth_client->auth_credentials->username);
-                    generic_deallocator(auth_client->auth_credentials->password);
-                    
-                    generic_deallocator(auth_client->auth_credentials);
-
-                    auth_client->auth_credentials = NULL;
+                    // REVIEW should this close the client?
                     break;
                 }
 
@@ -178,7 +163,7 @@ static void open_processing(
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
         {
             chat_clients_process_event(master_cblk_ptr,
-                                       message->params.incoming_event.client_ptr,
+                                       message->params.incoming_event.client_entry,
                                        &message->params.incoming_event.event);
             break;
         }
@@ -223,27 +208,7 @@ static void closing_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            relevant_client_entry = message->params.client_closed.client_entry;
-
-            if (NULL != relevant_client_entry->prev)
-            {
-                relevant_client_entry->prev->next = relevant_client_entry->next;
-            }
-            if (NULL != relevant_client_entry->next)
-            {
-                relevant_client_entry->next->prev = relevant_client_entry->prev;
-            }
-            if (master_cblk_ptr->client_list_head == relevant_client_entry)
-            {
-                master_cblk_ptr->client_list_head = relevant_client_entry->next;
-            }
-            if (master_cblk_ptr->client_list_tail == relevant_client_entry)
-            {
-                master_cblk_ptr->client_list_tail = relevant_client_entry->prev;
-            }
-
-            
-            generic_deallocator(relevant_client_entry);
+            chat_clients_client_destroy(message->params.client_closed.client_entry);
 
             if (NULL == master_cblk_ptr->client_list_head)
             {

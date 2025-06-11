@@ -10,6 +10,7 @@
 
 #include "chat_user.h"
 #include "common_types.h"
+#include "shared_ptr.h"
 
 
 eSTATUS chat_auth_create(
@@ -78,7 +79,7 @@ success:
 
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
-    sCHAT_USER_CREDENTIALS credentials,
+    SHARED_PTR             credentials_ptr,
     void*                  consumer_arg,
     CHAT_AUTH_TRANSACTION* out_auth_transaction)
 {
@@ -90,18 +91,23 @@ eSTATUS chat_auth_submit_credentials(
 
     if (NULL == chat_auth)
     {
-        return STATUS_INVALID_ARG;
+        status = STATUS_INVALID_ARG;
+        goto func_fail;
+
     }
 
     if (NULL == out_auth_transaction)
     {
-        return STATUS_INVALID_ARG;
+        status = STATUS_INVALID_ARG;
+        goto func_fail;
     }
 
     new_auth_transaction = generic_allocator(sizeof(sCHAT_AUTH_TRANSACTION));
     if (NULL == new_auth_transaction)
     {
-        return STATUS_ALLOC_FAILED;
+        status = STATUS_ALLOC_FAILED;
+        goto func_fail;
+
     }
 
     new_auth_transaction->consumer_arg = consumer_arg;
@@ -110,7 +116,7 @@ eSTATUS chat_auth_submit_credentials(
 
     message.type = CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS;
 
-    message.params.process_credentials.credentials      = credentials;
+    message.params.process_credentials.credentials_ptr  = credentials_ptr;
     message.params.process_credentials.auth_transaction = new_auth_transaction;
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
@@ -121,11 +127,15 @@ eSTATUS chat_auth_submit_credentials(
     if (status != STATUS_SUCCESS)
     {
         generic_deallocator(new_auth_transaction);
-        return status;
+        goto func_fail;
     }
 
     *out_auth_transaction = (CHAT_AUTH_TRANSACTION)new_auth_transaction;
     return STATUS_SUCCESS;
+
+func_fail:
+    shared_ptr_release(credentials_ptr);
+    return status;
 }
 
 

@@ -45,7 +45,7 @@ typedef struct
     pthread_mutex_t              mutex;
     eCHAT_AUTH_TRANSACTION_STATE state;
 
-    void* consumer_arg; // REVIEW only keep this in case of retries; maybe also keep for updating purposes
+    void* consumer_arg;
 } sCHAT_AUTH_TRANSACTION;
 
 

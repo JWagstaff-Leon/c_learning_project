@@ -25,6 +25,7 @@ extern "C" {
 #include "chat_user.h"
 #include "message_queue.h"
 #include "network_watcher.h"
+#include "shared_ptr.h"
 
 
 // Types -----------------------------------------------------------------------
@@ -44,9 +45,10 @@ typedef enum
     CHAT_CLIENT_STATE_AUTHENTICATING_INIT,
     CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME,
     CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD,
+    CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING,
 
-    CHAT_CLIENT_STATE_DISCONNECTING,
-    CHAT_CLIENT_STATE_ACTIVE
+    CHAT_CLIENT_STATE_ACTIVE,
+    CHAT_CLIENT_STATE_DISCONNECTING
 } eCHAT_CLIENT_STATE;
 
 
@@ -54,8 +56,8 @@ typedef struct
 {
     eCHAT_CLIENT_STATE state;
 
-    void*                   auth_transaction;
-    sCHAT_USER_CREDENTIALS* auth_credentials;
+    void*      auth_transaction;
+    SHARED_PTR auth_credentials_ptr;
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
@@ -98,7 +100,7 @@ void* chat_clients_thread_entry(
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event);
 
 

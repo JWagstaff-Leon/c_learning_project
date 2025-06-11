@@ -10,6 +10,7 @@ extern "C" {
 #include "chat_user.h"
 #include "common_types.h"
 #include "network_watcher.h"
+#include "shared_ptr.h"
 
 
 // Constants -------------------------------------------------------------------
@@ -41,9 +42,9 @@ typedef enum
 
 typedef struct
 {
-    void*                  client_ptr;
-    void**                 auth_transaction_container;
-    sCHAT_USER_CREDENTIALS credentials;
+    void*      client_ptr;
+    void**     auth_transaction_container;
+    SHARED_PTR credentials_ptr;
 } sCHAT_CLIENTS_CBACK_DATA_START_AUTH_TRANSACTION;
 
 

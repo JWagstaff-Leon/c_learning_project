@@ -26,4 +26,5 @@ target_link_libraries(chat_server
 
     Common::message_queue
     Common::network_watcher
+    Common::shared_ptr
 )

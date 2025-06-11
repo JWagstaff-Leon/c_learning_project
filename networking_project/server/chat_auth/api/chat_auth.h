@@ -8,6 +8,7 @@ extern "C" {
 
 #include "common_types.h"
 #include "chat_user.h"
+#include "shared_ptr.h"
 
 
 // Constants -------------------------------------------------------------------
@@ -69,18 +70,9 @@ eSTATUS chat_auth_create(
     void*                 user_arg);
 
 
-eSTATUS chat_auth_open_database(
-    CHAT_AUTH   chat_auth,
-    const char* path);
-
-
-eSTATUS chat_auth_close_database(
-    CHAT_AUTH chat_auth);
-
-
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
-    sCHAT_USER_CREDENTIALS credentials,
+    SHARED_PTR             credentials,
     void*                  consumer_arg,
     CHAT_AUTH_TRANSACTION* out_auth_transaction);
 

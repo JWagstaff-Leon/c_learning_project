@@ -28,7 +28,7 @@ void chat_server_clients_cback(
 
         message.params.clients.start_auth_transaction.client_ptr                 = data->start_auth_transaction.client_ptr;
         message.params.clients.start_auth_transaction.auth_transaction_container = data->start_auth_transaction.auth_transaction_container;
-        message.params.clients.start_auth_transaction.credentials                = data->start_auth_transaction.credentials;
+        message.params.clients.start_auth_transaction.credentials_ptr            = data->start_auth_transaction.credentials_ptr;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,

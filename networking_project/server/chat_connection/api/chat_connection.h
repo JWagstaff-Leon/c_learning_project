@@ -55,6 +55,13 @@ eSTATUS chat_connection_create(
     int                         fd);
 
 
+eSTATUS chat_connection_queue_new_event(
+    CHAT_CONNECTION  restrict chat_connection,
+    eCHAT_EVENT_TYPE          type,
+    CHAT_USER_ID              origin,
+    const char*      restrict string);
+
+
 eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION    restrict chat_connection,
     const sCHAT_EVENT* restrict event);

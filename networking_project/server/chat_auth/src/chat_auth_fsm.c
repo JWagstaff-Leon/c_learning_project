@@ -18,6 +18,8 @@ static void open_processing(
 
     sCHAT_AUTH_TRANSACTION* auth_transaction;
 
+    // TODO add shared pointer functionality here
+
     switch (message->type)
     {
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
@@ -35,10 +37,10 @@ static void open_processing(
                 break;
             }
 
-            if (NULL == message->params.process_credentials.credentials.username)
+            if (NULL == message->params.process_credentials.credentials->username)
             {
-                cback_data.auth_result.result       = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
-                cback_data.auth_result.consumer_arg = auth_transaction->consumer_arg;
+                cback_data.auth_result.result           = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
+                cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_AUTH_EVENT_AUTH_RESULT,
@@ -49,7 +51,7 @@ static void open_processing(
             }
 
             auth_result = chat_auth_sql_auth_user(master_cblk_ptr->database,
-                                                  message->params.process_credentials.credentials,
+                                                  message->params.process_credentials->credentials,
                                                   &cback_data.auth_result.user_info);
             assert(CHAT_AUTH_RESULT_FAILURE != auth_result); // TODO make this do a retry
 

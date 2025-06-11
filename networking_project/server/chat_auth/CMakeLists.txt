@@ -22,6 +22,7 @@ target_sources(chat_auth
 target_link_libraries(chat_auth
   PUBLIC
     Common::chat_user
+    Common::shared_ptr
     Common::types
 
   PRIVATE

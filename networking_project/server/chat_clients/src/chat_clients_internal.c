@@ -19,7 +19,7 @@ static char k_server_name[] = "Server";
 
 static void handler_no_op(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     // Intentionally empty
@@ -29,36 +29,33 @@ static void handler_no_op(
 
 static void handler_chat_message(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_EVENT   outgoing_event;
-    sCHAT_CLIENT* relevant_client;
-    uint32_t      client_index;
+    sCHAT_EVENT         outgoing_event;
+    sCHAT_CLIENT_ENTRY* relevant_client_entry;
 
     if (CHAT_CLIENT_STATE_ACTIVE == source_client->state)
     {
         status = chat_event_copy(&outgoing_event, event);
         assert(STATUS_SUCCESS == status);
 
-        outgoing_event.origin = source_client->user_info.id;
+        outgoing_event.origin = source_client_entry->client.user_info.id;
 
-        for (client_index = 1;
-             client_index < master_cblk_ptr->max_clients;
-             client_index++)
+        for (relevant_client_entry = master_cblk_ptr->client_list_head;
+             NULL != relevant_client_entry;
+             relevant_client_entry = relevant_client_entry->next)
         {
-            relevant_client = master_cblk_ptr->client_list[client_index];
-
-            if (relevant_client == source_client)
+            if (relevant_client_entry == source_client_entry)
             {
                 continue;
             }
 
-            if (NULL != relevant_client && CHAT_CLIENT_STATE_ACTIVE == relevant_client->state)
+            if (CHAT_CLIENT_STATE_ACTIVE == relevant_client_entry->client.state)
             {
-                status = chat_connection_queue_event(relevant_client->connection,
+                status = chat_connection_queue_event(relevant_client_entry->client.connection,
                                                      &outgoing_event);
             }
             assert(STATUS_SUCCESS == status);
@@ -69,13 +66,13 @@ static void handler_chat_message(
 
 static void handler_username_request(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     eSTATUS     status;
     sCHAT_EVENT outgoing_event;
 
-    if (CHAT_CLIENT_STATE_ACTIVE == source_client->state)
+    if (CHAT_CLIENT_STATE_ACTIVE == source_client_entry->client.state)
     {
         status = chat_event_populate(&outgoing_event,
                                      CHAT_EVENT_USERNAME_SUBMIT,
@@ -83,7 +80,7 @@ static void handler_username_request(
                                      k_server_name);
         assert(STATUS_SUCCESS == status);
 
-        status = chat_connection_queue_event(source_client->connection,
+        status = chat_connection_queue_event(source_client_entry->client.connection,
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
     }
@@ -92,42 +89,35 @@ static void handler_username_request(
 
 static void handler_username_submit(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_CLIENT* relevant_client;
-    sCHAT_EVENT   outgoing_event;
+    sCHAT_CLIENT* source_client;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
     char*                    new_username;
     size_t                   new_username_size;
 
-    if (CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD < source_client->state)
-    {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_USERNAME_REJECTED,
-                                     CHAT_USER_ID_SERVER,
-                                     "Username is already set");
-        assert(STATUS_SUCCESS == status);
+    source_client = &source_client_entry->client;
 
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING < source_client->state)
+    {
+        status = chat_connection_queue_new_event(source_client->connection,
+                                                 CHAT_EVENT_USERNAME_REJECTED,
+                                                 CHAT_USER_ID_SERVER,
+                                                 "User is already logged in");
         assert(STATUS_SUCCESS == status);
         return;
     }
 
     if (event->length > CHAT_USER_MAX_NAME_SIZE)
     {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_USERNAME_REJECTED,
-                                     CHAT_USER_ID_SERVER,
-                                     "User is already logged in");
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+        status = chat_connection_queue_new_event(source_client->connection,
+                                             CHAT_EVENT_USERNAME_REJECTED,
+                                             CHAT_USER_ID_SERVER,
+                                             "Submitted username is too long");
         assert(STATUS_SUCCESS == status);
         return;
     }
@@ -135,14 +125,10 @@ static void handler_username_submit(
     new_username = generic_allocator(event->length);
     if (NULL == new_username)
     {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_SERVER_ERROR,
-                                     CHAT_USER_ID_SERVER,
-                                     "Server authentication process error");
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+        status = chat_connection_queue_new_event(source_client->connection,
+                                             CHAT_EVENT_SERVER_ERROR,
+                                             CHAT_USER_ID_SERVER,
+                                             "Server authentication process error");
         assert(STATUS_SUCCESS == status);
         return;
     }
@@ -154,14 +140,10 @@ static void handler_username_submit(
                                     NULL);
     if (STATUS_SUCCESS != status)
     {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_SERVER_ERROR,
-                                     CHAT_USER_ID_SERVER,
-                                     "Server authentication process error");
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+        status = chat_connection_queue_new_event(source_client->connection,
+                                                 CHAT_EVENT_SERVER_ERROR,
+                                                 CHAT_USER_ID_SERVER,
+                                                 "Server authentication process error");
         assert(STATUS_SUCCESS == status);
 
         generic_deallocator(new_username);
@@ -188,25 +170,22 @@ static void handler_username_submit(
             source_client->auth_credentials->username_size = new_username_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client;
+            cback_data.start_auth_transaction.client_ptr                 = source_client_entry;
             cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
 
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);
             break;
         }
+        case CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING:
         default:
         {
-            status = chat_event_populate(&outgoing_event,
-                                         CHAT_EVENT_SERVER_ERROR,
-                                         CHAT_USER_ID_SERVER,
-                                         "Cannot process username submission now");
-            assert(STATUS_SUCCESS == status);
-
-            status = chat_connection_queue_event(source_client->connection,
-                                                 &outgoing_event);
-            assert(STATUS_SUCCESS == status);
+            status = chat_connection_queue_new_event(source_client->connection,
+                                                     CHAT_EVENT_SERVER_ERROR,
+                                                     CHAT_USER_ID_SERVER,
+                                                     "Cannot process username submission now");
         }
     }
 }
@@ -214,28 +193,25 @@ static void handler_username_submit(
 
 static void handler_password_submit(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_CLIENT* relevant_client;
-    sCHAT_EVENT   outgoing_event;
+    sCHAT_CLIENT* source_client;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
     char*                    new_password;
     size_t                   new_password_size;
 
-    if (CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD < source_client->state)
-    {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_SERVER_ERROR,
-                                     CHAT_USER_ID_SERVER,
-                                     "User is already logged in");
-        assert(STATUS_SUCCESS == status);
+    source_client = &source_client_entry->client;
 
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING < source_client->state)
+    {
+        status = chat_connection_queue_new_event(source_client->connection,
+                                                CHAT_EVENT_SERVER_ERROR,
+                                                CHAT_USER_ID_SERVER,
+                                                "User is already logged in");
         assert(STATUS_SUCCESS == status);
         return;
     }
@@ -243,14 +219,10 @@ static void handler_password_submit(
     new_password = generic_allocator(event->length);
     if (NULL == new_password)
     {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_SERVER_ERROR,
-                                     CHAT_USER_ID_SERVER,
-                                     "Server authentication process error");
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+        status = chat_connection_queue_new_event(source_client->connection,
+                                                 CHAT_EVENT_SERVER_ERROR,
+                                                 CHAT_USER_ID_SERVER,
+                                                 "Server authentication process error");
         assert(STATUS_SUCCESS == status);
         return;
     }
@@ -262,14 +234,10 @@ static void handler_password_submit(
                                     NULL);
     if (STATUS_SUCCESS != status)
     {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_SERVER_ERROR,
-                                     CHAT_USER_ID_SERVER,
-                                     "Server authentication process error");
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(source_client->connection,
-                                             &outgoing_event);
+        status = chat_connection_queue_new_event(source_client->connection,
+                                                 CHAT_EVENT_SERVER_ERROR,
+                                                 CHAT_USER_ID_SERVER,
+                                                 "Server authentication process error");
         assert(STATUS_SUCCESS == status);
 
         generic_deallocator(new_password);
@@ -286,7 +254,7 @@ static void handler_password_submit(
             source_client->auth_credentials->password_size = new_password_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client;
+            cback_data.start_auth_transaction.client_ptr                 = source_client_entry;
             cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -294,17 +262,14 @@ static void handler_password_submit(
                                         &cback_data);
             break;
         }
+        case CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING:
         case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
         default:
         {
-            status = chat_event_populate(&outgoing_event,
-                                         CHAT_EVENT_SERVER_ERROR,
-                                         CHAT_USER_ID_SERVER,
-                                         "Cannot process password submission now");
-            assert(STATUS_SUCCESS == status);
-
-            status = chat_connection_queue_event(source_client->connection,
-                                                 &outgoing_event);
+            status = chat_connection_queue_new_event(source_client->connection,
+                                                     CHAT_EVENT_SERVER_ERROR,
+                                                     CHAT_USER_ID_SERVER,
+                                                     "Cannot process password submission now");
             assert(STATUS_SUCCESS == status);
         }
     }
@@ -313,7 +278,7 @@ static void handler_password_submit(
 
 static void handler_user_list(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     // REVIEW implement this?
@@ -322,7 +287,7 @@ static void handler_user_list(
 
 static void handler_user_leave(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
@@ -336,7 +301,7 @@ static void handler_user_leave(
 
 typedef void (*fEVENT_HANDLER) (
     sCHAT_CLIENTS_CBLK*,
-    sCHAT_CLIENT*,
+    sCHAT_CLIENT_ENTRY*,
     const sCHAT_EVENT*);
 
 
@@ -364,12 +329,31 @@ static const fEVENT_HANDLER event_handler_table[] = {
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT*       source_client,
+    sCHAT_CLIENT_ENTRY* source_client_entry,
     const sCHAT_EVENT*  event)
 {
     event_handler_table[event->type](master_cblk_ptr,
-                                     source_client,
+                                     source_client_entry,
                                      event);
+}
+
+
+static void chat_clients_cleanup_credentials(
+    void* credentials_ptr)
+{
+    sCHAT_USER_CREDENTIALS* credentials = (sCHAT_USER_CREDENTIALS*)credentials_ptr;
+    memset(credentials->username,
+           0,
+           credentials->username_size);
+    memset(credentials->password,
+           0,
+           credentials->password_size);
+
+    generic_deallocator(credentials->username);
+    generic_deallocator(credentials->password);
+
+    credentials->username = NULL;
+    credentials->password = NULL;
 }
 
 
@@ -391,14 +375,13 @@ eSTATUS chat_clients_client_create(
 
     new_client_entry->master_cblk_ptr = master_cblk_ptr;
 
-    // REVIEW is the life time of the credentials properly managed if the auth module closes second?
-    new_client_entry->client.auth_credentials = generic_allocator(sizeof(sCHAT_USER_CREDENTIALS));
-    if (NULL == new_client_entry->client.auth_credentials)
+    new_client_entry->client.auth_credentials_ptr = shared_ptr_create(sizeof(sCHAT_USER_CREDENTIALS),
+                                                                      chat_clients_cleanup_credentials);
+    if (NULL == new_client_entry->client.auth_credentials_ptr)
     {
-        status = STATUS_ALLOC_FAILED;
         goto fail_alloc_credentials;
     }
-    memset(new_client_entry->client.auth_credentials, 0, sizeof(sCHAT_USER_CREDENTIALS));
+    memset(shared_ptr_get_pointee(new_client_entry->client.auth_credentials), 0, sizeof(sCHAT_USER_CREDENTIALS));
 
     status = chat_connection_create(&new_client_entry->client.connection,
                                     chat_clients_connection_cback,
@@ -415,7 +398,7 @@ eSTATUS chat_clients_client_create(
     return STATUS_SUCCESS;
 
 fail_create_connection:
-    generic_deallocator(new_client_entry->client.auth_credentials);
+    shared_ptr_release(new_client_entry->client.auth_credentials_ptr);
 
 fail_alloc_credentials:
     generic_deallocator(new_client_entry);
@@ -447,18 +430,19 @@ eSTATUS chat_clients_client_destroy(
         master_cblk_ptr->client_list_tail = client_entry->prev;
     }
 
-    if (NULL != client_entry->client.auth_transaction)
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING == client_entry->client.state)
     {
         cback_data.finish_auth_transaction.auth_transaction = client_entry->client.auth_transaction;
 
         // NOTE This callback NEEDS to call the auth finish transaction on THIS
-        //      thread. If it doesn't there could be a race condition on when
+        //      thread. If it doesn't, there could be a race condition on when
         //      the auth module processes the finish transaction and when the
         //      clients module processes the auth event.
         master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                     CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
                                     &cback_data);
     }
-    // TODO make sure the auth is finished before this
+    
+    shared_ptr_release(client_entry->client.auth_credentials_ptr);
     generic_deallocator(client_entry);
 }

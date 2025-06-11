@@ -110,9 +110,9 @@ eSTATUS chat_clients_auth_event(
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
 
-    message.params.auth_event.auth_step    = auth_step;
-    message.params.auth_event.user_info    = user_info;
-    message.params.auth_event.client_entry = client_entry_ptr;
+    message.params.auth_event.auth_step        = auth_step;
+    message.params.auth_event.user_info        = user_info;
+    message.params.auth_event.client_entry_ptr = client_entry_ptr;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
