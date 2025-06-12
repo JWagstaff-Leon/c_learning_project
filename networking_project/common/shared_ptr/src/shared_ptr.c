@@ -27,17 +27,6 @@ SHARED_PTR shared_ptr_create(
     return new_shared_ptr;
 }
 
-void* shared_ptr_get_pointee(
-    SHARED_PTR shared_ptr)
-{
-    if (NULL == shared_ptr)
-    {
-        return NULL;
-    }
-
-    return ((sSHARED_PTR*)shared_ptr)->pointee;
-}
-
 
 SHARED_PTR shared_ptr_share(
     SHARED_PTR shared_ptr)

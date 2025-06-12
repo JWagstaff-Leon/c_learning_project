@@ -12,14 +12,19 @@
 #include "common_types.h"
 #include "chat_connection.h"
 #include "chat_event.h"
+#include "shared_ptr.h"
 
 
 static char k_server_name[] = "Server";
 
 
+static void chat_clients_client_destroy(
+    void* client_ptr);
+
+
 static void handler_no_op(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     // Intentionally empty
@@ -29,33 +34,35 @@ static void handler_no_op(
 
 static void handler_chat_message(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_EVENT         outgoing_event;
-    sCHAT_CLIENT_ENTRY* relevant_client_entry;
+    sCHAT_EVENT   outgoing_event;
+    SHARED_PTR    relevant_client_ptr;
+    sCHAT_CLIENT* source_client;
 
+    source_client = SP_POINTEE_AS(source_client_ptr, sCHAT_CLIENT);
     if (CHAT_CLIENT_STATE_ACTIVE == source_client->state)
     {
         status = chat_event_copy(&outgoing_event, event);
         assert(STATUS_SUCCESS == status);
 
-        outgoing_event.origin = source_client_entry->client.user_info.id;
+        outgoing_event.origin = source_client->user_info.id;
 
-        for (relevant_client_entry = master_cblk_ptr->client_list_head;
-             NULL != relevant_client_entry;
-             relevant_client_entry = relevant_client_entry->next)
+        for (relevant_client_ptr = master_cblk_ptr->client_list_head;
+             NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
+             relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
         {
-            if (relevant_client_entry == source_client_entry)
+            if (relevant_client_ptr == source_client_ptr)
             {
                 continue;
             }
 
-            if (CHAT_CLIENT_STATE_ACTIVE == relevant_client_entry->client.state)
+            if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, state))
             {
-                status = chat_connection_queue_event(relevant_client_entry->client.connection,
+                status = chat_connection_queue_event(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection),
                                                      &outgoing_event);
             }
             assert(STATUS_SUCCESS == status);
@@ -66,13 +73,13 @@ static void handler_chat_message(
 
 static void handler_username_request(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     eSTATUS     status;
     sCHAT_EVENT outgoing_event;
 
-    if (CHAT_CLIENT_STATE_ACTIVE == source_client_entry->client.state)
+    if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state))
     {
         status = chat_event_populate(&outgoing_event,
                                      CHAT_EVENT_USERNAME_SUBMIT,
@@ -80,7 +87,7 @@ static void handler_username_request(
                                      k_server_name);
         assert(STATUS_SUCCESS == status);
 
-        status = chat_connection_queue_event(source_client_entry->client.connection,
+        status = chat_connection_queue_event(SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, connection),
                                              &outgoing_event);
         assert(STATUS_SUCCESS == status);
     }
@@ -89,18 +96,20 @@ static void handler_username_request(
 
 static void handler_username_submit(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_CLIENT* source_client;
+    sCHAT_CLIENT*           source_client;
+    sCHAT_USER_CREDENTIALS* credentials_ptr;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
     char*                    new_username;
     size_t                   new_username_size;
 
-    source_client = &source_client_entry->client;
+    source_client   = SP_POINTEE_AS(source_client_ptr, sCHAT_CLIENT);
+    credentials_ptr = SP_POINTEE_AS(source_client->auth_credentials_ptr, sCHAT_USER_CREDENTIALS);
 
     if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING < source_client->state)
     {
@@ -112,23 +121,13 @@ static void handler_username_submit(
         return;
     }
 
-    if (event->length > CHAT_USER_MAX_NAME_SIZE)
-    {
-        status = chat_connection_queue_new_event(source_client->connection,
-                                             CHAT_EVENT_USERNAME_REJECTED,
-                                             CHAT_USER_ID_SERVER,
-                                             "Submitted username is too long");
-        assert(STATUS_SUCCESS == status);
-        return;
-    }
-
     new_username = generic_allocator(event->length);
     if (NULL == new_username)
     {
         status = chat_connection_queue_new_event(source_client->connection,
-                                             CHAT_EVENT_SERVER_ERROR,
-                                             CHAT_USER_ID_SERVER,
-                                             "Server authentication process error");
+                                                 CHAT_EVENT_SERVER_ERROR,
+                                                 CHAT_USER_ID_SERVER,
+                                                 "Server authentication process error");
         assert(STATUS_SUCCESS == status);
         return;
     }
@@ -155,23 +154,23 @@ static void handler_username_submit(
         case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
             // Free any previously entered password if going backwards in the flow
-            generic_deallocator(source_client->auth_credentials->password);
+            generic_deallocator(credentials_ptr->password);
 
-            source_client->auth_credentials->password      = NULL;
-            source_client->auth_credentials->password_size = 0;
+            credentials_ptr->password      = NULL;
+            credentials_ptr->password_size = 0;
 
             // Fallthrough
         }
         case CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME:
         {
-            generic_deallocator(source_client->auth_credentials->username);
+            generic_deallocator(credentials_ptr->username);
 
-            source_client->auth_credentials->username      = new_username;
-            source_client->auth_credentials->username_size = new_username_size;
+            credentials_ptr->username      = new_username;
+            credentials_ptr->username_size = new_username_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client_entry;
-            cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
+            cback_data.start_auth_transaction.client_ptr                 = source_client_ptr;
+            cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(source_client->auth_credentials_ptr);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -193,18 +192,20 @@ static void handler_username_submit(
 
 static void handler_password_submit(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    sCHAT_CLIENT* source_client;
+    sCHAT_CLIENT*           source_client;
+    sCHAT_USER_CREDENTIALS* credentials_ptr;
 
     sCHAT_CLIENTS_CBACK_DATA cback_data;
     char*                    new_password;
     size_t                   new_password_size;
 
-    source_client = &source_client_entry->client;
+    source_client   = SP_POINTEE_AS(source_client_ptr, sCHAT_CLIENT);
+    credentials_ptr = SP_POINTEE_AS(source_client->auth_credentials_ptr, sCHAT_USER_CREDENTIALS);
 
     if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING < source_client->state)
     {
@@ -248,14 +249,14 @@ static void handler_password_submit(
     {
         case CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD:
         {
-            generic_deallocator(source_client->auth_credentials->password);
+            generic_deallocator(credentials_ptr->password);
 
-            source_client->auth_credentials->password      = new_password;
-            source_client->auth_credentials->password_size = new_password_size;
+            credentials_ptr->password      = new_password;
+            credentials_ptr->password_size = new_password_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client_entry;
-            cback_data.start_auth_transaction.credentials                = *source_client->auth_credentials;
+            cback_data.start_auth_transaction.client_ptr                 = source_client_ptr;
+            cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(source_client->auth_credentials_ptr);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
@@ -278,7 +279,7 @@ static void handler_password_submit(
 
 static void handler_user_list(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     // REVIEW implement this?
@@ -287,21 +288,21 @@ static void handler_user_list(
 
 static void handler_user_leave(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     eSTATUS status;
 
-    source_client->state = CHAT_CLIENT_STATE_DISCONNECTING;
+    SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_DISCONNECTING;
 
-    status = chat_connection_close(source_client->connection);
+    status = chat_connection_close(SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, connection));
     assert(STATUS_SUCCESS == status);
 }
 
 
 typedef void (*fEVENT_HANDLER) (
     sCHAT_CLIENTS_CBLK*,
-    sCHAT_CLIENT_ENTRY*,
+    SHARED_PTR,
     const sCHAT_EVENT*);
 
 
@@ -329,11 +330,11 @@ static const fEVENT_HANDLER event_handler_table[] = {
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event)
 {
     event_handler_table[event->type](master_cblk_ptr,
-                                     source_client_entry,
+                                     source_client_ptr,
                                      event);
 }
 
@@ -358,91 +359,110 @@ static void chat_clients_cleanup_credentials(
 
 
 eSTATUS chat_clients_client_create(
-    sCHAT_CLIENT_ENTRY** out_new_entry,
-    sCHAT_CLIENTS_CBLK*  master_cblk_ptr,
-    int                  fd)
+    SHARED_PTR*         out_new_client_ptr,
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    int                 fd)
 {
-    eSTATUS             status;
-    sCHAT_CLIENT_ENTRY* new_client_entry;
+    eSTATUS       status;
+    SHARED_PTR    new_client_ptr;
+    sCHAT_CLIENT* new_client;
 
-    new_client_entry = generic_allocator(sizeof(sCHAT_CLIENT_ENTRY));
-    if (NULL == new_client)
+    new_client_ptr = shared_ptr_create(sizeof(sCHAT_CLIENT),
+                                       chat_clients_client_destroy);
+    if (NULL == new_client_ptr)
     {
         status = STATUS_ALLOC_FAILED;
         goto fail_alloc_client;
     }
-    memset(new_client_entry, 0, sizeof(sCHAT_CLIENT_ENTRY));
+    new_client = SP_POINTEE_AS(new_client_ptr, sCHAT_CLIENT);
 
-    new_client_entry->master_cblk_ptr = master_cblk_ptr;
+    memset(new_client, 0, sizeof(sCHAT_CLIENT));
+    new_client->master_cblk_ptr = master_cblk_ptr;
 
-    new_client_entry->client.auth_credentials_ptr = shared_ptr_create(sizeof(sCHAT_USER_CREDENTIALS),
-                                                                      chat_clients_cleanup_credentials);
-    if (NULL == new_client_entry->client.auth_credentials_ptr)
+    new_client->auth_credentials_ptr = shared_ptr_create(sizeof(sCHAT_USER_CREDENTIALS),
+                                                         chat_clients_cleanup_credentials);
+    if (NULL == new_client->auth_credentials_ptr)
     {
+        status = STATUS_ALLOC_FAILED;
         goto fail_alloc_credentials;
     }
-    memset(shared_ptr_get_pointee(new_client_entry->client.auth_credentials), 0, sizeof(sCHAT_USER_CREDENTIALS));
+    memset(SP_POINTEE(new_client->auth_credentials_ptr), 0, sizeof(sCHAT_USER_CREDENTIALS));
+    // memset(shared_ptr_get_pointee(new_client->auth_credentials_ptr), 0, sizeof(sCHAT_USER_CREDENTIALS));
 
-    status = chat_connection_create(&new_client_entry->client.connection,
+    status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
-                                    new_client_entry,
+                                    shared_ptr_share(new_client_ptr),
                                     fd);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_connection;
     }
 
-    new_client_entry->client.state = CHAT_CLIENT_STATE_INIT;
+    new_client->state = CHAT_CLIENT_STATE_INIT;
 
-    *out_new_entry = new_client_entry;
+    *out_new_client_ptr = new_client_ptr;
     return STATUS_SUCCESS;
 
 fail_create_connection:
-    shared_ptr_release(new_client_entry->client.auth_credentials_ptr);
+    shared_ptr_release(new_client_ptr); // Release the reference shared with the connection
+    shared_ptr_release(new_client->auth_credentials_ptr);
+    new_client->auth_credentials_ptr = NULL;
 
 fail_alloc_credentials:
-    generic_deallocator(new_client_entry);
+    shared_ptr_release(new_client_ptr);
 
 fail_alloc_client:
     return status;
 }
 
-eSTATUS chat_clients_client_destroy(
+
+eSTATUS chat_clients_client_close(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* client_entry)
+    SHARED_PTR          client_ptr)
 {
+    sCHAT_CLIENT* client = SP_POINTEE_AS(client->prev, sCHAT_CLIENT);
+
+    if (NULL != client->prev)
+    {
+        SP_PROPERTY(client->prev, sCHAT_CLIENT, next) = client->next;
+    }
+    if (NULL != client->next)
+    {
+        SP_PROPERTY(client->next, sCHAT_CLIENT, prev) = client->prev;
+    }
+    if (SP_POINTEE(master_cblk_ptr->client_list_head) == client_ptr)
+    {
+        master_cblk_ptr->client_list_head = shared_ptr_share(client->next);
+        shared_ptr_release(client_ptr);
+    }
+    if (SP_POINTEE(master_cblk_ptr->client_list_tail) == client_ptr)
+    {
+        master_cblk_ptr->client_list_tail = shared_ptr_share(client->prev);
+        shared_ptr_release(client_ptr);
+    }
+}
+
+
+static void chat_clients_client_destroy(
+    void* client_ptr)
+{
+    sCHAT_CLIENT*            client;
+    sCHAT_CLIENTS_CBLK*      master_cblk_ptr;
     sCHAT_CLIENTS_CBACK_DATA cback_data;
 
-    if (NULL != client_entry->prev)
-    {
-        client_entry->prev->next = client_entry->next;
-    }
-    if (NULL != client_entry->next)
-    {
-        client_entry->next->prev = client_entry->prev;
-    }
-    if (master_cblk_ptr->client_list_head == client_entry)
-    {
-        master_cblk_ptr->client_list_head = client_entry->next;
-    }
-    if (master_cblk_ptr->client_list_tail == client_entry)
-    {
-        master_cblk_ptr->client_list_tail = client_entry->prev;
-    }
+    client = (sCHAT_CLIENT*)client_ptr;
 
-    if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING == client_entry->client.state)
-    {
-        cback_data.finish_auth_transaction.auth_transaction = client_entry->client.auth_transaction;
+    shared_ptr_release(client->prev);
+    shared_ptr_release(client->next);
 
-        // NOTE This callback NEEDS to call the auth finish transaction on THIS
-        //      thread. If it doesn't, there could be a race condition on when
-        //      the auth module processes the finish transaction and when the
-        //      clients module processes the auth event.
+    if (CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING == client->state)
+    {
+        cback_data.finish_auth_transaction.auth_transaction = client->auth_transaction;
+
         master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                     CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
                                     &cback_data);
     }
-    
-    shared_ptr_release(client_entry->client.auth_credentials_ptr);
-    generic_deallocator(client_entry);
+
+    shared_ptr_release(client->auth_credentials_ptr);
 }

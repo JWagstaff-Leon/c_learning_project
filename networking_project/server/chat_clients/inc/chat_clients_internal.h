@@ -61,17 +61,12 @@ typedef struct
 
     CHAT_CONNECTION connection;
     sCHAT_USER      user_info;
-} sCHAT_CLIENT;
 
-
-typedef struct s_chat_client_entry
-{
-    sCHAT_CLIENT client;
     void* master_cblk_ptr;
 
-    struct s_chat_client_entry* prev;
-    struct s_chat_client_entry* next;
-} sCHAT_CLIENT_ENTRY;
+    SHARED_PTR prev;
+    SHARED_PTR next;
+} sCHAT_CLIENT;
 
 
 typedef struct
@@ -82,8 +77,8 @@ typedef struct
     fCHAT_CLIENTS_USER_CBACK user_cback;
     void*                    user_arg;
 
-    sCHAT_CLIENT_ENTRY* client_list_head;
-    sCHAT_CLIENT_ENTRY* client_list_tail;
+    SHARED_PTR* client_list_head;
+    SHARED_PTR* client_list_tail;
 } sCHAT_CLIENTS_CBLK;
 
 
@@ -100,14 +95,19 @@ void* chat_clients_thread_entry(
 
 void chat_clients_process_event(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    sCHAT_CLIENT_ENTRY* source_client_entry,
+    SHARED_PTR          source_client_ptr,
     const sCHAT_EVENT*  event);
 
 
 eSTATUS chat_clients_client_create(
-    sCHAT_CLIENT_ENTRY** out_new_entry,
-    sCHAT_CLIENTS_CBLK*  master_cblk_ptr,
-    int                  fd);
+    SHARED_PTR*         out_new_client_ptr,
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    int                 fd);
+
+
+eSTATUS chat_clients_client_close(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          client_ptr);
 
 
 void chat_clients_connection_cback(

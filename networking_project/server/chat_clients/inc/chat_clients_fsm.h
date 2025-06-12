@@ -9,6 +9,8 @@ extern "C" {
 #include "chat_clients.h"
 #include "chat_clients_internal.h"
 
+#include "shared_ptr.h"
+
 
 // Constants -------------------------------------------------------------------
 
@@ -36,14 +38,14 @@ typedef struct
 
 typedef struct
 {
-    sCHAT_EVENT         event;
-    sCHAT_CLIENT_ENTRY* client_entry;
+    sCHAT_EVENT event;
+    SHARED_PTR  client_ptr;
 } sCHAT_CLIENTS_INCOMING_EVENT_PARAMS;
 
 
 typedef struct
 {
-    sCHAT_CLIENT_ENTRY* client_entry;
+    SHARED_PTR client_ptr;
 } sCHAT_CLIENTS_CLIENT_CLOSED_PARAMS;
 
 
@@ -51,7 +53,7 @@ typedef struct
 {
     eCHAT_CLIENTS_AUTH_STEP auth_step;
     sCHAT_USER              user_info;
-    sCHAT_CLIENT_ENTRY**    client_entry_ptr;
+    SHARED_PTR              client_ptr;
 } sCHAT_CLIENTS_AUTH_EVENT_PARAMS;
 
 

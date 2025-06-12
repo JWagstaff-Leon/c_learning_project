@@ -22,7 +22,7 @@ static const char* k_auth_strings[] = {
     "Enter your password",  // CHAT_CLIENTS_AUTH_STEP_PASSWORD_REQUIRED
     "Invalid password",     // CHAT_CLIENTS_AUTH_STEP_PASSWORD_REJECTED
     "Logged in",            // CHAT_CLIENTS_AUTH_STEP_AUTHENTICATED
-    ""                      // CHAT_CLIENTS_AUTH_STEP_CLOSED
+    "Internal error"        // CHAT_CLIENTS_AUTH_STEP_CLOSED
 };
 
 
@@ -33,24 +33,21 @@ static void open_processing(
     eSTATUS status;
     int     new_connection_fd;
 
-    uint32_t            client_index;
-    sCHAT_CLIENT_ENTRY* relevant_client_entry;
-    
-    sCHAT_CLIENTS_CBACK_DATA cback_data;
-    
-    eCHAT_CLIENTS_AUTH_STEP  auth_step;
-    sCHAT_CLIENT_ENTRY**     auth_client_entry_ptr;
-    sCHAT_CLIENT*            auth_client;
+    uint32_t      client_index;
+    SHARED_PTR    relevant_client_ptr;
+    sCHAT_CLIENT* relevant_client;
 
-    sCHAT_EVENT outgoing_event;
+    sCHAT_CLIENTS_CBACK_DATA cback_data;
+
+    eCHAT_CLIENTS_AUTH_STEP auth_step;
 
     switch (message->type)
     {
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
             new_connection_fd = message->params.open_client.fd;
-            
-            status = chat_clients_client_create(&relevant_client_entry,
+
+            status = chat_clients_client_create(&relevant_client_ptr,
                                                 master_cblk_ptr,
                                                 new_connection_fd);
             if (STATUS_SUCCESS != status)
@@ -58,89 +55,85 @@ static void open_processing(
                 close(new_connection_fd);
                 break;
             }
-            
+            relevant_client = SP_POINTEE_AS(relevant_client_ptr, sCHAT_CLIENT);
+
             if (NULL == master_cblk_ptr->client_list_head)
             {
                 assert(NULL == master_cblk_ptr->client_list_tail);
-                master_cblk_ptr->client_list_head = relevant_client_entry;
-                master_cblk_ptr->client_list_tail = relevant_client_entry;
+
+                master_cblk_ptr->client_list_head = shared_ptr_share(relevant_client_ptr);
+                master_cblk_ptr->client_list_tail = shared_ptr_share(relevant_client_ptr);
             }
             else
             {
-                master_cblk_ptr->client_list_tail->next = relevant_client_entry;
-                relevant_client_entry->prev             = master_cblk_ptr->client_list_tail;
-                master_cblk_ptr->client_list_tail       = relevant_client_entry;
+                SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next) = shared_ptr_share(relevant_client_ptr);
+                relevant_client->prev                                              = master_cblk_ptr->client_list_tail;
+                master_cblk_ptr->client_list_tail                                  = shared_ptr_share(relevant_client_ptr);
             }
 
-            relevant_client_entry->client.state = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
+            SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_AUTHENTICATING_INIT;
 
-            cback_data.start_auth_transaction.client_ptr                 = relevant_client_entry;
-            cback_data.start_auth_transaction.auth_transaction_container = &relevant_client_entry->client.auth_transaction;
-            cback_data.start_auth_transaction.credentials                = shared_ptr_share(relevant_client_entry->client.auth_credentials_ptr);
+            cback_data.start_auth_transaction.client_ptr                 = shared_ptr_share(relevant_client_ptr);
+            cback_data.start_auth_transaction.auth_transaction_container = &relevant_client->auth_transaction;
+            cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(relevant_client->auth_credentials_ptr);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);
+
+            shared_ptr_release(relevant_client_ptr); // Release the ownership this function has on the pointer
             break;
         }
         case CHAT_CLIENTS_MESSAGE_AUTH_EVENT:
         {
-            auth_step             = message->params.auth_event.auth_step;
-            auth_client_entry_ptr = message->params.auth_event.client_entry_ptr;
-            if (NULL == *auth_client_entry_ptr)
+            auth_step           = message->params.auth_event.auth_step;
+            relevant_client_ptr = message->params.auth_event.client_ptr;
+            if (NULL == SP_POINTEE(relevant_client_ptr))
             {
+                shared_ptr_release(relevant_client_ptr);
                 break;
             }
-            auth_client = &(*auth_client_entry_ptr)->client;
+            relevant_client = (SP_POINTEE_AS(relevant_client_ptr, sCHAT_CLIENT));
 
             switch (auth_step)
             {
                 case CHAT_CLIENTS_AUTH_STEP_USERNAME_REQUIRED:
                 case CHAT_CLIENTS_AUTH_STEP_USERNAME_REJECTED:
                 {
-                    auth_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME;
+                    relevant_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_USERNAME;
 
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_USERNAME_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 k_auth_strings[auth_step]);
+                    status = chat_connection_queue_new_event(relevant_client->connection,
+                                                             CHAT_EVENT_USERNAME_REQUEST,
+                                                             CHAT_USER_ID_SERVER,
+                                                             k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client->connection,
-                                                         &outgoing_event);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_PASSWORD_CREATION:
                 case CHAT_CLIENTS_AUTH_STEP_PASSWORD_REQUIRED:
                 case CHAT_CLIENTS_AUTH_STEP_PASSWORD_REJECTED:
                 {
-                    auth_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD;
+                    relevant_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_PASSWORD;
 
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_PASSWORD_REQUEST,
-                                                 CHAT_USER_ID_SERVER,
-                                                 k_auth_strings[auth_step]);
+                    status = chat_connection_queue_new_event(relevant_client->connection,
+                                                             CHAT_EVENT_PASSWORD_REQUEST,
+                                                             CHAT_USER_ID_SERVER,
+                                                             k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
-
-                    status = chat_connection_queue_event(auth_client->connection,
-                                                         &outgoing_event);
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_AUTHENTICATED:
                 {
-                    auth_client->state = CHAT_CLIENT_STATE_ACTIVE;
+                    relevant_client->state = CHAT_CLIENT_STATE_ACTIVE;
 
-                    status = chat_event_populate(&outgoing_event,
-                                                 CHAT_EVENT_AUTHENTICATED,
-                                                 CHAT_USER_ID_SERVER,
-                                                 k_auth_strings[auth_step]);
+                    status = chat_connection_queue_new_event(relevant_client->connection,
+                                                             CHAT_EVENT_AUTHENTICATED,
+                                                             CHAT_USER_ID_SERVER,
+                                                             k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
 
-                    status = chat_connection_queue_event(auth_client->connection,
-                                                         &outgoing_event);
-                    
-                    shared_ptr_release(auth_client->auth_credentials_ptr);
-                    auth_client->auth_credentials = NULL;
+                    shared_ptr_release(relevant_client->auth_credentials_ptr);
+                    relevant_client->auth_credentials_ptr = NULL;
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:
@@ -149,35 +142,38 @@ static void open_processing(
                     break;
                 }
 
-                cback_data.finish_auth_transaction.auth_transaction = auth_client->auth_transaction;
-                
-                auth_client->auth_transaction = NULL;
+                cback_data.finish_auth_transaction.auth_transaction = relevant_client->auth_transaction;
+                relevant_client->auth_transaction                   = NULL;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
                                             &cback_data);
             }
-                        
+
+            shared_ptr_release(relevant_client_ptr);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_INCOMING_EVENT:
         {
             chat_clients_process_event(master_cblk_ptr,
-                                       message->params.incoming_event.client_entry,
+                                       message->params.incoming_event.client_ptr,
                                        &message->params.incoming_event.event);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            chat_clients_client_destroy(master_cblk_ptr,
-                                        message->params.client_closed.client_entry);
+            chat_clients_client_close(master_cblk_ptr,
+                                      message->params.client_closed.client_ptr);
+            shared_ptr_release(message->params.client_closed.client_ptr); // Release the reference shared with the connection
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
         {
-            for (client_index = 0; client_index < master_cblk_ptr->max_clients; client_index++)
+            for (relevant_client_ptr = master_cblk_ptr->client_list_head;
+                NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
+                relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
             {
-                status = chat_connection_close(master_cblk_ptr->client_list[client_index]->connection);
+                status = chat_connection_close(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection));
                 assert(STATUS_SUCCESS == status);
             }
             break;
@@ -198,7 +194,7 @@ static void closing_processing(
 {
     eSTATUS status;
 
-    sCHAT_CLIENT_ENTRY* relevant_client_entry;
+    SHARED_PTR relevant_client_ptr;
 
     switch (message->type)
     {
@@ -208,7 +204,8 @@ static void closing_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            chat_clients_client_destroy(message->params.client_closed.client_entry);
+            chat_clients_client_close(master_cblk_ptr,
+                                      message->params.client_closed.client_ptr);
 
             if (NULL == master_cblk_ptr->client_list_head)
             {

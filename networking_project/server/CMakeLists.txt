@@ -14,6 +14,7 @@ add_subdirectory(../common ${CMAKE_BINARY_DIR}/common)
 add_executable(server)
 
 target_link_libraries(server
+  PRIVATE
     chat_auth
     chat_clients
     chat_connection
@@ -23,22 +24,9 @@ target_link_libraries(server
     Common::chat_event_io
     Common::message_queue
     Common::network_watcher
+    Common::shared_ptr
     Common::types
 )
-
-# target_include_directories(server
-#   PRIVATE
-#     chat_auth
-#     chat_clients
-#     chat_connection
-#     chat_server
-
-#     Common::chat_event
-#     Common::chat_event_io
-#     Common::chat_user
-#     Common::message_queue
-#     Common::network_watcher
-# )
 
 target_sources(server
   PRIVATE

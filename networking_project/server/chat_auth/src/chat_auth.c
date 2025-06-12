@@ -80,7 +80,7 @@ success:
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
     SHARED_PTR             credentials_ptr,
-    void*                  consumer_arg,
+    SHARED_PTR             consumer_arg_ptr,
     CHAT_AUTH_TRANSACTION* out_auth_transaction)
 {
     sCHAT_AUTH_CBLK*   master_cblk_ptr;
@@ -110,8 +110,8 @@ eSTATUS chat_auth_submit_credentials(
 
     }
 
-    new_auth_transaction->consumer_arg = consumer_arg;
-    new_auth_transaction->state        = CHAT_AUTH_TRANSACTION_STATE_PROCESSING;
+    new_auth_transaction->consumer_arg_ptr = consumer_arg_ptr;
+    new_auth_transaction->state            = CHAT_AUTH_TRANSACTION_STATE_PROCESSING;
     pthread_mutex_init(&new_auth_transaction->mutex, NULL);
 
     message.type = CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS;
@@ -135,6 +135,8 @@ eSTATUS chat_auth_submit_credentials(
 
 func_fail:
     shared_ptr_release(credentials_ptr);
+    shared_ptr_release(consumer_arg_ptr);
+
     return status;
 }
 
@@ -152,21 +154,16 @@ eSTATUS chat_auth_finish_transaction(
     auth_transaction_cblk = (sCHAT_AUTH_TRANSACTION*)auth_transaction;
 
     pthread_mutex_lock(&auth_transaction_cblk->mutex);
-
-    auth_transaction_cblk->consumer_arg = NULL;
-
     switch (auth_transaction_cblk->state)
     {
         case CHAT_AUTH_TRANSACTION_STATE_PROCESSING:
         {
             auth_transaction_cblk->state = CHAT_AUTH_TRANSACTION_STATE_CANCELLED;
-            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
             break;
         }
         case CHAT_AUTH_TRANSACTION_STATE_CANCELLED:
         {
             // Nothing to be done in this case
-            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
             break;
         }
         case CHAT_AUTH_TRANSACTION_STATE_DONE:
@@ -174,16 +171,16 @@ eSTATUS chat_auth_finish_transaction(
             pthread_mutex_unlock(&auth_transaction_cblk->mutex);
             pthread_mutex_destroy(&auth_transaction_cblk->mutex);
             generic_deallocator(auth_transaction_cblk);
-            break;
+            return STATUS_SUCCESS;
         }
         default:
         {
             assert(0); // Should never get here
-            pthread_mutex_unlock(&auth_transaction_cblk->mutex);
             break;
         }
     }
 
+    pthread_mutex_unlock(&auth_transaction_cblk->mutex);
     return STATUS_SUCCESS;
 }
 

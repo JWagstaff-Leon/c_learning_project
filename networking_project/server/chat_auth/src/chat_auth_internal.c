@@ -50,9 +50,9 @@ eSTATUS chat_auth_sql_init_database(
 
 
 eSTATUS chat_auth_sql_create_user(
-    sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    CHAT_USER_ID           id)
+    sqlite3*                      database,
+    const sCHAT_USER_CREDENTIALS* credentials,
+    CHAT_USER_ID                  id)
 {
     eSTATUS       status;
     int           sqlite_status;
@@ -81,8 +81,8 @@ eSTATUS chat_auth_sql_create_user(
     // Bind username
     sqlite_status = sqlite3_bind_text(sql_statement,
                                       sqlite3_bind_parameter_index(sql_statement, "username"),
-                                      credentials.username,
-                                      credentials.username_size,
+                                      credentials->username,
+                                      credentials->username_size,
                                       SQLITE_STATIC);
     if (SQLITE_OK != sqlite_status)
     {
@@ -93,8 +93,8 @@ eSTATUS chat_auth_sql_create_user(
     // Bind password
     sqlite_status = sqlite3_bind_text(sql_statement,
                                       sqlite3_bind_parameter_index(sql_statement, "password"),
-                                      credentials.password,
-                                      credentials.password_size,
+                                      credentials->password,
+                                      credentials->password_size,
                                       SQLITE_STATIC);
     if (SQLITE_OK != sqlite_status)
     {
@@ -113,9 +113,9 @@ func_exit:
 
 
 eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
-    sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    sCHAT_USER*            out_user)
+    sqlite3*                      database,
+    const sCHAT_USER_CREDENTIALS* credentials,
+    sCHAT_USER*                   out_user)
 {
     eSTATUS           status;
     eCHAT_AUTH_RESULT result;
@@ -134,16 +134,22 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
         return CHAT_AUTH_RESULT_FAILURE;
     }
 
-    if (NULL == credentials.username)
+    if (NULL == credentials->username)
     {
         result = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
         goto func_exit;
     }
 
+    if (credentials->username_size > CHAT_USER_MAX_NAME_SIZE)
+    {
+        result = CHAT_AUTH_RESULT_USERNAME_REJECTED;
+        goto func_exit;
+    }
+
     sqlite_status = sqlite3_bind_text(sql_statement,
                                       sqlite3_bind_parameter_index(sql_statement, "username"),
-                                      credentials.username,
-                                      credentials.username_size,
+                                      credentials->username,
+                                      credentials->username_size,
                                       SQLITE_STATIC);
     if (SQLITE_OK != sqlite_status)
     {
@@ -160,9 +166,9 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
 
     if (SQLITE_ROW == sqlite_status) // User exists in the database; check the password
     {
-        if (NULL != credentials.password) // Password given; check it
+        if (NULL != credentials->password) // Password given; check it
         {
-            strcmp_status = strcmp(credentials.password,
+            strcmp_status = strcmp(credentials->password,
                                    sqlite3_column_text(sql_statement, 2));
             if (0 == strcmp_status) // Password matches; user is authenticated
             {
@@ -186,19 +192,47 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
                 result = CHAT_AUTH_RESULT_PASSWORD_REJECTED;
             }
         }
-        else // NULL == credentials.password; No password provided
+        else // NULL == credentials->password; No password provided
         {
             result = CHAT_AUTH_RESULT_PASSWORD_REQUIRED;
         }
     }
     else // SQLITE_ROW != sqlite_status; User does not exist in the database
     {
-        result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
+        if (NULL != credentials->password) // Password given; use it as the password for a new account
+        {
+            // TODO generate id
+            // out_user->id = ?;
+            status = chat_auth_sql_create_user(database,
+                                               credentials,
+                                               out_user->id);
+            if (STATUS_SUCCESS != status)
+            {
+                result = CHAT_AUTH_RESULT_FAILURE;
+                goto func_exit;
+            }
+
+            status = print_string_to_buffer(out_user->name,
+                                            credentials->username,
+                                            sizeof(out_user->name),
+                                            NULL);
+            if (STATUS_SUCCESS != status)
+            {
+                result = CHAT_AUTH_RESULT_FAILURE;
+                goto func_exit;
+            }
+
+            result = CHAT_AUTH_RESULT_AUTHENTICATED;
+        }
+        else // No password given; prompt for the creation of a password for the new user
+        {
+            result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
+        }
     }
 
 func_exit:
     sqlite_status = sqlite3_finalize(sql_statement);
     assert(SQLITE_OK == sqlite_status);
 
-    return status;
+    return result;
 }

@@ -100,19 +100,18 @@ eSTATUS chat_clients_auth_event(
     eSTATUS               status;
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
     sCHAT_CLIENTS_MESSAGE message;
-    sCHAT_CLIENT_ENTRY**  client_entry_ptr;
+    SHARED_PTR            client_ptr;
 
     assert(NULL != chat_clients);
     assert(NULL != client_ptr_ptr);
 
     master_cblk_ptr  = (sCHAT_CLIENTS_CBLK*)chat_clients;
-    client_entry_ptr = (sCHAT_CLIENT_ENTRY**)client_ptr_ptr;
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
 
-    message.params.auth_event.auth_step        = auth_step;
-    message.params.auth_event.user_info        = user_info;
-    message.params.auth_event.client_entry_ptr = client_entry_ptr;
+    message.params.auth_event.auth_step  = auth_step;
+    message.params.auth_event.user_info  = user_info;
+    message.params.auth_event.client_ptr = client_ptr;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

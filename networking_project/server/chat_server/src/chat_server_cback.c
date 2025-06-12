@@ -38,11 +38,13 @@ void chat_server_clients_cback(
 
     if (event_mask & CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION)
     {
-        // NOTE this case does not use the server thread in order avoid a race
-        //      condition in when the auth event is processed versus when the
-        //      finish transaction is processed. (See
-        //      chat_clients_client_destroy in chat_clients_internal.c)
-        status = chat_auth_finish_transaction(data->finish_auth_transaction.auth_transaction);
+        message.type = CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION;
+
+        message.params.clients.finish_auth_transaction.auth_transaction = data->finish_auth_transaction.auth_transaction;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
         assert(STATUS_SUCCESS == status);
     }
 

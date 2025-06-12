@@ -17,49 +17,54 @@ static void open_processing(
     sCHAT_AUTH_CBACK_DATA cback_data;
 
     sCHAT_AUTH_TRANSACTION* auth_transaction;
-
-    // TODO add shared pointer functionality here
+    sCHAT_USER_CREDENTIALS* credentials_ptr;
 
     switch (message->type)
     {
         case CHAT_AUTH_MESSAGE_PROCESS_CREDENTIALS:
         {
             auth_transaction = message->params.process_credentials.auth_transaction;
+            credentials_ptr  = SP_POINTEE_AS(message->params.process_credentials.credentials_ptr, sCHAT_USER_CREDENTIALS);
             pthread_mutex_lock(&auth_transaction->mutex);
 
             if (CHAT_AUTH_TRANSACTION_STATE_CANCELLED == auth_transaction->state)
             {
                 pthread_mutex_unlock(&auth_transaction->mutex);
                 pthread_mutex_destroy(&auth_transaction->mutex);
+
+                shared_ptr_release(auth_transaction->consumer_arg_ptr);
                 generic_deallocator(auth_transaction);
-                
-                auth_transaction = NULL;
+
+                shared_ptr_release(message->params.process_credentials.credentials_ptr);
                 break;
             }
 
-            if (NULL == message->params.process_credentials.credentials->username)
+            if (NULL == credentials_ptr->username)
             {
                 cback_data.auth_result.result           = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
-                cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg;
+                cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg_ptr;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_AUTH_EVENT_AUTH_RESULT,
                                             &cback_data);
 
                 pthread_mutex_unlock(&auth_transaction->mutex);
+
+                shared_ptr_release(message->params.process_credentials.credentials_ptr);
                 break;
             }
 
             auth_result = chat_auth_sql_auth_user(master_cblk_ptr->database,
-                                                  message->params.process_credentials->credentials,
+                                                  credentials_ptr,
                                                   &cback_data.auth_result.user_info);
             assert(CHAT_AUTH_RESULT_FAILURE != auth_result); // TODO make this do a retry
+            shared_ptr_release(message->params.process_credentials.credentials_ptr);
 
             auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
 
             cback_data.auth_result.result           = auth_result;
-            cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg;
-            
+            cback_data.auth_result.consumer_arg_ptr = auth_transaction->consumer_arg_ptr;
+
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_AUTH_EVENT_AUTH_RESULT,
                                         &cback_data);

@@ -42,7 +42,7 @@ typedef struct
 {
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
-    void**            consumer_arg_ptr;
+    SHARED_PTR        consumer_arg_ptr;
 } sCHAT_AUTH_CBACK_DATA_AUTH_RESULT;
 
 
@@ -72,8 +72,8 @@ eSTATUS chat_auth_create(
 
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
-    SHARED_PTR             credentials,
-    void*                  consumer_arg,
+    SHARED_PTR             credentials_ptr,
+    SHARED_PTR             consumer_arg,
     CHAT_AUTH_TRANSACTION* out_auth_transaction);
 
 

@@ -13,6 +13,7 @@ extern "C" {
 #include "sqlite3.h"
 
 #include "message_queue.h"
+#include "shared_ptr.h"
 
 
 // Constants -------------------------------------------------------------------
@@ -45,7 +46,7 @@ typedef struct
     pthread_mutex_t              mutex;
     eCHAT_AUTH_TRANSACTION_STATE state;
 
-    void* consumer_arg;
+    SHARED_PTR consumer_arg_ptr;
 } sCHAT_AUTH_TRANSACTION;
 
 
@@ -71,15 +72,15 @@ eSTATUS chat_auth_sql_init_database(
 
 
 eSTATUS chat_auth_sql_create_user(
-    sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    CHAT_USER_ID           id);
+    sqlite3*                      database,
+    const sCHAT_USER_CREDENTIALS* credentials,
+    CHAT_USER_ID                  id);
 
 
 eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
-    sqlite3*               database,
-    sCHAT_USER_CREDENTIALS credentials,
-    sCHAT_USER*            out_user);
+    sqlite3*                      database,
+    const sCHAT_USER_CREDENTIALS* credentials,
+    sCHAT_USER*                   out_user);
 
 
 #ifdef __cplusplus

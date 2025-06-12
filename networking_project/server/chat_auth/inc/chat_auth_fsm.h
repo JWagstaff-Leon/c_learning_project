@@ -7,6 +7,7 @@ extern "C" {
 // Includes --------------------------------------------------------------------
 
 #include "chat_user.h"
+#include "shared_ptr.h"
 
 
 // Constants -------------------------------------------------------------------
@@ -24,7 +25,7 @@ typedef enum
 
 typedef struct
 {
-    sCHAT_USER_CREDENTIALS  credentials;
+    SHARED_PTR              credentials_ptr;
     sCHAT_AUTH_TRANSACTION* auth_transaction;
 } sCHAT_AUTH_MESSAGE_PARAMS_PROCESS_CREDENTIALS;
 
