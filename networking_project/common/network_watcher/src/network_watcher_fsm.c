@@ -36,12 +36,12 @@ static eSTATUS do_watch(
 {
     int poll_status;
 
-    poll_status = poll(master_cblk_ptr->fds, 2, 0);
-    if (poll_status < 0)
+    poll_status = poll(master_cblk_ptr->fds, 2, -1);
+    if (poll_status <= 0)
     {
         return STATUS_FAILURE;
     }
-
+    
     if (master_cblk_ptr->fds[1].revents & POLLIN)
     {
         return STATUS_CLOSED;
@@ -195,6 +195,7 @@ void* network_watcher_thread_entry(
                                    &message,
                                    sizeof(sNETWORK_WATCHER_MESSAGE));
         assert(STATUS_SUCCESS == status);
+        printf("newtork watcher got message %d\n", message.type);
 
         dispatch_message(master_cblk_ptr,
                          &message);

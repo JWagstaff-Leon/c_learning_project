@@ -25,8 +25,7 @@ static void init_cblk(
 eSTATUS chat_clients_create(
     CHAT_CLIENTS*            out_new_chat_clients,
     fCHAT_CLIENTS_USER_CBACK user_cback,
-    void*                    user_arg,
-    uint32_t                 default_size)
+    void*                    user_arg)
 {
     sCHAT_CLIENTS_CBLK* new_chat_clients_cblk;
     eSTATUS             status;
@@ -45,7 +44,7 @@ eSTATUS chat_clients_create(
     status = message_queue_create(&new_chat_clients_cblk->message_queue,
                                   CHAT_CONNECTION_MESSAGE_QUEUE_SIZE,
                                   sizeof(sCHAT_CLIENTS_MESSAGE));
-    if (STATUS_SUCCESS != status);
+    if (STATUS_SUCCESS != status)
     {
         goto fail_create_message_queue;
     }
@@ -95,17 +94,14 @@ eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS            chat_clients,
     eCHAT_CLIENTS_AUTH_STEP auth_step,
     sCHAT_USER              user_info,
-    void**                  client_ptr_ptr)
+    SHARED_PTR              client_ptr)
 {
     eSTATUS               status;
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
     sCHAT_CLIENTS_MESSAGE message;
-    SHARED_PTR            client_ptr;
 
     assert(NULL != chat_clients);
-    assert(NULL != client_ptr_ptr);
-
-    master_cblk_ptr  = (sCHAT_CLIENTS_CBLK*)chat_clients;
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
 

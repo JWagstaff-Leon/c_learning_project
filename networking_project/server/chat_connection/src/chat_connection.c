@@ -110,7 +110,7 @@ eSTATUS chat_connection_queue_new_event(
 
     status = chat_connection_queue_event(chat_connection,
                                          &event);
-    
+
     return status;
 }
 
@@ -119,14 +119,69 @@ eSTATUS chat_connection_queue_event(
     CHAT_CONNECTION    restrict chat_connection,
     const sCHAT_EVENT* restrict event)
 {
-    // TODO this
+    eSTATUS status;
+
+    sCHAT_CONNECTION_CBLK*   master_cblk_ptr;
+    sCHAT_CONNECTION_MESSAGE message;
+
+    if (NULL == chat_connection)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    if (NULL == event)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
+
+    message.type = CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT;
+
+    status = chat_event_copy(&message.params.queue_event.event,
+                             event);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return status;
 }
 
 
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection)
 {
-    // TODO this
+    eSTATUS status;
+
+    sCHAT_CONNECTION_CBLK*   master_cblk_ptr;
+    sCHAT_CONNECTION_MESSAGE message;
+
+    if (NULL == chat_connection)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
+
+    message.type = CHAT_CONNECTION_MESSAGE_TYPE_CLOSE;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return status;
 }
 
 eSTATUS chat_connection_destroy(

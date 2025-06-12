@@ -61,7 +61,7 @@ static void open_processing(
         case CHAT_SERVER_MESSAGE_CLIENTS_CLOSED:
         {
             master_cblk_ptr->clients = NULL;
-            
+
             status = chat_auth_close(master_cblk_ptr->auth);
             assert(STATUS_SUCCESS == status);
 
@@ -75,6 +75,16 @@ static void open_processing(
         {
             status = chat_server_accept_connection(master_cblk_ptr,
                                                    &new_connection_fd);
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_clients_open_client(master_cblk_ptr->clients,
+                                              new_connection_fd);
+            assert(STATUS_SUCCESS == status);
+
+            status = network_watcher_start_watch(master_cblk_ptr->connection_listener,
+                                                 NETWORK_WATCHER_MODE_READ,
+                                                 master_cblk_ptr->listen_fd);
+            assert(STATUS_SUCCESS == status);
             break;
         }
         case CHAT_SERVER_MESSAGE_LISTENER_ERROR:
@@ -266,7 +276,7 @@ static void fsm_cblk_init(
 
     status = open_listen_socket(&master_cblk_ptr->listen_fd);
     assert(STATUS_SUCCESS == status);
-    
+
     status = network_watcher_start_watch(master_cblk_ptr->connection_listener,
                                          NETWORK_WATCHER_MODE_READ,
                                          master_cblk_ptr->listen_fd);

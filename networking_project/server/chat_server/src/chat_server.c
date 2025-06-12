@@ -72,8 +72,7 @@ eSTATUS chat_server_create(
 
     status = chat_clients_create(&new_chat_server->clients,
                                  chat_server_clients_cback,
-                                 new_chat_server,
-                                 CHAT_SERVER_DEFAULT_MAX_CONNECTIONS);
+                                 new_chat_server);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_clients;
@@ -96,7 +95,8 @@ eSTATUS chat_server_create(
         goto fail_create_connection_listener;
     }
 
-    status = generic_create_thread(chat_server_thread_entry, new_chat_server);
+    status = generic_create_thread(chat_server_thread_entry,
+                                   new_chat_server);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;

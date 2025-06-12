@@ -75,8 +75,7 @@ typedef void* CHAT_CLIENTS;
 eSTATUS chat_clients_create(
     CHAT_CLIENTS*            out_new_chat_clients,
     fCHAT_CLIENTS_USER_CBACK user_cback,
-    void*                    user_arg,
-    uint32_t                 default_size);
+    void*                    user_arg);
 
 
 eSTATUS chat_clients_open_client(
@@ -88,7 +87,7 @@ eSTATUS chat_clients_auth_event(
     CHAT_CLIENTS            chat_clients,
     eCHAT_CLIENTS_AUTH_STEP auth_step,
     sCHAT_USER              user_info,
-    void**                  client_ptr_ptr);
+    SHARED_PTR              client_ptr);
 
 
 eSTATUS chat_clients_close(

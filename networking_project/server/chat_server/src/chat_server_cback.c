@@ -9,6 +9,7 @@
 #include "common_types.h"
 #include "message_queue.h"
 
+
 void chat_server_clients_cback(
     void*                           user_arg,
     bCHAT_CLIENTS_EVENT_TYPE        event_mask,

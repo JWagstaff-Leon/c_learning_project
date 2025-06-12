@@ -20,10 +20,6 @@ extern "C" {
 
 // Defines ---------------------------------------------------------------------
 
-#ifndef CHAT_SERVER_DEFAULT_MAX_CONNECTIONS
-#define CHAT_SERVER_DEFAULT_MAX_CONNECTIONS 8
-#endif
-
 #define CHAT_SERVER_MESSAGE_QUEUE_SIZE 32
 
 
