@@ -78,9 +78,9 @@ void chat_server_auth_cback(
     {
         message.type = CHAT_SERVER_MESSAGE_AUTH_RESULT;
 
-        message.params.auth.auth_result.result         = data->auth_result.result;
-        message.params.auth.auth_result.user_info      = data->auth_result.user_info;
-        message.params.auth.auth_result.client_ptr_ptr = data->auth_result.consumer_arg_ptr;
+        message.params.auth.auth_result.result     = data->auth_result.result;
+        message.params.auth.auth_result.user_info  = data->auth_result.user_info;
+        message.params.auth.auth_result.client_ptr = data->auth_result.consumer_arg_ptr;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,

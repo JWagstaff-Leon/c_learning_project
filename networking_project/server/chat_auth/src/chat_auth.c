@@ -34,6 +34,9 @@ eSTATUS chat_auth_create(
     memset(new_auth_chat_cblk, 0, sizeof(sCHAT_AUTH_CBLK));
     new_auth_chat_cblk->state = CHAT_AUTH_STATE_OPEN;
 
+    new_auth_chat_cblk->user_cback = user_cback;
+    new_auth_chat_cblk->user_arg   = user_arg;
+
     status = message_queue_create(&new_auth_chat_cblk->message_queue,
                                   CHAT_AUTH_MESSAGE_QUEUE_SIZE,
                                   sizeof(sCHAT_AUTH_MESSAGE));
@@ -52,10 +55,11 @@ eSTATUS chat_auth_create(
         goto fail_open_database;
     }
 
-    status = generic_create_thread(chat_auth_thread_entry, new_auth_chat_cblk);
+    status = generic_create_thread(chat_auth_thread_entry,
+                                   new_auth_chat_cblk);
     if (STATUS_SUCCESS != status)
     {
-        return status;
+        goto fail_create_thread;
     }
 
     *out_chat_auth = (CHAT_AUTH)new_auth_chat_cblk;

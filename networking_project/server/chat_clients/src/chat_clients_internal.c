@@ -420,13 +420,13 @@ eSTATUS chat_clients_client_close(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     SHARED_PTR          client_ptr)
 {
-    sCHAT_CLIENT* client = SP_POINTEE_AS(client->prev, sCHAT_CLIENT);
+    sCHAT_CLIENT* client = SP_POINTEE_AS(client_ptr, sCHAT_CLIENT);
 
-    if (NULL != client->prev)
+    if (NULL != client->prev && NULL != SP_POINTEE(client->prev))
     {
         SP_PROPERTY(client->prev, sCHAT_CLIENT, next) = client->next;
     }
-    if (NULL != client->next)
+    if (NULL != client->next && NULL != SP_POINTEE(client->next))
     {
         SP_PROPERTY(client->next, sCHAT_CLIENT, prev) = client->prev;
     }

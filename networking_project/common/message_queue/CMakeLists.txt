@@ -18,4 +18,16 @@ target_link_libraries(message_queue
     Common::types
 )
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(message_queue
+      PUBLIC
+        -g
+    )
+
+    target_link_options(message_queue
+      PUBLIC
+        -fsanitize=address
+    )
+endif()
+
 add_library(Common::message_queue ALIAS message_queue)

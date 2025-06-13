@@ -64,7 +64,7 @@ typedef struct
 {
     sCHAT_USER        user_info;
     eCHAT_AUTH_RESULT result;
-    void**            client_ptr_ptr;
+    SHARED_PTR        client_ptr;
 } sCHAT_SERVER_MESSAGE_PARAMS_AUTH_RESULT;
 
 

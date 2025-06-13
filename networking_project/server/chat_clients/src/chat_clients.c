@@ -100,7 +100,15 @@ eSTATUS chat_clients_auth_event(
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
     sCHAT_CLIENTS_MESSAGE message;
 
-    assert(NULL != chat_clients);
+    if (NULL == chat_clients)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    if (NULL == client_ptr || NULL == SP_POINTEE(client_ptr))
+    {
+        return STATUS_INVALID_ARG;
+    }
+    
     master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;

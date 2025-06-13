@@ -17,7 +17,7 @@ static const char sql_init[] =
         "id INT64 NOT NULL primary key,"                                       "\n"
         "username varchar(" mSTRINGIFY(CHAT_USER_MAX_NAME_SIZE) ") NOT NULL,"  "\n"
         "password varchar(" mSTRINGIFY(CHAT_EVENT_MAX_DATA_SIZE) ") NOT NULL"  "\n"
-    ") default charset utf-8;";
+    ");";
 
 
 static const char sql_create_user[] =
@@ -147,7 +147,7 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
     }
 
     sqlite_status = sqlite3_bind_text(sql_statement,
-                                      sqlite3_bind_parameter_index(sql_statement, "username"),
+                                      sqlite3_bind_parameter_index(sql_statement, ":username"),
                                       credentials->username,
                                       credentials->username_size,
                                       SQLITE_STATIC);
@@ -158,76 +158,82 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
     }
 
     sqlite_status = sqlite3_step(sql_statement);
-    if (SQLITE_OK != sqlite_status && SQLITE_ROW != sqlite_status)
+    switch (sqlite_status)
     {
-        result = CHAT_AUTH_RESULT_FAILURE;
-        goto func_exit;
-    }
-
-    if (SQLITE_ROW == sqlite_status) // User exists in the database; check the password
-    {
-        if (NULL != credentials->password) // Password given; check it
+        case SQLITE_ROW: // Username was found in the database
         {
-            strcmp_status = strcmp(credentials->password,
-                                   sqlite3_column_text(sql_statement, 2));
-            if (0 == strcmp_status) // Password matches; user is authenticated
+            if (NULL != credentials->password) // Password given; check it
             {
-                out_user->id = sqlite3_column_int64(sql_statement, 0);
-                status       = print_string_to_buffer(out_user->name,
-                                                      sqlite3_column_text(sql_statement, 1),
-                                                      sizeof(out_user->name),
-                                                      NULL);
+                strcmp_status = strcmp(credentials->password,
+                                       sqlite3_column_text(sql_statement, 2));
+                if (0 == strcmp_status) // Password matches; user is authenticated
+                {
+                    out_user->id = sqlite3_column_int64(sql_statement, 0);
+                    status       = print_string_to_buffer(out_user->name,
+                                                          sqlite3_column_text(sql_statement, 1),
+                                                          sizeof(out_user->name),
+                                                          NULL);
+                    if (STATUS_SUCCESS != status)
+                    {
+                        result = CHAT_AUTH_RESULT_FAILURE;
+                    }
+                    else
+                    {
+                        result = CHAT_AUTH_RESULT_AUTHENTICATED;
+                    }
+
+                }
+                else // 0 != strcmp_status; Provided password does not match
+                {
+                    result = CHAT_AUTH_RESULT_PASSWORD_REJECTED;
+                }
+            }
+            else // NULL == credentials->password; No password provided
+            {
+                result = CHAT_AUTH_RESULT_PASSWORD_REQUIRED;
+            }
+
+            break;
+        }
+        case SQLITE_DONE: // Username was not found in the database
+        {
+            if (NULL != credentials->password) // Password given; use it as the password for a new account
+            {
+                // TODO generate id
+                // out_user->id = ?;
+                status = chat_auth_sql_create_user(database,
+                                                   credentials,
+                                                   out_user->id);
                 if (STATUS_SUCCESS != status)
                 {
                     result = CHAT_AUTH_RESULT_FAILURE;
+                    break;
                 }
-                else
+
+                status = print_string_to_buffer(out_user->name,
+                                                credentials->username,
+                                                sizeof(out_user->name),
+                                                NULL);
+                if (STATUS_SUCCESS != status)
                 {
-                    result = CHAT_AUTH_RESULT_AUTHENTICATED;
+                    result = CHAT_AUTH_RESULT_FAILURE;
+                    break;
                 }
-                
-            }
-            else // 0 != strcmp_status; Provided password does not match
-            {
-                result = CHAT_AUTH_RESULT_PASSWORD_REJECTED;
-            }
-        }
-        else // NULL == credentials->password; No password provided
-        {
-            result = CHAT_AUTH_RESULT_PASSWORD_REQUIRED;
-        }
-    }
-    else // SQLITE_ROW != sqlite_status; User does not exist in the database
-    {
-        if (NULL != credentials->password) // Password given; use it as the password for a new account
-        {
-            // TODO generate id
-            // out_user->id = ?;
-            status = chat_auth_sql_create_user(database,
-                                               credentials,
-                                               out_user->id);
-            if (STATUS_SUCCESS != status)
-            {
-                result = CHAT_AUTH_RESULT_FAILURE;
-                goto func_exit;
-            }
 
-            status = print_string_to_buffer(out_user->name,
-                                            credentials->username,
-                                            sizeof(out_user->name),
-                                            NULL);
-            if (STATUS_SUCCESS != status)
-            {
-                result = CHAT_AUTH_RESULT_FAILURE;
-                goto func_exit;
+                result = CHAT_AUTH_RESULT_AUTHENTICATED;
             }
-
-            result = CHAT_AUTH_RESULT_AUTHENTICATED;
+            else // No password given; prompt for the creation of a password for the new user
+            {
+                result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
+            }
+            break;
         }
-        else // No password given; prompt for the creation of a password for the new user
+        default:
         {
-            result = CHAT_AUTH_RESULT_PASSWORD_CREATION;
+            result = CHAT_AUTH_RESULT_FAILURE;
+            break;
         }
+
     }
 
 func_exit:

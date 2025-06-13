@@ -25,4 +25,16 @@ target_link_libraries(chat_event_io
     Common::message_queue
 )
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(chat_event_io
+      PUBLIC
+        -g
+    )
+
+    target_link_options(chat_event_io
+      PUBLIC
+        -fsanitize=address
+    )
+endif()
+
 add_library(Common::chat_event_io ALIAS chat_event_io)

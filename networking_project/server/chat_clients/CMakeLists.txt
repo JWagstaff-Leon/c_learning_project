@@ -31,3 +31,15 @@ target_link_libraries(chat_clients
     Common::chat_event_io
     Common::message_queue
 )
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(chat_clients
+      PUBLIC
+        -g
+    )
+
+    target_link_options(chat_clients
+      PUBLIC
+        -fsanitize=address
+    )
+endif()

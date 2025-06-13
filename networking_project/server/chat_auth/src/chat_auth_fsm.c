@@ -42,7 +42,7 @@ static void open_processing(
             if (NULL == credentials_ptr->username)
             {
                 cback_data.auth_result.result           = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
-                cback_data.auth_result.consumer_arg_ptr = &auth_transaction->consumer_arg_ptr;
+                cback_data.auth_result.consumer_arg_ptr = auth_transaction->consumer_arg_ptr;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_AUTH_EVENT_AUTH_RESULT,
@@ -115,6 +115,8 @@ void* chat_auth_thread_entry(
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)arg;
 
+    status = chat_auth_sql_init_database(master_cblk_ptr->database);
+    assert(STATUS_SUCCESS == status);
     while (CHAT_AUTH_STATE_CLOSED != master_cblk_ptr->state)
     {
         status = message_queue_get(master_cblk_ptr->message_queue,

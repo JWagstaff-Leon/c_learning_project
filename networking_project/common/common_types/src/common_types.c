@@ -81,7 +81,7 @@ eSTATUS print_string_to_buffer(
 func_complete:
     if (NULL != out_printed_length)
     {
-        *out_printed_length = snprintf_status;
+        *out_printed_length = snprintf_status + 1;
     }
     return status;
 }

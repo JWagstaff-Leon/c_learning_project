@@ -195,7 +195,6 @@ void* network_watcher_thread_entry(
                                    &message,
                                    sizeof(sNETWORK_WATCHER_MESSAGE));
         assert(STATUS_SUCCESS == status);
-        printf("newtork watcher got message %d\n", message.type);
 
         dispatch_message(master_cblk_ptr,
                          &message);

@@ -22,4 +22,16 @@ target_link_libraries(network_watcher
     Common::message_queue
 )
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(network_watcher
+      PUBLIC
+        -g
+    )
+
+    target_link_options(network_watcher
+      PUBLIC
+        -fsanitize=address
+    )
+endif()
+
 add_library(Common::network_watcher ALIAS network_watcher)

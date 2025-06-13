@@ -26,3 +26,15 @@ target_link_libraries(chat_connection
     Common::message_queue
     Common::network_watcher
 )
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(chat_connection
+      PUBLIC
+        -g
+    )
+
+    target_link_options(chat_connection
+      PUBLIC
+        -fsanitize=address
+    )
+endif()

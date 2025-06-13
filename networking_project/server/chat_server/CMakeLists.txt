@@ -28,3 +28,15 @@ target_link_libraries(chat_server
     Common::network_watcher
     Common::shared_ptr
 )
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(chat_server
+      PUBLIC
+        -g
+    )
+
+    target_link_options(chat_server
+      PUBLIC
+        -fsanitize=address
+    )
+endif()

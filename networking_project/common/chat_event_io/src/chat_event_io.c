@@ -123,12 +123,24 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     memcpy(event_buffer->data,
            &reader->event.data,
            event_buffer->length);
+    printf("- Extracted ------------------\n"
+           "| Event type: %d\n"
+           "| Event length: %u\n"
+           "| Event origin: %lu\n"
+           "| Event data: %s\n"
+           "| Event last data value: %d\n"
+           "------------------------------\n",
+           event_buffer->type,
+           event_buffer->length,
+           event_buffer->origin,
+           event_buffer->data,
+           event_buffer->data[event_buffer->length - 1]);
 
     extracted_event_size = CHAT_EVENT_HEADER_SIZE + event_buffer->length;
     reader->processed_bytes -= extracted_event_size;
 
-    memmove(&(&reader->event)[0],
-            &(&reader->event)[extracted_event_size],
+    memmove(&((uint8_t*)(&reader->event))[0],
+            &((uint8_t*)(&reader->event))[extracted_event_size],
             reader->processed_bytes);
 
     if (reader->processed_bytes >= CHAT_EVENT_HEADER_SIZE &&

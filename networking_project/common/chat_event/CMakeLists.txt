@@ -19,4 +19,16 @@ target_link_libraries(chat_event
     Common::types
 )
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(chat_event
+      PUBLIC
+        -g
+    )
+
+    target_link_options(chat_event
+      PUBLIC
+        -fsanitize=address
+    )
+endif()
+
 add_library(Common::chat_event ALIAS chat_event)

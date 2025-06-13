@@ -10,4 +10,16 @@ target_sources(common_types
     src/common_types.c
 )
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(common_types
+      PUBLIC
+        -g
+    )
+
+    target_link_options(common_types
+      PUBLIC
+        -fsanitize=address
+    )
+endif()
+
 add_library(Common::types ALIAS common_types)

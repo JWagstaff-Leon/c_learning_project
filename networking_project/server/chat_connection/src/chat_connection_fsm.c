@@ -21,37 +21,34 @@ static eSTATUS read_ready(
     bCHAT_EVENT_IO_RESULT main_io_result;
     bCHAT_EVENT_IO_RESULT extract_result;
 
-    do
+    main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io, master_cblk_ptr->fd);
+
+    if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
     {
-        main_io_result = chat_event_io_read_from_fd(master_cblk_ptr->io, master_cblk_ptr->fd);
+        assert(0);
+        // REVIEW do something here? Logging?
+        return STATUS_FAILURE;
+    }
 
-        if (main_io_result & CHAT_EVENT_IO_RESULT_FAILED)
-        {
-            assert(0);
-            // REVIEW do something here? Logging?
-            break;
-        }
+    if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
+    {
+        return STATUS_CLOSED;
+    }
 
-        if (main_io_result & CHAT_EVENT_IO_RESULT_FD_CLOSED)
+    if (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED)
+    {
+        do
         {
-            return STATUS_CLOSED;
-        }
-
-        if (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED)
-        {
-            do
+            extract_result = chat_event_io_extract_read_event(master_cblk_ptr->io,
+                                                              &cback_data.incoming_event.event);
+            if (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED)
             {
-                extract_result = chat_event_io_extract_read_event(master_cblk_ptr->io,
-                                                                  &cback_data.incoming_event.event);
-                if (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_FINISHED)
-                {
-                    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                                CHAT_CONNECTION_EVENT_INCOMING_EVENT,
-                                                &cback_data);
-                }
-            } while (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_MORE);
-        }
-    } while (main_io_result & CHAT_EVENT_IO_RESULT_READ_FINISHED);
+                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                            CHAT_CONNECTION_EVENT_INCOMING_EVENT,
+                                            &cback_data);
+            }
+        } while (extract_result & CHAT_EVENT_IO_RESULT_EXTRACT_MORE);
+    }
 
     return STATUS_SUCCESS;
 }
@@ -190,7 +187,7 @@ static void reading_writing_processing(
 
             watch_mode = NETWORK_WATCHER_MODE_READ;
 
-            if (message_queue_get_count(master_cblk_ptr->event_queue) > 0)
+            if (message_queue_get_count(master_cblk_ptr->event_queue) > 0) // REVIEW should this also check if the writer isn't done?
             {
                 watch_mode |= NETWORK_WATCHER_MODE_WRITE;
             }
@@ -358,6 +355,7 @@ static void dispatch_message(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
+printf("Dispatching to state %d\n", master_cblk_ptr->state);
     switch (master_cblk_ptr->state)
     {
         case CHAT_CONNECTION_STATE_READING:
