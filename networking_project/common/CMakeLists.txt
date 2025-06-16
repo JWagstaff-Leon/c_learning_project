@@ -1,3 +1,4 @@
+add_subdirectory(chat_connection)
 add_subdirectory(chat_event)
 add_subdirectory(chat_event_io)
 add_subdirectory(chat_user)

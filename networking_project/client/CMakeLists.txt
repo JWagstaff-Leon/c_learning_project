@@ -6,14 +6,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_compile_definitions(_GNU_SOURCE)
 
 add_subdirectory(../common ${CMAKE_BINARY_DIR}/common)
-add_subdirectory(../server/chat_connection ${CMAKE_BINARY_DIR}/chat_connection)
 
 add_executable(client)
 
 target_link_libraries(client
   PRIVATE
-    chat_connection
-
+    Common::chat_connection
     Common::chat_event
     Common::chat_event_io
     Common::chat_user

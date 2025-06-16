@@ -26,8 +26,8 @@ target_link_libraries(chat_clients
 
   PRIVATE
     chat_auth
-    chat_connection
-
+    
+    Common::chat_connection
     Common::chat_event_io
     Common::message_queue
 )

@@ -38,3 +38,5 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
         -fsanitize=address
     )
 endif()
+
+add_library(Common::chat_connection ALIAS chat_connection)
