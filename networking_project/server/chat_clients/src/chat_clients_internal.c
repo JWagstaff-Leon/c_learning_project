@@ -172,7 +172,7 @@ static void handler_username_submit(
             cback_data.start_auth_transaction.client_ptr                 = source_client_ptr;
             cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(source_client->auth_credentials_ptr);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING;
+            source_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);
@@ -387,7 +387,6 @@ eSTATUS chat_clients_client_create(
         goto fail_alloc_credentials;
     }
     memset(SP_POINTEE(new_client->auth_credentials_ptr), 0, sizeof(sCHAT_USER_CREDENTIALS));
-    // memset(shared_ptr_get_pointee(new_client->auth_credentials_ptr), 0, sizeof(sCHAT_USER_CREDENTIALS));
 
     status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,

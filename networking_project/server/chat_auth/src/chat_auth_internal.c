@@ -70,7 +70,7 @@ eSTATUS chat_auth_sql_create_user(
 
     // Bind id
     sqlite_status = sqlite3_bind_int64(sql_statement,
-                                       sqlite3_bind_parameter_index(sql_statement, "id"),
+                                       sqlite3_bind_parameter_index(sql_statement, ":id"),
                                        id);
     if (SQLITE_OK != sqlite_status)
     {
@@ -80,7 +80,7 @@ eSTATUS chat_auth_sql_create_user(
 
     // Bind username
     sqlite_status = sqlite3_bind_text(sql_statement,
-                                      sqlite3_bind_parameter_index(sql_statement, "username"),
+                                      sqlite3_bind_parameter_index(sql_statement, ":username"),
                                       credentials->username,
                                       credentials->username_size,
                                       SQLITE_STATIC);
@@ -92,7 +92,7 @@ eSTATUS chat_auth_sql_create_user(
 
     // Bind password
     sqlite_status = sqlite3_bind_text(sql_statement,
-                                      sqlite3_bind_parameter_index(sql_statement, "password"),
+                                      sqlite3_bind_parameter_index(sql_statement, ":password"),
                                       credentials->password,
                                       credentials->password_size,
                                       SQLITE_STATIC);

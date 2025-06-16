@@ -355,7 +355,6 @@ static void dispatch_message(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
-printf("Dispatching to state %d\n", master_cblk_ptr->state);
     switch (master_cblk_ptr->state)
     {
         case CHAT_CONNECTION_STATE_READING:

@@ -88,6 +88,7 @@ static void open_processing(
         {
             auth_step           = message->params.auth_event.auth_step;
             relevant_client_ptr = message->params.auth_event.client_ptr;
+
             if (NULL == SP_POINTEE(relevant_client_ptr))
             {
                 shared_ptr_release(relevant_client_ptr);
@@ -238,6 +239,7 @@ void dispatch_message(
             break;
         }
         case CHAT_CLIENTS_STATE_CLOSED:
+        default:
         {
             // Should never get here
             assert(0);
