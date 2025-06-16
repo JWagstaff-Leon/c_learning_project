@@ -99,6 +99,11 @@ void chat_clients_process_event(
     const sCHAT_EVENT*  event);
 
 
+eSTATUS chat_clients_introduce_user(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          client_ptr);
+
+
 eSTATUS chat_clients_client_create(
     SHARED_PTR*         out_new_client_ptr,
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,

@@ -4,20 +4,24 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <netdb.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include "common_types.h"
 #include "message_queue.h"
 
 
 static eSTATUS init_cblk(
-    sCHAT_CLIENT_CBLK *master_cblk_ptr)
+    sCHAT_CLIENT_CBLK* master_cblk_ptr)
 {
     assert(NULL != master_cblk_ptr);
 
     memset(master_cblk_ptr, 0, sizeof(master_cblk_ptr));
+
     master_cblk_ptr->state                = CHAT_CLIENT_STATE_NOT_CONNECTED;
     master_cblk_ptr->server_connection.fd = -1;
     master_cblk_ptr->send_state           = CHAT_CLIENT_SUBFSM_SEND_STATE_READY;
@@ -26,49 +30,19 @@ static eSTATUS init_cblk(
 }
 
 
-static eSTATUS init_msg_queue(
-    MESSAGE_QUEUE*       message_queue_ptr,
-    fGENERIC_ALLOCATOR   allocator,
-    fGENERIC_DEALLOCATOR deallocator)
-{
-    eSTATUS status;
-
-    assert(NULL != message_queue_ptr);
-    assert(NULL != allocator);
-    assert(NULL != deallocator);
-
-    status = message_queue_create(message_queue_ptr,
-                                  CHAT_CLIENT_MSG_QUEUE_SIZE,
-                                  sizeof(sCHAT_CLIENT_MESSAGE),
-                                  allocator,
-                                  deallocator);
-
-    return status;
-}
-
-
 eSTATUS chat_client_create(
     CHAT_CLIENT*            out_new_client,
-    sMODULE_PARAMETERS      chat_client_params,
-    sMODULE_PARAMETERS      chat_client_io_params,
     fCHAT_CLIENT_USER_CBACK user_cback,
     void*                   user_arg)
 {
     sCHAT_CLIENT_CBLK* new_master_cblk_ptr;
     eSTATUS            status;
 
-    assert(NULL != chat_client_params.thread_creator);
-    assert(NULL != chat_client_params.allocator);
-    assert(NULL != chat_client_params.deallocator);
-
-    assert(NULL != chat_client_io_params.thread_creator);
-    assert(NULL != chat_client_io_params.allocator);
-    assert(NULL != chat_client_io_params.deallocator);
 
     assert(NULL != user_cback);
     assert(NULL != out_new_client);
 
-    new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)chat_client_params.allocator(sizeof(sCHAT_CLIENT_CBLK));
+    new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)generic_allocator(sizeof(sCHAT_CLIENT_CBLK));
     if (NULL == new_master_cblk_ptr)
     {
         return STATUS_ALLOC_FAILED;
@@ -77,30 +51,19 @@ eSTATUS chat_client_create(
     status = init_cblk(new_master_cblk_ptr);
     if (STATUS_SUCCESS != status)
     {
-        chat_client_params.deallocator(new_master_cblk_ptr);
+        generic_deallocator(new_master_cblk_ptr);
         return status;
     }
 
-    new_master_cblk_ptr->allocator   = chat_client_params.allocator;
-    new_master_cblk_ptr->deallocator = chat_client_params.deallocator;
-    new_master_cblk_ptr->user_cback  = user_cback;
-    new_master_cblk_ptr->user_arg    = user_arg;
-    new_master_cblk_ptr->io_params   = chat_client_io_params;
+    new_master_cblk_ptr->user_cback = user_cback;
+    new_master_cblk_ptr->user_arg   = user_arg;
 
-    status = init_msg_queue(&new_master_cblk_ptr->message_queue,
-                            chat_client_params.allocator,
-                            chat_client_params.deallocator);
+    status = message_queue_create(&new_master_cblk_ptr->message_queue,
+                                  CHAT_CLIENT_MSG_QUEUE_SIZE,
+                                  sizeof(sCHAT_CLIENT_MESSAGE));
     if (STATUS_SUCCESS != status)
     {
-        deallocator(new_master_cblk_ptr);
-        return status;
-    }
-
-    status = chat_client_params.thread_creator(chat_client_thread_entry, new_master_cblk_ptr);
-    if (STATUS_SUCCESS != status)
-    {
-        message_queue_destroy(new_master_cblk_ptr->message_queue);
-        deallocator(new_master_cblk_ptr);
+        generic_deallocator(new_master_cblk_ptr);
         return status;
     }
 
@@ -109,114 +72,89 @@ eSTATUS chat_client_create(
 }
 
 
-eSTATUS chat_client_connect(
+eSTATUS chat_client_open(
     CHAT_CLIENT client,
     const char* address,
-    uint16_t    port)
+    const char* port)
 {
+    eSTATUS status;
+
     sCHAT_CLIENT_CBLK*   master_cblk_ptr;
     sCHAT_CLIENT_MESSAGE message;
-    struct sockaddr_in*  sin_ptr;
-    struct sockaddr_in6* sin6_ptr;
 
-    eSTATUS status;
-    int     address_conversion_status;
+    int connection_fd;
+    int stdlib_status;
 
-    assert(NULL != client);
-    assert(NULL != address);
+    struct addrinfo hints, *address;
+
+    if (NULL == client)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    if (NULL == address)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    if (NULL == port)
+    {
+        return STATUS_INVALID_ARG;
+    }
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-    message.type    = CHAT_CLIENT_MESSAGE_CONNECT;
-
-    sin_ptr = (struct sockaddr_in*)&message.params.connect.address;
-    address_conversion_status = inet_pton(AF_INET,
-                                          address,
-                                          &message.params.connect.address.sin_addr);
-    if (address_conversion_status < 0)
+    if (master_cblk_ptr->state > CHAT_CLIENT_STATE_NOT_CONNECTED)
     {
-        return STATUS_INVALID_ARG;
-    }
-    if (address_conversion_status > 0)
-    {
-        ((struct sockaddr_in*)&message.params.connect.address)->sin_family = AF_INET;
-        ((struct sockaddr_in*)&message.params.connect.address)->sin_port = htons(port);
-
-        memset((struct sockaddr_in*)&message.params.connect.address)->sin_zero,
-            0,
-            sizeof(((struct sockaddr_in*)&message.params.connect.address)->sin_zero);
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                &message,
-                                sizeof(message));
-        return status;
+        return STATUS_INVALID_STATE;
     }
 
-        message.params.connect.address.sin_family = AF_INET6;
-        address_conversion_status                 = inet_pton(AF_INET6,
-                                                              address,
-                                                              &message.params.connect.address.sin_addr);
-        if (0 == address_conversion_status)
-        {
-            return STATUS_INVALID_ARG;
-        }
-{
-    sCHAT_CLIENT_CBLK*   master_cblk_ptr;
-    sCHAT_CLIENT_MESSAGE message;
-    struct sockaddr_in*  sin_ptr;
-    struct sockaddr_in6* sin6_ptr;
-
-    eSTATUS status;
-    int     address_conversion_status;
-
-    assert(NULL != client);
-    assert(NULL != address);
-
-    master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-    message.type    = CHAT_CLIENT_MESSAGE_CONNECT;
-
-    sin_ptr  = (struct sockaddr_in*)&message.params.connect.address;
-    sin6_ptr = (struct sockaddr_in6*)&message.params.connect.address;
-    address_conversion_status = inet_pton(AF_INET,
-                                          address,
-                                          sin_ptr->sin_addr);
-    if (address_conversion_status < 0)
+    stdlib_status = getaddrinfo(address, port, &hints, &address);
+    if (0 != stdlib_status)
     {
-        return STATUS_INVALID_ARG;
-    }
-    if (address_conversion_status > 0)
-    {
-        sin_ptr->sin_family = AF_INET;
-        sin_ptr->sin_port = htons(port);
-
-        memset(sin_ptr->sin_zero,
-            0,
-            sizeof(sin_ptr->sin_zero));
-
-        status = message_queue_put(master_cblk_ptr->message_queue,
-                                &message,
-                                sizeof(message));
-        return status;
+        return STATUS_FAILURE;
     }
 
-    address_conversion_status = inet_pton(AF_INET6,
-                                          address,
-                                          sin6_ptr->in6_addr);
-    if (address_conversion_status <= 0)
+    connection_fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+    if (connection_fd < 0)
     {
-        return STATUS_INVALID_ARG;
+        status = STATUS_FAILURE;
+        goto func_exit;
     }
 
-    sin6_ptr->in6_family = AF_INET6;
-    sin6_ptr->sin6_port  = htons(port);
+    stdlib_status = connect(connection_fd, address->ai_addr, address->ai_addrlen);
+    if (0 != stdlib_status)
+    {
+        status = STATUS_FAILURE;
+        goto func_exit;
+    }
 
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
+    status = chat_connection_create(master_cblk_ptr->server_connection,
+                                    chat_client_connection_cback,
+                                    master_cblk_ptr,
+                                    connection_fd);
+    if(STATUS_SUCCESS != status)
+    {
+        goto func_exit;
+    }
+
+    master_cblk_ptr->server_fd = connection_fd;
+    master_cblk_ptr->state     = CHAT_CLIENT_STATE_USERNAME_ENTRY;
+
+    status = generic_create_thread(chat_client_thread_entry,
+                                   master_cblk_ptr);
+    if (STATUS_SUCCESS != status)
+    {
+        chat_connection_destroy(master_cblk_ptr->server_connection);
+        goto func_exit;
+    }
+    
+    status = STATUS_SUCCESS;
+
+func_exit:
+    freeaddrinfo(address);
     return status;
 }
 
 
-eSTATUS chat_client_send_text(
+eSTATUS chat_client_user_input(
     CHAT_CLIENT client,
     const char* text)
 {
@@ -224,42 +162,22 @@ eSTATUS chat_client_send_text(
     sCHAT_CLIENT_MESSAGE message;
 
     eSTATUS status;
-    int     string_copy_status;
 
     assert(NULL != client);
     assert(NULL != text);
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
 
-    message.type = CHAT_CLIENT_MESSAGE_SEND_NEW;
-    string_copy_status = snprintf(&message.params.send_new.text[0],
-                                  sizeof(message.params.send_new.text),
-                                  "%s",
-                                  text);
-    if(string_copy_status < 0)
+    message.type = CHAT_CLIENT_MESSAGE_USER_INPUT;
+    
+    status = print_string_to_buffer(&message.params.user_input.text[0],
+                                    text,
+                                    sizeof(message.params.user_input.text),
+                                    NULL);
+    if(STATUS_SUCCESS != status)
     {
         return STATUS_INVALID_ARG;
     }
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-    return status;
-}
-
-
-eSTATUS chat_client_disconnect(
-    CHAT_CLIENT client)
-{
-    sCHAT_CLIENT_CBLK*   master_cblk_ptr;
-    sCHAT_CLIENT_MESSAGE message;
-
-    eSTATUS status;
-
-    assert(NULL != client);
-    master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-
-    message.type = CHAT_CLIENT_MESSAGE_DISCONNECT;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

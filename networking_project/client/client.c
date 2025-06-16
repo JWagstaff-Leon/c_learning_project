@@ -1,12 +1,10 @@
 #include <errno.h>
-#include <netdb.h>
+#include <ncurses.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "chat_event.h"
@@ -47,7 +45,7 @@ int main(int argc, char *argv[])
     eSTATUS status;
     sCHAT_EVENT event;
     int stdlib_status;
-    struct addrinfo hints, *address;
+
     int connection_fd;
     CHAT_CONNECTION connection;
     MESSAGE_QUEUE incoming_events;
@@ -59,28 +57,6 @@ int main(int argc, char *argv[])
     memset(&hints, 0, sizeof(hints));
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-
-    stdlib_status = getaddrinfo("127.0.0.1", "8080", &hints, &address);
-    if (0 != stdlib_status)
-    {
-        fprintf(stderr, "getaddrinfo failed: %s\n", strerror(errno));
-        return 1;
-    }
-
-    connection_fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-    if (connection_fd < 0)
-    {
-        fprintf(stderr, "socket failed: %s\n", strerror(errno));
-        return 1;
-    }
-
-
-    stdlib_status = connect(connection_fd, address->ai_addr, address->ai_addrlen);
-    if (0 != stdlib_status)
-    {
-        fprintf(stderr, "connect failed: %s\n", strerror(errno));
-        return 1;
-    }
 
     status = message_queue_create(&incoming_events, 32, sizeof(sCHAT_EVENT));
     if (STATUS_SUCCESS != status)

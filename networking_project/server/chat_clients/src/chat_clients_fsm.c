@@ -36,10 +36,12 @@ static void open_processing(
     uint32_t      client_index;
     SHARED_PTR    relevant_client_ptr;
     sCHAT_CLIENT* relevant_client;
-
+    
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-
+    
     eCHAT_CLIENTS_AUTH_STEP auth_step;
+    SHARED_PTR              outgoing_client_ptr;
+    sCHAT_EVENT             outgoing_event;
 
     switch (message->type)
     {
@@ -127,6 +129,12 @@ static void open_processing(
                 {
                     relevant_client->state = CHAT_CLIENT_STATE_ACTIVE;
 
+                    relevant_client->user_info.id = message->params.auth_event.user_info.id;
+                    
+                    status = print_string_to_buffer(relevant_client->user_info.name,
+                                                    message->params.auth_event.user_info.name);
+                    assert(STATUS_SUCCESS == status);
+
                     status = chat_connection_queue_new_event(relevant_client->connection,
                                                              CHAT_EVENT_AUTHENTICATED,
                                                              CHAT_USER_ID_SERVER,
@@ -135,6 +143,11 @@ static void open_processing(
 
                     shared_ptr_release(relevant_client->auth_credentials_ptr);
                     relevant_client->auth_credentials_ptr = NULL;
+
+                    chat_clients_introduce_user(master_cblk_ptr,
+                                                relevant_client_ptr);
+                    
+                    }
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:

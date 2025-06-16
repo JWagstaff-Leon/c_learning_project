@@ -277,15 +277,6 @@ static void handler_password_submit(
 }
 
 
-static void handler_user_list(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    SHARED_PTR          source_client_ptr,
-    const sCHAT_EVENT*  event)
-{
-    // REVIEW implement this?
-}
-
-
 static void handler_user_leave(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     SHARED_PTR          source_client_ptr,
@@ -295,6 +286,7 @@ static void handler_user_leave(
 
     SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_DISCONNECTING;
 
+    // TODO broadcast user leave
     status = chat_connection_close(SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, connection));
     assert(STATUS_SUCCESS == status);
 }
@@ -320,7 +312,6 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_password_submit,  // CHAT_EVENT_PASSWORD_SUBMIT
     handler_no_op,            // CHAT_EVENT_PASSWORD_REJECTED
     handler_no_op,            // CHAT_EVENT_AUTHENTICATED
-    handler_user_list,        // CHAT_EVENT_USER_LIST
     handler_no_op,            // CHAT_EVENT_USER_JOIN
     handler_user_leave,       // CHAT_EVENT_USER_LEAVE
     handler_no_op,            // CHAT_EVENT_SERVER_SHUTDOWN
@@ -355,6 +346,43 @@ static void chat_clients_cleanup_credentials(
 
     credentials->username = NULL;
     credentials->password = NULL;
+}
+
+
+eSTATUS chat_clients_introduce_user(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          client_ptr)
+{
+    eSTATUS status;
+
+    SHARED_PTR  relevant_client_ptr;
+    sCHAT_EVENT outgoing_event;
+
+    status = chat_event_populate(&outgoing_event,
+                                 CHAT_EVENT_USER_JOIN,
+                                 SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.id),
+                                 SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.name));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    for (relevant_client_ptr = master_cblk_ptr->client_list_head;
+         NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
+         relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
+    {
+        if (relevant_client_ptr == relevant_client_ptr)
+        {
+            continue;
+        }
+    
+        if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, state))
+        {
+            status = chat_connection_queue_event(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection),
+                                                 &outgoing_event);
+        }
+        assert(STATUS_SUCCESS == status);
+    }
 }
 
 
