@@ -49,7 +49,9 @@ eSTATUS chat_clients_create(
         goto fail_create_message_queue;
     }
 
-    status = generic_create_thread(chat_clients_thread_entry, new_chat_clients_cblk);
+    status = generic_create_thread(chat_clients_thread_entry,
+                                   new_chat_clients_cblk,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;

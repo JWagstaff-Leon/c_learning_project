@@ -106,6 +106,10 @@ eSTATUS chat_client_open(
         return STATUS_INVALID_STATE;
     }
 
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
     stdlib_status = getaddrinfo(address, port, &hints, &address);
     if (0 != stdlib_status)
     {
@@ -139,7 +143,8 @@ eSTATUS chat_client_open(
     master_cblk_ptr->state     = CHAT_CLIENT_STATE_USERNAME_ENTRY;
 
     status = generic_create_thread(chat_client_thread_entry,
-                                   master_cblk_ptr);
+                                   master_cblk_ptr,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         chat_connection_destroy(master_cblk_ptr->server_connection);
@@ -169,7 +174,7 @@ eSTATUS chat_client_user_input(
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
 
     message.type = CHAT_CLIENT_MESSAGE_USER_INPUT;
-    
+
     status = print_string_to_buffer(&message.params.user_input.text[0],
                                     text,
                                     sizeof(message.params.user_input.text),

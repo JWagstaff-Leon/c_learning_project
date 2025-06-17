@@ -53,7 +53,7 @@ typedef enum
 typedef struct
 {
     eCHAT_EVENT_TYPE type;
-    CHAT_USER_ID     origin;
+    sCHAT_USER       origin;
 
     uint16_t length;
     uint8_t  data[CHAT_EVENT_MAX_DATA_SIZE];
@@ -73,7 +73,7 @@ eSTATUS chat_event_copy(
 eSTATUS chat_event_populate(
     sCHAT_EVENT*     restrict event,
     eCHAT_EVENT_TYPE          type,
-    CHAT_USER_ID              origin,
+    sCHAT_USER                origin,
     const char*      restrict string);
 
 

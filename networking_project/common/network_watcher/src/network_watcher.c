@@ -60,7 +60,8 @@ eSTATUS network_watcher_create(
     }
 
     status = generic_create_thread(network_watcher_thread_entry,
-                                   new_network_watcher);
+                                   new_network_watcher,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;

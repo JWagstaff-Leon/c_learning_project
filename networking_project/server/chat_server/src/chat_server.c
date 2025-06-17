@@ -96,7 +96,8 @@ eSTATUS chat_server_create(
     }
 
     status = generic_create_thread(chat_server_thread_entry,
-                                   new_chat_server);
+                                   new_chat_server,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;

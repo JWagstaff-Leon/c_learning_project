@@ -15,9 +15,6 @@
 #include "shared_ptr.h"
 
 
-static char k_server_name[] = "Server";
-
-
 static void chat_clients_client_destroy(
     void* client_ptr);
 
@@ -49,7 +46,9 @@ static void handler_chat_message(
         status = chat_event_copy(&outgoing_event, event);
         assert(STATUS_SUCCESS == status);
 
-        outgoing_event.origin = source_client->user_info.id;
+        memcpy(&outgoing_event.origin,
+               &source_client->user_info,
+               sizeof(outgoing_event.origin));
 
         for (relevant_client_ptr = master_cblk_ptr->client_list_head;
              NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
@@ -67,29 +66,6 @@ static void handler_chat_message(
             }
             assert(STATUS_SUCCESS == status);
         }
-    }
-}
-
-
-static void handler_username_request(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
-    SHARED_PTR          source_client_ptr,
-    const sCHAT_EVENT*  event)
-{
-    eSTATUS     status;
-    sCHAT_EVENT outgoing_event;
-
-    if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state))
-    {
-        status = chat_event_populate(&outgoing_event,
-                                     CHAT_EVENT_USERNAME_SUBMIT,
-                                     CHAT_USER_ID_SERVER,
-                                     k_server_name);
-        assert(STATUS_SUCCESS == status);
-
-        status = chat_connection_queue_event(SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, connection),
-                                             &outgoing_event);
-        assert(STATUS_SUCCESS == status);
     }
 }
 
@@ -115,7 +91,7 @@ static void handler_username_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                  CHAT_EVENT_USERNAME_REJECTED,
-                                                 CHAT_USER_ID_SERVER,
+                                                 k_server_info,
                                                  "User is already logged in");
         assert(STATUS_SUCCESS == status);
         return;
@@ -126,7 +102,7 @@ static void handler_username_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                  CHAT_EVENT_SERVER_ERROR,
-                                                 CHAT_USER_ID_SERVER,
+                                                 k_server_info,
                                                  "Server authentication process error");
         assert(STATUS_SUCCESS == status);
         return;
@@ -141,7 +117,7 @@ static void handler_username_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                  CHAT_EVENT_SERVER_ERROR,
-                                                 CHAT_USER_ID_SERVER,
+                                                 k_server_info,
                                                  "Server authentication process error");
         assert(STATUS_SUCCESS == status);
 
@@ -183,7 +159,7 @@ static void handler_username_submit(
         {
             status = chat_connection_queue_new_event(source_client->connection,
                                                      CHAT_EVENT_SERVER_ERROR,
-                                                     CHAT_USER_ID_SERVER,
+                                                     k_server_info,
                                                      "Cannot process username submission now");
         }
     }
@@ -211,7 +187,7 @@ static void handler_password_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                 CHAT_EVENT_SERVER_ERROR,
-                                                CHAT_USER_ID_SERVER,
+                                                k_server_info,
                                                 "User is already logged in");
         assert(STATUS_SUCCESS == status);
         return;
@@ -222,7 +198,7 @@ static void handler_password_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                  CHAT_EVENT_SERVER_ERROR,
-                                                 CHAT_USER_ID_SERVER,
+                                                 k_server_info,
                                                  "Server authentication process error");
         assert(STATUS_SUCCESS == status);
         return;
@@ -237,7 +213,7 @@ static void handler_password_submit(
     {
         status = chat_connection_queue_new_event(source_client->connection,
                                                  CHAT_EVENT_SERVER_ERROR,
-                                                 CHAT_USER_ID_SERVER,
+                                                 k_server_info,
                                                  "Server authentication process error");
         assert(STATUS_SUCCESS == status);
 
@@ -269,7 +245,7 @@ static void handler_password_submit(
         {
             status = chat_connection_queue_new_event(source_client->connection,
                                                      CHAT_EVENT_SERVER_ERROR,
-                                                     CHAT_USER_ID_SERVER,
+                                                     k_server_info,
                                                      "Cannot process password submission now");
             assert(STATUS_SUCCESS == status);
         }
@@ -305,7 +281,7 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_no_op,            // CHAT_EVENT_CONNECTION_FAILED
     handler_no_op,            // CHAT_EVENT_SERVER_ERROR
     handler_no_op,            // CHAT_EVENT_OVERSIZED_CONTENT
-    handler_username_request, // CHAT_EVENT_USERNAME_REQUEST
+    handler_no_op,            // CHAT_EVENT_USERNAME_REQUEST
     handler_username_submit,  // CHAT_EVENT_USERNAME_SUBMIT
     handler_no_op,            // CHAT_EVENT_USERNAME_REJECTED
     handler_no_op,            // CHAT_EVENT_PASSWORD_REQUEST
@@ -360,7 +336,7 @@ eSTATUS chat_clients_introduce_user(
 
     status = chat_event_populate(&outgoing_event,
                                  CHAT_EVENT_USER_JOIN,
-                                 SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.id),
+                                 k_server_info,
                                  SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.name));
     if (STATUS_SUCCESS != status)
     {

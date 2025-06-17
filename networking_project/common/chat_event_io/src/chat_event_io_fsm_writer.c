@@ -59,8 +59,13 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
     {
         case CHAT_EVENT_IO_MESSAGE_TYPE_POPULATE_WRITER:
         {
-            writer->event.type   = htonl(message->params.populate_writer.event.type);
-            writer->event.origin = htonl(message->params.populate_writer.event.origin);
+            writer->event.type = htonl(message->params.populate_writer.event.type);
+
+            writer->event.origin.id = htonll(message->params.populate_writer.event.origin.id);
+            memcpy(writer->event.origin.name,
+                   message->params.populate_writer.event.origin.name,
+                   sizeof(writer->event.origin.name));
+            
             writer->event.length = htons(message->params.populate_writer.event.length);
             memcpy(&writer->event.data[0],
                    message->params.populate_writer.event.data,

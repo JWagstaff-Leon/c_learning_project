@@ -20,6 +20,11 @@ target_link_libraries(client
     Common::types
 )
 
+target_include_directories(client
+  PRIVATE
+    src
+)
+
 target_sources(client
   PRIVATE
     client.c

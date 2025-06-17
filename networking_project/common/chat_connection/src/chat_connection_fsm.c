@@ -62,6 +62,7 @@ static eSTATUS write_ready(
     eSTATUS               status;
     bCHAT_EVENT_IO_RESULT main_io_result;
 
+    // FIXME make this populate as much as possible, and then write as much as possible
     do
     {
         main_io_result = chat_event_io_write_to_fd(master_cblk_ptr->io, master_cblk_ptr->fd);

@@ -13,20 +13,14 @@ extern "C" {
 
 // Constants -------------------------------------------------------------------
 
-
+#define CLIENT_MESSAGE_QUEUE_SIZE 32
 
 // Types -----------------------------------------------------------------------
 
 typedef enum
 {
-    CHAT_CLIENT_EVENT_USERNAME_ENTRY    = 1 << 0,
-    CHAT_CLIENT_EVENT_USERNAME_REJECTED = 1 << 1,
-    CHAT_CLIENT_EVENT_PASSWORD_ENTRY    = 1 << 2,
-    CHAT_CLIENT_EVENT_PASSWORD_REJECTED = 1 << 3,
-    CHAT_CLIENT_EVENT_ACTIVE            = 1 << 4,
-
-    // REVIEW separate this out into different event types (message, auth request, more?)
-    CHAT_CLIENT_EVENT_INCOMING_EVENT = 1 << 5,
+    CHAT_CLIENT_EVENT_INCOMING_EVENT = 1 << 0,
+    CHAT_CLIENT_EVENT_OUTGOING_EVENT = 1 << 1,
 
     CHAT_CLIENT_EVENT_CLOSED = 1 << 31
 } bCHAT_CLIENT_EVENT_TYPE;

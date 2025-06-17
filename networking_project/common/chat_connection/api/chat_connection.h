@@ -57,9 +57,9 @@ eSTATUS chat_connection_create(
 
 eSTATUS chat_connection_queue_new_event(
     CHAT_CONNECTION  restrict chat_connection,
-    eCHAT_EVENT_TYPE          type,
-    CHAT_USER_ID              origin,
-    const char*      restrict string);
+    eCHAT_EVENT_TYPE          event_type,
+    sCHAT_USER                event_origin,
+    const char*      restrict event_data);
 
 
 eSTATUS chat_connection_queue_event(

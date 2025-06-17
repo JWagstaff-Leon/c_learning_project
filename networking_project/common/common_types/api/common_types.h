@@ -1,6 +1,7 @@
 #pragma once
 
 #include <endian.h>
+#include <pthread.h>
 #include <stddef.h>
 
 #define BASE_STATUS_VALUE -1
@@ -36,7 +37,19 @@ typedef enum
 } ePIPE_END;
 
 
+typedef enum
+{
+    THREAD_KILL_DEFERRED,
+    THREAD_KILL_INSTANT
+} eTHREAD_KILL_MODE;
+
+
 typedef void* (*fGENERIC_THREAD_ENTRY) (void*);
+typedef pthread_t THREAD_ID;
+
+// TODO refactor for these
+// typedef pthread_mutex_t   GENERIC_MUTEX;
+// typedef pthread_condvar_t GENERIC_CONDAVR;
 
 
 void* generic_allocator(
@@ -49,7 +62,16 @@ void generic_deallocator(
 
 eSTATUS generic_create_thread(
     fGENERIC_THREAD_ENTRY thread_entry,
-    void* arg);
+    void*                 arg,
+    THREAD_ID*            out_new_thread);
+
+
+eSTATUS generic_thread_set_kill_mode(
+    eTHREAD_KILL_MODE mode);
+
+
+eSTATUS generic_kill_thread(
+    THREAD_ID thread_id);
 
 
 eSTATUS print_string_to_buffer(

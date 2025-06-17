@@ -61,7 +61,8 @@ eSTATUS chat_connection_create(
     }
 
     status = generic_create_thread(chat_connection_thread_entry,
-                                   new_chat_connection);
+                                   new_chat_connection,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;
@@ -93,7 +94,7 @@ fail_alloc_chat_connection:
 eSTATUS chat_connection_queue_new_event(
     CHAT_CONNECTION  restrict chat_connection,
     eCHAT_EVENT_TYPE          event_type,
-    CHAT_USER_ID              event_origin,
+    sCHAT_USER                event_origin,
     const char*      restrict event_data)
 {
     eSTATUS     status;

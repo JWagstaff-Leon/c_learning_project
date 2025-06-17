@@ -1,106 +1,117 @@
-#include <errno.h>
-#include <ncurses.h>
-#include <poll.h>
+#include "client.h"
+
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
+#include "chat_client.h"
 #include "chat_event.h"
-#include "chat_connection.h"
-#include "chat_user.h"
 #include "common_types.h"
 #include "message_queue.h"
 
 
-void chat_connection_cback(
-    void* user_arg,
-    bCHAT_CONNECTION_EVENT_TYPE event_mask,
-    const sCHAT_CONNECTION_CBACK_DATA* data)
+void chat_client_cback(
+    void*                    user_arg,
+    bCHAT_CLIENT_EVENT_TYPE  event,
+    sCHAT_CLIENT_CBACK_DATA* data)
 {
-    if (event_mask & CHAT_CONNECTION_EVENT_INCOMING_EVENT)
+    eSTATUS              status;
+    sCLIENT_MAIN_MESSAGE message;
+    sCLIENT_MAIN_CBLK*   master_cblk_ptr = (sCLIENT_MAIN_CBLK*)user_arg;
+
+    if (CHAT_CLIENT_EVENT_INCOMING_EVENT)
     {
-        message_queue_put(user_arg, &data->incoming_event.event, sizeof(data->incoming_event.event));
+        message.type = CLIENT_MAIN_MESSAGE_INCOMING_EVENT;
+
+        status = chat_event_copy(&message.params.incoming_event.event,
+                                 &data->incoming_event.event);
+        assert(STATUS_SUCCESS == status);
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (CHAT_CLIENT_EVENT_OUTGOING_EVENT)
+    {
+        message.type = CLIENT_MAIN_MESSAGE_OUTGOING_EVENT;
+
+        status = chat_event_copy(&message.params.outgoing_event.event,
+                                 &data->outgoing_event.event);
+        assert(STATUS_SUCCESS == status);
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
+    }
+
+    if (CHAT_CLIENT_EVENT_CLOSED)
+    {
+        message.type = CLIENT_MAIN_MESSAGE_CLOSE;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
     }
 }
 
 
-void print_event(
-    const sCHAT_EVENT* event)
+void dispatch_message(
+    sCLIENT_MAIN_CBLK*          master_cblk_ptr,
+    const sCLIENT_MAIN_MESSAGE* message)
 {
-    printf("------------------------------\n"
-           "| Event type: %d\n"
-           "| Event origin: %lu\n"
-           "| Event data: %s\n"
-           "------------------------------\n",
-           event->type,
-           event->origin,
-           event->data);
+    switch (message->type)
+    {
+        case CLIENT_MAIN_MESSAGE_INCOMING_EVENT:
+        {
+            break;
+        }
+        case CLIENT_MAIN_MESSAGE_OUTGOING_EVENT:
+        {
+            break;
+        }
+        case CLIENT_MAIN_MESSAGE_CLOSE:
+        {
+            break;
+        }
+    }
 }
 
 
 int main(int argc, char *argv[])
 {
     eSTATUS status;
-    sCHAT_EVENT event;
     int stdlib_status;
 
-    int connection_fd;
-    CHAT_CONNECTION connection;
-    MESSAGE_QUEUE incoming_events;
     char* input_buffer;
     size_t input_size;
-    struct pollfd connect_poll;
-    socklen_t sockopt_len;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family   = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    sCLIENT_MAIN_MESSAGE message;
 
-    status = message_queue_create(&incoming_events, 32, sizeof(sCHAT_EVENT));
+    sCLIENT_MAIN_CBLK master_cblk;
+    memset(&master_cblk, 0, sizeof(master_cblk));
+
+    master_cblk.open = true;
+
+    status = message_queue_create(&master_cblk.messages_window,
+                                  CLIENT_MESSAGE_QUEUE_SIZE,  
+                                  sizeof(sCLIENT_MAIN_MESSAGE));
     if (STATUS_SUCCESS != status)
     {
-        fprintf(stderr, "message_queue_create failed\n");
-        close(connection_fd);
+        fprintf(stderr, "Unable to open client\n");
         return 1;
     }
 
-    status = chat_connection_create(&connection, chat_connection_cback, incoming_events, connection_fd);
-    if (STATUS_SUCCESS != status)
+    while(master_cblk.open)
     {
-        fprintf(stderr, "chat_connection_create failed\n");
-        message_queue_destroy(incoming_events);
-        close(connection_fd);
-        return 1;
-    }
+        status = message_queue_get(master_cblk.message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
 
-    printf("Starting main loop...\n");
-    while(1)
-    {
-        printf("Waiting for new events...\n");
-        message_queue_get(incoming_events, &event, sizeof(event));
-        print_event(&event);
-
-        input_buffer = NULL;
-        input_size = 0;
-        printf("Outgoing event type: ");
-        getline(&input_buffer, &input_size, stdin);
-        sscanf(input_buffer, "%d", (int*)(&event.type));
-        free(input_buffer);
-        input_buffer = NULL;
-        input_size = 0;
-        printf("Outgoing event data: ");
-        getline(&input_buffer, &input_size, stdin);
-        input_buffer[input_size] = '\0';
-
-        chat_event_populate(&event, event.type, 0, input_buffer);
-        print_event(&event);
-        chat_connection_queue_event(connection, &event);
-
-        free(input_buffer);
-        input_buffer = NULL;
-        input_size = 0;
+        dispatch_message(&master_cblk, message);
     }
 
     return 0;

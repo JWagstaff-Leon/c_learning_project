@@ -56,7 +56,8 @@ eSTATUS chat_auth_create(
     }
 
     status = generic_create_thread(chat_auth_thread_entry,
-                                   new_auth_chat_cblk);
+                                   new_auth_chat_cblk,
+                                   NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;

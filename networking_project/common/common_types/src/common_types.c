@@ -21,12 +21,13 @@ void generic_deallocator(
 
 eSTATUS generic_create_thread(
     fGENERIC_THREAD_ENTRY thread_entry,
-    void* arg)
+    void*                 arg,
+    THREAD_ID*            out_new_thread)
 {
     int       status;
-    pthread_t unused;
+    pthread_t new_thread_id;
 
-    status = pthread_create(&unused,
+    status = pthread_create(&new_thread_id,
                             NULL,
                             thread_entry,
                             arg);
@@ -35,6 +36,55 @@ eSTATUS generic_create_thread(
         return STATUS_FAILURE;
     }
 
+    if (NULL != out_new_thread)
+    {
+        *out_new_thread = new_thread_id;
+    }
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS generic_thread_set_kill_mode(
+    eTHREAD_KILL_MODE mode)
+{
+    int cancel_type;
+    int set_status;
+    
+    switch (mode)
+    {
+        case THREAD_KILL_DEFERRED:
+        {
+            cancel_type = PTHREAD_CANCEL_DEFERRED;
+            break;
+        }
+        case THREAD_KILL_INSTANT:
+        {
+            cancel_type = PTHREAD_CANCEL_ASYNCHRONOUS;
+            break;
+        }
+        default:
+        {
+            return STATUS_INVALID_ARG;
+        }
+    }
+
+    set_status = pthread_setcanceltype(cancel_type);
+    if (0 != set_status)
+    {
+        return STATUS_FAILURE;
+    }
+    return STATUS_SUCCESS;
+}
+
+
+eSTATUS generic_kill_thread(
+    THREAD_ID thread_id)
+{
+    int cancel_status = pthread_cancel(thread_id);
+    if (0 != cancel_status)
+    {
+        return STATUS_FAILURE;
+    }
     return STATUS_SUCCESS;
 }
 

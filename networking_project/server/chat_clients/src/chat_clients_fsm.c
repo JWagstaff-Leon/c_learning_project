@@ -107,7 +107,7 @@ static void open_processing(
 
                     status = chat_connection_queue_new_event(relevant_client->connection,
                                                              CHAT_EVENT_USERNAME_REQUEST,
-                                                             CHAT_USER_ID_SERVER,
+                                                             k_server_info,
                                                              k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
                     break;
@@ -120,7 +120,7 @@ static void open_processing(
 
                     status = chat_connection_queue_new_event(relevant_client->connection,
                                                              CHAT_EVENT_PASSWORD_REQUEST,
-                                                             CHAT_USER_ID_SERVER,
+                                                             k_server_info,
                                                              k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
                     break;
@@ -132,12 +132,14 @@ static void open_processing(
                     relevant_client->user_info.id = message->params.auth_event.user_info.id;
                     
                     status = print_string_to_buffer(relevant_client->user_info.name,
-                                                    message->params.auth_event.user_info.name);
+                                                    message->params.auth_event.user_info.name,
+                                                    sizeof(relevant_client->user_info.name),
+                                                    NULL);
                     assert(STATUS_SUCCESS == status);
 
                     status = chat_connection_queue_new_event(relevant_client->connection,
                                                              CHAT_EVENT_AUTHENTICATED,
-                                                             CHAT_USER_ID_SERVER,
+                                                             k_server_info,
                                                              k_auth_strings[auth_step]);
                     assert(STATUS_SUCCESS == status);
 
@@ -147,7 +149,6 @@ static void open_processing(
                     chat_clients_introduce_user(master_cblk_ptr,
                                                 relevant_client_ptr);
                     
-                    }
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:

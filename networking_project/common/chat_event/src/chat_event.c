@@ -20,14 +20,23 @@ eSTATUS chat_event_copy(
 eSTATUS chat_event_populate(
     sCHAT_EVENT*     restrict event,
     eCHAT_EVENT_TYPE          type,
-    CHAT_USER_ID              origin,
+    sCHAT_USER                origin,
     const char*      restrict string)
 {
     eSTATUS status;
     int     printed_length;
 
-    event->type   = type;
-    event->origin = origin;
+    event->type      = type;
+    event->origin.id = origin.id;
+
+    status = print_string_to_buffer(event->origin.name,
+                                    origin.name,
+                                    sizeof(event->origin.name),
+                                    NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
 
     status = print_string_to_buffer((char*)event->data,
                                     string,
@@ -43,6 +52,6 @@ eSTATUS chat_event_populate(
         return STATUS_NO_SPACE;
     }
     event->length = (uint16_t)printed_length;
-    
-    return status;
+
+    return STATUS_SUCCESS;
 }

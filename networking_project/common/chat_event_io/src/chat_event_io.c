@@ -117,8 +117,13 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
         return CHAT_EVENT_IO_RESULT_INCOMPLETE;
     }
 
-    event_buffer->type   = ntohl(reader->event.type);
-    event_buffer->origin = ntohll(reader->event.origin);
+    event_buffer->type = ntohl(reader->event.type);
+
+    event_buffer->origin.id = ntohll(reader->event.origin.id);
+    memcpy(event_buffer->origin.name,
+           &reader->event.origin.name,
+           sizeof(event_buffer->origin.name));
+    
     event_buffer->length = ntohs(reader->event.length);
     memcpy(event_buffer->data,
            &reader->event.data,
