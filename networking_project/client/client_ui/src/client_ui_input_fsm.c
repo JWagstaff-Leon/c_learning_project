@@ -1,9 +1,11 @@
 #include "client_ui.h"
 #include "client_ui_internal.h"
+#include "client_ui_fsm.h"
 
 #include <ncurses.h>
 #include <string.h>
 
+#include "chat_event.h"
 #include "message_queue.h"
 
 
@@ -20,7 +22,10 @@ void* client_ui_input_thread_entry(
 
     bool done = false;
 
-    sCLIENT_UI_MESSAGE message;
+    sCLIENT_UI_MESSAGE    message;
+    sCLIENT_UI_CBACK_DATA cback_data;
+
+    message.type = CLIENT_UI_MESSAGE_TYPE_INPUT_THREAD_CLOSED;
 
     status = generic_thread_set_kill_mode(THREAD_KILL_INSTANT);
     if (STATUS_SUCCESS != status)
@@ -48,9 +53,13 @@ void* client_ui_input_thread_entry(
             }
             case '\n':
             {
+                print_string_to_buffer(cback_data.user_input.buffer,
+                                       input_buffer,
+                                       sizeof(cback_data.user_input.buffer),
+                                       NULL);
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CLIENT_UI_EVENT_USER_INPUT,
-                                            input_buffer);
+                                            &cback_data);
 
                 memset(input_buffer, 0, sizeof(input_buffer));
                 input_position = 0;
@@ -65,7 +74,7 @@ void* client_ui_input_thread_entry(
                 if (input_position > 0)
                 {
                     input_buffer[input_position--] = '\0';
-                    wprintf(master_cblk_ptr->input_window, "\b \b");
+                    wprintw(master_cblk_ptr->input_window, "\b \b");
                     wrefresh(master_cblk_ptr->input_window);
                 }
                 break;

@@ -47,7 +47,7 @@ eSTATUS generic_create_thread(
 eSTATUS generic_thread_set_kill_mode(
     eTHREAD_KILL_MODE mode)
 {
-    int cancel_type;
+    int cancel_type, old_type;
     int set_status;
     
     switch (mode)
@@ -68,7 +68,7 @@ eSTATUS generic_thread_set_kill_mode(
         }
     }
 
-    set_status = pthread_setcanceltype(cancel_type);
+    set_status = pthread_setcanceltype(cancel_type, &old_type);
     if (0 != set_status)
     {
         return STATUS_FAILURE;

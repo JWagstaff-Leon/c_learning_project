@@ -11,6 +11,8 @@ target_include_directories(client_ui
 target_sources(client_ui
   PRIVATE
     src/client_ui.c
+    src/client_ui_fsm.c
+    src/client_ui_input_fsm.c
 )
 
 target_link_libraries(client_ui
@@ -19,6 +21,7 @@ target_link_libraries(client_ui
 
   PRIVATE
     Common::chat_event
+    Common::message_queue
 )
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")

@@ -45,8 +45,8 @@ static void auth_entry_processing(
             }
             status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
                                                      event_type,
-                                                     0,
-                                                     message->params.user_input);
+                                                     master_cblk_ptr->user_info,
+                                                     message->params.user_input.text);
             assert(STATUS_SUCCESS == status);
 
             switch (master_cblk_ptr->state)
@@ -71,7 +71,7 @@ static void auth_entry_processing(
         case CHAT_CLIENT_MESSAGE_INCOMING_EVENT:
         {
             chat_client_handle_incoming_event(master_cblk_ptr,
-                                              *message->params.incoming_event.event);
+                                              &message->params.incoming_event.event);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
@@ -83,7 +83,7 @@ static void auth_entry_processing(
         {
             status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
                                                      CHAT_EVENT_USER_LEAVE,
-                                                     master_cblk_ptr->user_info.id,
+                                                     master_cblk_ptr->user_info,
                                                      "");
             assert(STATUS_SUCCESS == status);
 
@@ -118,7 +118,7 @@ static void auth_verifying_processing(
         {
             status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
                                                      CHAT_EVENT_USER_LEAVE,
-                                                     master_cblk_ptr->user_info.id,
+                                                     master_cblk_ptr->user_info,
                                                      "");
             assert(STATUS_SUCCESS == status);
 
@@ -142,7 +142,7 @@ static void active_processing(
         {
             status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
                                                      CHAT_EVENT_CHAT_MESSAGE,
-                                                     master_cblk_ptr->user_info.id,
+                                                     master_cblk_ptr->user_info,
                                                      message->params.user_input.text);
             assert(STATUS_SUCCESS == status);
             break;
@@ -162,7 +162,7 @@ static void active_processing(
         {
             status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
                                                      CHAT_EVENT_USER_LEAVE,
-                                                     master_cblk_ptr->user_info.id,
+                                                     master_cblk_ptr->user_info,
                                                      "");
             assert(STATUS_SUCCESS == status);
 
@@ -248,7 +248,7 @@ static void fsm_cblk_close(
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
-    master_cblk_ptr->deallocator(master_cblk_ptr);
+    generic_deallocator(master_cblk_ptr);
 
     user_cback(user_arg,
                CHAT_CLIENT_EVENT_CLOSED,

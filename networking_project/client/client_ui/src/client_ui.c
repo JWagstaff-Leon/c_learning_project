@@ -1,5 +1,6 @@
 #include "client_ui.h"
 #include "client_ui_internal.h"
+#include "client_ui_fsm.h"
 
 #include <ctype.h>
 #include <ncurses.h>
@@ -8,6 +9,7 @@
 
 #include "chat_event.h"
 #include "common_types.h"
+#include "message_queue.h"
 
 
 static void init_ncurses(
@@ -39,13 +41,14 @@ eSTATUS client_ui_create(
     fCLIENT_UI_CBACK user_cback,
     void*            user_arg)
 {
-    eSTATUS         status;
-    sCLIENT_UI_CBLK new_client_ui;
+    eSTATUS          status;
+    sCLIENT_UI_CBLK* new_client_ui;
 
     new_client_ui = generic_allocator(sizeof(sCLIENT_UI_CBLK));
     if (NULL == new_client_ui)
     {
-        return STATUS_ALLOC_FAILED;
+        status = STATUS_ALLOC_FAILED;
+        goto fail_alloc_cblk;
     }
     memset(new_client_ui, 0, sizeof(sCLIENT_UI_CBLK));
 
@@ -54,29 +57,65 @@ eSTATUS client_ui_create(
 
     status = generic_create_thread(client_ui_input_thread_entry,
                                    new_client_ui,
-                                   &new_chat_ui->input_thread);
+                                   &new_client_ui->input_thread);
     if (STATUS_SUCCESS != status)
     {
-        generic_deallocator(new_client_ui);
-        return status;
+        goto fail_create_input_thread;
+    }
+
+    status = generic_create_thread(client_ui_thread_entry,
+                                   new_client_ui,
+                                   NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_main_thread;
     }
 
     *out_new_client_ui = new_client_ui;
     return STATUS_SUCCESS;
+
+fail_create_main_thread:
+    generic_kill_thread(new_client_ui->input_thread);
+
+fail_create_input_thread:
+    generic_deallocator(new_client_ui);
+
+fail_alloc_cblk:
+    return status;
 }
 
 
-eSTATUS client_ui_post_local_event(
-
-)
+eSTATUS client_ui_post_event(
+    CLIENT_UI          client_ui,
+    const sCHAT_EVENT* event)
 {
+    eSTATUS status;
 
-}
+    sCLIENT_UI_CBLK*   master_cblk_ptr;
+    sCLIENT_UI_MESSAGE message;
 
+    if (NULL == client_ui)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    master_cblk_ptr = (sCLIENT_UI_CBLK*)client_ui;
 
-eSTATUS client_ui_post_foreign_event(
+    message.type = CLIENT_UI_MESSAGE_TYPE_POST_EVENT;
 
-)
-{
+    status = chat_event_copy(&message.params.post_event.event,
+                             event);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
 
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return STATUS_SUCCESS;
 }

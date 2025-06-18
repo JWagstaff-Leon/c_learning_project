@@ -15,18 +15,13 @@
 #include "message_queue.h"
 
 
-static eSTATUS init_cblk(
+static void init_cblk(
     sCHAT_CLIENT_CBLK* master_cblk_ptr)
 {
-    assert(NULL != master_cblk_ptr);
-
     memset(master_cblk_ptr, 0, sizeof(master_cblk_ptr));
 
-    master_cblk_ptr->state                = CHAT_CLIENT_STATE_NOT_CONNECTED;
-    master_cblk_ptr->server_connection.fd = -1;
-    master_cblk_ptr->send_state           = CHAT_CLIENT_SUBFSM_SEND_STATE_READY;
-
-    return STATUS_SUCCESS;
+    master_cblk_ptr->state     = CHAT_CLIENT_STATE_CLOSED;
+    master_cblk_ptr->server_fd = -1;
 }
 
 
@@ -48,12 +43,7 @@ eSTATUS chat_client_create(
         return STATUS_ALLOC_FAILED;
     }
 
-    status = init_cblk(new_master_cblk_ptr);
-    if (STATUS_SUCCESS != status)
-    {
-        generic_deallocator(new_master_cblk_ptr);
-        return status;
-    }
+    init_cblk(new_master_cblk_ptr);
 
     new_master_cblk_ptr->user_cback = user_cback;
     new_master_cblk_ptr->user_arg   = user_arg;
@@ -85,7 +75,7 @@ eSTATUS chat_client_open(
     int connection_fd;
     int stdlib_status;
 
-    struct addrinfo hints, *address;
+    struct addrinfo hints, *addrinfo;
 
     if (NULL == client)
     {
@@ -101,7 +91,7 @@ eSTATUS chat_client_open(
     }
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-    if (master_cblk_ptr->state > CHAT_CLIENT_STATE_NOT_CONNECTED)
+    if (master_cblk_ptr->state > CHAT_CLIENT_STATE_CLOSED)
     {
         return STATUS_INVALID_STATE;
     }
@@ -110,20 +100,20 @@ eSTATUS chat_client_open(
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    stdlib_status = getaddrinfo(address, port, &hints, &address);
+    stdlib_status = getaddrinfo(address, port, &hints, &addrinfo);
     if (0 != stdlib_status)
     {
         return STATUS_FAILURE;
     }
 
-    connection_fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+    connection_fd = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
     if (connection_fd < 0)
     {
         status = STATUS_FAILURE;
         goto func_exit;
     }
 
-    stdlib_status = connect(connection_fd, address->ai_addr, address->ai_addrlen);
+    stdlib_status = connect(connection_fd, addrinfo->ai_addr, addrinfo->ai_addrlen);
     if (0 != stdlib_status)
     {
         status = STATUS_FAILURE;
@@ -154,7 +144,7 @@ eSTATUS chat_client_open(
     status = STATUS_SUCCESS;
 
 func_exit:
-    freeaddrinfo(address);
+    freeaddrinfo(addrinfo);
     return status;
 }
 

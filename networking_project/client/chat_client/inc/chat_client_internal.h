@@ -44,7 +44,7 @@ typedef struct
     int             server_fd;
     CHAT_CONNECTION server_connection;
 
-    CHAT_USER user_info;
+    sCHAT_USER user_info;
 } sCHAT_CLIENT_CBLK;
 
 
@@ -62,7 +62,7 @@ void chat_client_handle_incoming_event(
 void chat_client_connection_cback(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
-    const sCHAT_CONNECTION_CBACK_DATA* data)
+    const sCHAT_CONNECTION_CBACK_DATA* data);
 
 
 #ifdef __cplusplus

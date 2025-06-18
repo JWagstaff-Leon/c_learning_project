@@ -8,6 +8,7 @@ extern "C" {
 
 #include <stdint.h>
 
+#include "chat_event.h"
 #include "common_types.h"
 
 
@@ -19,8 +20,7 @@ extern "C" {
 
 typedef enum
 {
-    CHAT_CLIENT_EVENT_INCOMING_EVENT = 1 << 0,
-    CHAT_CLIENT_EVENT_OUTGOING_EVENT = 1 << 1,
+    CHAT_CLIENT_EVENT_PRINT_EVENT = 1 << 0,
 
     CHAT_CLIENT_EVENT_CLOSED = 1 << 31
 } bCHAT_CLIENT_EVENT_TYPE;
@@ -29,19 +29,19 @@ typedef enum
 typedef struct
 {
     sCHAT_EVENT event;
-} sCHAT_CLIENT_CBACK_DATA_INCOMING_EVENT;
+} sCHAT_CLIENT_CBACK_DATA_PRINT_EVENT;
 
 
 typedef struct
 {
-    sCHAT_CLIENT_CBACK_DATA_INCOMING_EVENT incoming_event;
+    sCHAT_CLIENT_CBACK_DATA_PRINT_EVENT print_event;
 } sCHAT_CLIENT_CBACK_DATA;
 
 
 typedef void (*fCHAT_CLIENT_USER_CBACK) (
-    void*                    user_arg,
-    bCHAT_CLIENT_EVENT_TYPE  event,
-    sCHAT_CLIENT_CBACK_DATA* data);
+    void*                          user_arg,
+    bCHAT_CLIENT_EVENT_TYPE        event,
+    const sCHAT_CLIENT_CBACK_DATA* data);
 
 
 typedef void* CHAT_CLIENT;
@@ -61,7 +61,7 @@ eSTATUS chat_client_open(
     const char* port);
 
 
-eSTATUS chat_client_send_text(
+eSTATUS chat_client_user_input(
     CHAT_CLIENT client,
     const char* text);
 

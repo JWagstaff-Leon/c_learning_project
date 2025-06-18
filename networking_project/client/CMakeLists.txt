@@ -5,12 +5,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_compile_definitions(_GNU_SOURCE)
 
+add_subdirectory(chat_client ${CMAKE_BINARY_DIR}/chat_client)
+add_subdirectory(client_ui ${CMAKE_BINARY_DIR}/client_ui)
 add_subdirectory(../common ${CMAKE_BINARY_DIR}/common)
 
 add_executable(client)
 
 target_link_libraries(client
   PRIVATE
+    chat_client
+    client_ui
+  
     Common::chat_connection
     Common::chat_event
     Common::chat_event_io
@@ -22,12 +27,17 @@ target_link_libraries(client
 
 target_include_directories(client
   PRIVATE
-    src
+    inc
 )
 
 target_sources(client
   PRIVATE
     client.c
+)
+
+target_link_options(client
+  PUBLIC
+    -lncurses
 )
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")

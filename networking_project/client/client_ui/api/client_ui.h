@@ -6,6 +6,7 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include "chat_event.h"
 #include "common_types.h"
 
 
@@ -25,14 +26,20 @@ typedef enum
 
 typedef struct
 {
+    char buffer[CHAT_EVENT_MAX_DATA_SIZE];
+} sCLIENT_UI_CBACK_DATA_USER_INPUT;
 
+
+typedef struct
+{
+    sCLIENT_UI_CBACK_DATA_USER_INPUT user_input;
 } sCLIENT_UI_CBACK_DATA;
 
 
 typedef void (*fCLIENT_UI_CBACK)(
-    void*                 user_arg,
-    bCLIENT_UI_EVENT_TYPE event_mask,
-    sCLIENT_UI_CBACK_DATA data);
+    void*                        user_arg,
+    bCLIENT_UI_EVENT_TYPE        event_mask,
+    const sCLIENT_UI_CBACK_DATA* data);
 
 
 typedef void* CLIENT_UI;
@@ -44,6 +51,11 @@ eSTATUS client_ui_create(
     CLIENT_UI*       out_new_client_ui,
     fCLIENT_UI_CBACK user_cback,
     void*            user_arg);
+
+
+eSTATUS client_ui_post_event(
+    CLIENT_UI          client_ui,
+    const sCHAT_EVENT* event);
 
 
 #ifdef __cplusplus

@@ -39,11 +39,11 @@ static void handler_chat_message(
     {
         case CHAT_CLIENT_STATE_ACTIVE:
         {
-            status = chat_event_copy(&cback_data.incoming_event.event, event);
+            status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_INCOMING_EVENT,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
             break;
         }
@@ -63,12 +63,12 @@ static void handler_username_entry(
         case CHAT_CLIENT_STATE_INIT:
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         {
-            status = chat_event_copy(&cback_data.incoming_event.event, event);
+            status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_USERNAME_ENTRY;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_INCOMING_EVENT,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
             break;
         }
@@ -89,12 +89,12 @@ static void handler_password_entry(
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         case CHAT_CLIENT_STATE_PASSWORD_VERIFYING:
         {
-            status = chat_event_copy(&cback_data.incoming_event.event, event);
+            status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_PASSWORD_ENTRY;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_INCOMING_EVENT,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
             break;
         }
@@ -115,13 +115,13 @@ static void handler_authenticated(
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         case CHAT_CLIENT_STATE_PASSWORD_VERIFYING:
         {
-            status = chat_event_copy(&cback_data.incoming_event.event, event);
+            status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_ACTIVE;
-            master_cblk_ptr->user_info.id = event->origin;
+            master_cblk_ptr->user_info.id = event->origin.id;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_INCOMING_EVENT,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
             break;
         }
@@ -140,11 +140,11 @@ static void handler_active_message(
     {
         case CHAT_CLIENT_STATE_ACTIVE:
         {
-            status = chat_event_copy(&cback_data.incoming_event.event, event);
+            status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                        CHAT_CLIENT_EVENT_INCOMING_EVENT,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
 
             break;
