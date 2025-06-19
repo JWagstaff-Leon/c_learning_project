@@ -68,6 +68,9 @@ static void open_processing(
             }
             else
             {
+                // REVIEW master_cblk_ptr->client_list_tail->next should be NULL; should this be left in for sanity?
+                shared_ptr_release(SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next));
+
                 SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next) = shared_ptr_share(relevant_client_ptr);
                 relevant_client->prev                                              = master_cblk_ptr->client_list_tail;
                 master_cblk_ptr->client_list_tail                                  = shared_ptr_share(relevant_client_ptr);
@@ -173,13 +176,14 @@ static void open_processing(
             chat_clients_process_event(master_cblk_ptr,
                                        message->params.incoming_event.client_ptr,
                                        &message->params.incoming_event.event);
+            shared_ptr_release(message->params.incoming_event.client_ptr);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            chat_clients_client_close(master_cblk_ptr,
-                                      message->params.client_closed.client_ptr);
-            shared_ptr_release(message->params.client_closed.client_ptr); // Release the reference shared with the connection
+            status =chat_clients_client_close(master_cblk_ptr,
+                                              message->params.client_closed.client_ptr);
+            assert(STATUS_SUCCESS == status);
             break;
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
@@ -219,8 +223,9 @@ static void closing_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            chat_clients_client_close(master_cblk_ptr,
-                                      message->params.client_closed.client_ptr);
+            status = chat_clients_client_close(master_cblk_ptr,
+                                               message->params.client_closed.client_ptr);
+            assert(STATUS_SUCCESS == status);
 
             if (NULL == master_cblk_ptr->client_list_head)
             {

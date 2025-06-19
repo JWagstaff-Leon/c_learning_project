@@ -145,7 +145,7 @@ static void handler_username_submit(
             credentials_ptr->username_size = new_username_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client_ptr;
+            cback_data.start_auth_transaction.client_ptr                 = shared_ptr_share(source_client_ptr);
             cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(source_client->auth_credentials_ptr);
 
             source_client->state = CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING;
@@ -231,7 +231,7 @@ static void handler_password_submit(
             credentials_ptr->password_size = new_password_size;
 
             cback_data.start_auth_transaction.auth_transaction_container = &source_client->auth_transaction;
-            cback_data.start_auth_transaction.client_ptr                 = source_client_ptr;
+            cback_data.start_auth_transaction.client_ptr                 = shared_ptr_share(source_client_ptr);
             cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(source_client->auth_credentials_ptr);
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
@@ -351,7 +351,7 @@ eSTATUS chat_clients_introduce_user(
         {
             continue;
         }
-    
+
         if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, state))
         {
             status = chat_connection_queue_event(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection),
@@ -409,7 +409,6 @@ eSTATUS chat_clients_client_create(
 fail_create_connection:
     shared_ptr_release(new_client_ptr); // Release the reference shared with the connection
     shared_ptr_release(new_client->auth_credentials_ptr);
-    new_client->auth_credentials_ptr = NULL;
 
 fail_alloc_credentials:
     shared_ptr_release(new_client_ptr);
@@ -427,22 +426,30 @@ eSTATUS chat_clients_client_close(
 
     if (NULL != client->prev && NULL != SP_POINTEE(client->prev))
     {
-        SP_PROPERTY(client->prev, sCHAT_CLIENT, next) = client->next;
+        SP_PROPERTY(client->prev, sCHAT_CLIENT, next) = shared_ptr_share(client->next);
     }
     if (NULL != client->next && NULL != SP_POINTEE(client->next))
     {
-        SP_PROPERTY(client->next, sCHAT_CLIENT, prev) = client->prev;
+        SP_PROPERTY(client->next, sCHAT_CLIENT, prev) = shared_ptr_share(client->prev);
     }
-    if (SP_POINTEE(master_cblk_ptr->client_list_head) == client_ptr)
+    if (SP_POINTEE(master_cblk_ptr->client_list_head) == client)
     {
-        master_cblk_ptr->client_list_head = shared_ptr_share(client->next);
-        shared_ptr_release(client_ptr);
+        shared_ptr_release(master_cblk_ptr->client_list_head);
+        master_cblk_ptr->client_list_head = client->next;
+        client->next = NULL;
     }
-    if (SP_POINTEE(master_cblk_ptr->client_list_tail) == client_ptr)
+    if (SP_POINTEE(master_cblk_ptr->client_list_tail) == client)
     {
-        master_cblk_ptr->client_list_tail = shared_ptr_share(client->prev);
-        shared_ptr_release(client_ptr);
+        shared_ptr_release(master_cblk_ptr->client_list_tail);
+        master_cblk_ptr->client_list_tail = client->prev;
+        client->prev = NULL;
     }
+
+    shared_ptr_release(client->prev);
+    shared_ptr_release(client->next);
+    
+    shared_ptr_release(client_ptr);
+    return STATUS_SUCCESS;
 }
 
 

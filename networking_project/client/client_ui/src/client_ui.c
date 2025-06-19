@@ -51,9 +51,20 @@ eSTATUS client_ui_create(
         goto fail_alloc_cblk;
     }
     memset(new_client_ui, 0, sizeof(sCLIENT_UI_CBLK));
+    new_client_ui->user_cback = user_cback;
+    new_client_ui->user_arg   = user_arg;
 
     init_ncurses(&new_client_ui->input_window,
                  &new_client_ui->messages_window);
+
+    status = message_queue_create(&new_client_ui->message_queue,
+                                  CLIENT_UI_MESSAGE_QUEUE_SIZE,
+                                  sizeof(sCLIENT_UI_MESSAGE));
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_message_queue;
+    }
+
 
     status = generic_create_thread(client_ui_input_thread_entry,
                                    new_client_ui,
@@ -78,6 +89,9 @@ fail_create_main_thread:
     generic_kill_thread(new_client_ui->input_thread);
 
 fail_create_input_thread:
+    message_queue_destroy(new_client_ui->message_queue);
+
+fail_create_message_queue:
     generic_deallocator(new_client_ui);
 
 fail_alloc_cblk:

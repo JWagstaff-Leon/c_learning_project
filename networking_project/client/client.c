@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
                                   sizeof(sCLIENT_MAIN_MESSAGE));
     if (STATUS_SUCCESS != status)
     {
-        fprintf(stderr, "Unable to open client\n");
+        fprintf(stderr, "Unable to create message queue\n");
         retcode = 1;
         goto fail_create_message_queue;
     }
@@ -175,8 +175,15 @@ int main(int argc, char *argv[])
         retcode = 1;
         goto fail_create_client;
     }
-    chat_client_open(master_cblk.client,
-                     "127.0.0.1", "8080");
+    
+    status = chat_client_open(master_cblk.client,
+                              "127.0.0.1", "8080");
+    if (STATUS_SUCCESS != status)
+    {
+        fprintf(stderr, "Unable to open client\n");
+        retcode = 1;
+        goto fail_open_client;
+    }
 
     while(master_cblk.open)
     {
@@ -189,6 +196,9 @@ int main(int argc, char *argv[])
     }
 
     retcode = 0;
+
+fail_open_client:
+    chat_client_close(master_cblk.client);
 
 fail_create_client:
     // TODO make client kill

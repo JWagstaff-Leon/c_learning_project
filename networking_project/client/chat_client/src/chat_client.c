@@ -18,7 +18,7 @@
 static void init_cblk(
     sCHAT_CLIENT_CBLK* master_cblk_ptr)
 {
-    memset(master_cblk_ptr, 0, sizeof(master_cblk_ptr));
+    memset(master_cblk_ptr, 0, sizeof(sCHAT_CLIENT_CBLK));
 
     master_cblk_ptr->state     = CHAT_CLIENT_STATE_CLOSED;
     master_cblk_ptr->server_fd = -1;
@@ -120,7 +120,7 @@ eSTATUS chat_client_open(
         goto func_exit;
     }
 
-    status = chat_connection_create(master_cblk_ptr->server_connection,
+    status = chat_connection_create(&master_cblk_ptr->server_connection,
                                     chat_client_connection_cback,
                                     master_cblk_ptr,
                                     connection_fd);
@@ -130,7 +130,7 @@ eSTATUS chat_client_open(
     }
 
     master_cblk_ptr->server_fd = connection_fd;
-    master_cblk_ptr->state     = CHAT_CLIENT_STATE_USERNAME_ENTRY;
+    master_cblk_ptr->state     = CHAT_CLIENT_STATE_INIT;
 
     status = generic_create_thread(chat_client_thread_entry,
                                    master_cblk_ptr,

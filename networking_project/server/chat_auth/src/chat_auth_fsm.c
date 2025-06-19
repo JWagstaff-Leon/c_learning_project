@@ -43,6 +43,9 @@ static void open_processing(
             {
                 cback_data.auth_result.result           = CHAT_AUTH_RESULT_USERNAME_REQUIRED;
                 cback_data.auth_result.consumer_arg_ptr = auth_transaction->consumer_arg_ptr;
+                auth_transaction->consumer_arg_ptr      = NULL;
+
+                auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
 
                 master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                             CHAT_AUTH_EVENT_AUTH_RESULT,
@@ -64,6 +67,7 @@ static void open_processing(
 
             cback_data.auth_result.result           = auth_result;
             cback_data.auth_result.consumer_arg_ptr = auth_transaction->consumer_arg_ptr;
+            auth_transaction->consumer_arg_ptr      = NULL;
 
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_AUTH_EVENT_AUTH_RESULT,

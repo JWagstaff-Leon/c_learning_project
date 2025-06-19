@@ -14,6 +14,8 @@ extern "C" {
 
 // Constants -------------------------------------------------------------------
 
+#define CLIENT_UI_MESSAGE_QUEUE_SIZE 32
+
 // The intersection of isprint and isspace, excepting '\n'
 #define input_case 0x09: \
               case 0x0B: \

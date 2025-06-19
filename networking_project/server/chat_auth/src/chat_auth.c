@@ -115,6 +115,8 @@ eSTATUS chat_auth_submit_credentials(
 
     }
 
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
+
     new_auth_transaction->consumer_arg_ptr = consumer_arg_ptr;
     new_auth_transaction->state            = CHAT_AUTH_TRANSACTION_STATE_PROCESSING;
     pthread_mutex_init(&new_auth_transaction->mutex, NULL);
@@ -123,8 +125,6 @@ eSTATUS chat_auth_submit_credentials(
 
     message.params.process_credentials.credentials_ptr  = credentials_ptr;
     message.params.process_credentials.auth_transaction = new_auth_transaction;
-
-    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

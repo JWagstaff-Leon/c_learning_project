@@ -23,7 +23,7 @@ void chat_clients_connection_cback(
     sCHAT_CLIENTS_MESSAGE message;
 
     assert(NULL != user_arg);
-    client_ptr = (SHARED_PTR)user_arg;
+    client_ptr = shared_ptr_share((SHARED_PTR)user_arg);
 
     master_cblk_ptr = SP_PROPERTY(client_ptr, sCHAT_CLIENT, master_cblk_ptr);
     assert(NULL != master_cblk_ptr);

@@ -14,6 +14,43 @@
 #include "common_types.h"
 
 
+static void init_processing(
+    sCHAT_CLIENT_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENT_MESSAGE* message)
+{
+    eSTATUS              status;
+    sCHAT_CLIENT_MESSAGE new_message;
+
+    eCHAT_EVENT_TYPE event_type;
+
+    switch (message->type)
+    {
+        case CHAT_CLIENT_MESSAGE_INCOMING_EVENT:
+        {
+            chat_client_handle_incoming_event(master_cblk_ptr,
+                                              &message->params.incoming_event.event);
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
+        {
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CLOSE:
+        {
+            status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
+                                                     CHAT_EVENT_USER_LEAVE,
+                                                     master_cblk_ptr->user_info,
+                                                     "");
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            break;
+        }
+    }
+}
+
+
 static void auth_entry_processing(
     sCHAT_CLIENT_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENT_MESSAGE* message)
@@ -32,10 +69,12 @@ static void auth_entry_processing(
                 case CHAT_CLIENT_STATE_USERNAME_ENTRY:
                 {
                     event_type = CHAT_EVENT_USERNAME_SUBMIT;
+                    break;
                 }
                 case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
                 {
                     event_type = CHAT_EVENT_PASSWORD_SUBMIT;
+                    break;
                 }
                 default:
                 {
@@ -54,10 +93,12 @@ static void auth_entry_processing(
                 case CHAT_CLIENT_STATE_USERNAME_ENTRY:
                 {
                     master_cblk_ptr->state = CHAT_CLIENT_STATE_USERNAME_VERIFYING;
+                    break;
                 }
                 case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
                 {
                     master_cblk_ptr->state = CHAT_CLIENT_STATE_PASSWORD_VERIFYING;
+                    break;
                 }
                 default:
                 {
@@ -65,7 +106,7 @@ static void auth_entry_processing(
                     break;
                 }
             }
-            
+
             break;
         }
         case CHAT_CLIENT_MESSAGE_INCOMING_EVENT:
@@ -203,6 +244,10 @@ static void dispatch_message(
 
     switch (master_cblk_ptr->state)
     {
+        case CHAT_CLIENT_STATE_INIT:
+        {
+            init_processing(master_cblk_ptr, message);
+        }
         case CHAT_CLIENT_STATE_USERNAME_ENTRY:
         case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
         {

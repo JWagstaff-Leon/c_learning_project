@@ -40,7 +40,7 @@ static void open_processing(
         {
             status = chat_auth_submit_credentials(master_cblk_ptr->auth,
                                                   message->params.clients.start_auth_transaction.credentials_ptr,
-                                                  message->params.clients.start_auth_transaction.client_ptr,
+                                                  shared_ptr_share(message->params.clients.start_auth_transaction.client_ptr),
                                                   message->params.clients.start_auth_transaction.auth_transaction_container);
             if (STATUS_SUCCESS != status)
             {
@@ -50,6 +50,8 @@ static void open_processing(
                                                  message->params.clients.start_auth_transaction.client_ptr);
                 assert(STATUS_SUCCESS == status);
             }
+
+            shared_ptr_release(message->params.clients.start_auth_transaction.client_ptr);
             break;
         }
         case CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION:

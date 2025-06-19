@@ -146,4 +146,8 @@ void* client_ui_thread_entry(
 
         dispatch_message(master_cblk_ptr, &message);
     }
+
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CLIENT_UI_EVENT_CLOSED,
+                                NULL);
 }
