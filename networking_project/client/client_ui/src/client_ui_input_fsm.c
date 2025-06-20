@@ -47,7 +47,7 @@ void* client_ui_input_thread_entry(
             {
                 if (input_position < (sizeof(input_buffer) - 1))
                 {
-                    input_buffer[input_position++] == input_char;
+                    input_buffer[input_position++] = input_char;
                     wprintw(master_cblk_ptr->input_window, "%c", input_char);
                     wrefresh(master_cblk_ptr->input_window);
                 }
@@ -57,10 +57,11 @@ void* client_ui_input_thread_entry(
             {
                 if (input_position > 0)
                 {
-                    print_string_to_buffer(cback_data.user_input.buffer,
-                                        input_buffer,
-                                        sizeof(cback_data.user_input.buffer),
-                                        NULL);
+                    status = print_string_to_buffer(cback_data.user_input.buffer,
+                                                    input_buffer,
+                                                    sizeof(cback_data.user_input.buffer),
+                                                    NULL);
+                    assert(STATUS_SUCCESS == status);
                     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                                 CLIENT_UI_EVENT_USER_INPUT,
                                                 &cback_data);

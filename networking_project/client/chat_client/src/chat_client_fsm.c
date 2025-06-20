@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "chat_event.h"
 #include "chat_event_io.h"
 #include "common_types.h"
 
@@ -69,6 +70,12 @@ static void auth_entry_processing(
                 case CHAT_CLIENT_STATE_USERNAME_ENTRY:
                 {
                     event_type = CHAT_EVENT_USERNAME_SUBMIT;
+                    
+                    status = print_string_to_buffer(master_cblk_ptr->user_info.name,
+                                                    message->params.user_input.text,
+                                                    sizeof(master_cblk_ptr->user_info.name),
+                                                    NULL);
+                    assert(STATUS_SUCCESS == status);
                     break;
                 }
                 case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
@@ -177,15 +184,25 @@ static void active_processing(
     eSTATUS              status;
     sCHAT_CLIENT_MESSAGE new_message;
 
+    sCHAT_CLIENT_CBACK_DATA cback_data;
+
     switch (message->type)
     {
         case CHAT_CLIENT_MESSAGE_USER_INPUT:
         {
-            status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
-                                                     CHAT_EVENT_CHAT_MESSAGE,
-                                                     master_cblk_ptr->user_info,
-                                                     message->params.user_input.text);
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CHAT_MESSAGE,
+                                         master_cblk_ptr->user_info,
+                                         message->params.user_input.text);
             assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_queue_event(master_cblk_ptr->server_connection,
+                                                 &cback_data.print_event.event);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_INCOMING_EVENT:
