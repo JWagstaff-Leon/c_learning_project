@@ -68,8 +68,7 @@ static void open_processing(
             }
             else
             {
-                // REVIEW master_cblk_ptr->client_list_tail->next should be NULL; should this be left in for sanity?
-                shared_ptr_release(SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next));
+                assert(NULL == SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next));
 
                 SP_PROPERTY(master_cblk_ptr->client_list_tail, sCHAT_CLIENT, next) = shared_ptr_share(relevant_client_ptr);
                 relevant_client->prev                                              = master_cblk_ptr->client_list_tail;

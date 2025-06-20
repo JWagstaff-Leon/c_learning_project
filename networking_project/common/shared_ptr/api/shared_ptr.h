@@ -33,32 +33,50 @@ typedef void (*fSHARED_PTR_CLEANUP)(
     void* pointee);
 
 
+#ifdef SHARED_PTR_DEBUG
 #define shared_ptr_create(size, cleanup) shared_ptr_create_real (size, cleanup, __FILE__, __func__, __LINE__)
 #define shared_ptr_share(ptr) shared_ptr_share_real (ptr, __FILE__, __func__, __LINE__)
 #define shared_ptr_release(ptr) shared_ptr_release_real(ptr, __FILE__, __func__, __LINE__)
+#endif
 
 // Functions -------------------------------------------------------------------
 
+#ifdef SHARED_PTR_DEBUG
 SHARED_PTR shared_ptr_create_real(
     size_t              memory_size,
     fSHARED_PTR_CLEANUP cleanup_cback,
     const char* file,
     const char* func,
     unsigned int line);
+#else
+SHARED_PTR shared_ptr_create(
+    size_t              memory_size,
+    fSHARED_PTR_CLEANUP cleanup_cback);
+#endif
 
 
+#ifdef SHARED_PTR_DEBUG
 SHARED_PTR shared_ptr_share_real(
     SHARED_PTR shared_ptr,
     const char* file,
     const char* func,
     unsigned int line);
+#else
+SHARED_PTR shared_ptr_share(
+    SHARED_PTR shared_ptr);
+#endif
 
 
+#ifdef SHARED_PTR_DEBUG
 void shared_ptr_release_real(
     SHARED_PTR shared_ptr,
     const char* file,
     const char* func,
     unsigned int line);
+#else
+void shared_ptr_release(
+    SHARED_PTR shared_ptr);
+#endif
 
 
 #ifdef __cplusplus

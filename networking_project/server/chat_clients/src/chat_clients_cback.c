@@ -52,5 +52,7 @@ void chat_clients_connection_cback(
                                    &message,
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
+
+        shared_ptr_release(client_ptr); // Release the reference owned by the connection
     }
 }

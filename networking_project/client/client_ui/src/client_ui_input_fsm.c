@@ -10,7 +10,6 @@
 #include "message_queue.h"
 
 
-#include <stdio.h>
 void* client_ui_input_thread_entry(
     void* arg)
 {
@@ -39,16 +38,13 @@ void* client_ui_input_thread_entry(
         return NULL;
     }
 
-    int proc = 0;
     while (!done)
     {
         input_char = wgetch(master_cblk_ptr->input_window);
-        fprintf(stderr, "got char: %d\n", input_char);
         switch (input_char)
         {
             case input_case:
             {
-                fprintf(stderr, "%6d - input case.\n", proc++);
                 if (input_position < (sizeof(input_buffer) - 1))
                 {
                     input_buffer[input_position++] == input_char;
@@ -61,7 +57,6 @@ void* client_ui_input_thread_entry(
             {
                 if (input_position > 0)
                 {
-                    fprintf(stderr, "%6d - newline case.\n", proc++);
                     print_string_to_buffer(cback_data.user_input.buffer,
                                         input_buffer,
                                         sizeof(cback_data.user_input.buffer),
@@ -80,7 +75,6 @@ void* client_ui_input_thread_entry(
             }
             case backspace_case:
             {
-                fprintf(stderr, "%6d - backspace case.\n", proc++);
                 if (input_position > 0)
                 {
                     input_buffer[input_position--] = '\0';
@@ -91,7 +85,6 @@ void* client_ui_input_thread_entry(
             }
             case ctrl_c_case:
             {
-                fprintf(stderr, "%6d - ctrl c case.\n", proc++);
                 done = true;
                 break;
             }

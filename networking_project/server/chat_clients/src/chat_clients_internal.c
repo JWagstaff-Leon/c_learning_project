@@ -426,10 +426,12 @@ eSTATUS chat_clients_client_close(
 
     if (NULL != client->prev && NULL != SP_POINTEE(client->prev))
     {
+        shared_ptr_release(SP_PROPERTY(client->prev, sCHAT_CLIENT, next));
         SP_PROPERTY(client->prev, sCHAT_CLIENT, next) = shared_ptr_share(client->next);
     }
     if (NULL != client->next && NULL != SP_POINTEE(client->next))
     {
+        shared_ptr_release(SP_PROPERTY(client->next, sCHAT_CLIENT, prev));
         SP_PROPERTY(client->next, sCHAT_CLIENT, prev) = shared_ptr_share(client->prev);
     }
     if (SP_POINTEE(master_cblk_ptr->client_list_head) == client)
@@ -445,9 +447,6 @@ eSTATUS chat_clients_client_close(
         client->prev = NULL;
     }
 
-    shared_ptr_release(client->prev);
-    shared_ptr_release(client->next);
-    
     shared_ptr_release(client_ptr);
     return STATUS_SUCCESS;
 }
