@@ -73,8 +73,7 @@ eSTATUS chat_auth_sql_init_database(
 
 eSTATUS chat_auth_sql_create_user(
     sqlite3*                      database,
-    const sCHAT_USER_CREDENTIALS* credentials,
-    CHAT_USER_ID                  id);
+    const sCHAT_USER_CREDENTIALS* credentials);
 
 
 eCHAT_AUTH_RESULT chat_auth_sql_auth_user(

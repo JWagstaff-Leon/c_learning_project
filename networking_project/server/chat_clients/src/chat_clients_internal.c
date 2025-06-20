@@ -260,9 +260,15 @@ static void handler_user_leave(
 {
     eSTATUS status;
 
-    SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_DISCONNECTING;
+    if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state))
+    {
+        SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_DISCONNECTING_FROM_ACTIVE;
+    }
+    else
+    {
+        SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, state) = CHAT_CLIENT_STATE_DISCONNECTING;
+    }
 
-    // TODO broadcast user leave
     status = chat_connection_close(SP_PROPERTY(source_client_ptr, sCHAT_CLIENT, connection));
     assert(STATUS_SUCCESS == status);
 }
@@ -347,7 +353,50 @@ eSTATUS chat_clients_introduce_user(
          NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
          relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
     {
-        if (relevant_client_ptr == relevant_client_ptr)
+        if (client_ptr == relevant_client_ptr)
+        {
+            continue;
+        }
+
+        if (CHAT_CLIENT_STATE_ACTIVE == SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, state))
+        {
+            status = chat_connection_queue_event(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection),
+                                                 &outgoing_event);
+        }
+        assert(STATUS_SUCCESS == status);
+    }
+}
+
+
+eSTATUS chat_clients_outroduce_user(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          client_ptr)
+{
+    eSTATUS status;
+
+    SHARED_PTR  relevant_client_ptr;
+    sCHAT_EVENT outgoing_event;
+
+    if (CHAT_CLIENT_STATE_ACTIVE                    != SP_PROPERTY(client_ptr, sCHAT_CLIENT, state) &&
+        CHAT_CLIENT_STATE_DISCONNECTING_FROM_ACTIVE != SP_PROPERTY(client_ptr, sCHAT_CLIENT, state))
+    {
+        return STATUS_SUCCESS;
+    }
+
+    status = chat_event_populate(&outgoing_event,
+                                 CHAT_EVENT_USER_LEAVE,
+                                 k_server_info,
+                                 SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.name));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    for (relevant_client_ptr = master_cblk_ptr->client_list_head;
+         NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
+         relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
+    {
+        if (client_ptr == relevant_client_ptr)
         {
             continue;
         }

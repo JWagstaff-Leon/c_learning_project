@@ -10,6 +10,7 @@
 #include "shared_ptr.h"
 
 
+#include <stdio.h>
 void chat_clients_connection_cback(
     void*                              user_arg,
     bCHAT_CONNECTION_EVENT_TYPE        event_mask,
@@ -36,6 +37,22 @@ void chat_clients_connection_cback(
         status = chat_event_copy(&message.params.incoming_event.event,
                                  &data->incoming_event.event);
         assert(STATUS_SUCCESS == status);
+fprintf(stderr, "Incoming event from client %p->%p (%s)\n"
+                "\t╔═ Event ════════════════════════\n"
+                "\t║\n"
+                "\t╠══ Type: %d\n"
+                "\t╠══ Origin: %s\n"
+                "\t╠══ Length: %u\n"
+                "\t╠══ Data: %s\n"
+                "\t║\n"
+                "\t╚════════════════════════════════\n",
+                client_ptr,
+                SP_POINTEE(client_ptr),
+                SP_PROPERTY(client_ptr, sCHAT_CLIENT, user_info.name),
+                message.params.incoming_event.event.type,
+                message.params.incoming_event.event.origin.name,
+                message.params.incoming_event.event.length,
+                message.params.incoming_event.event.data);
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,

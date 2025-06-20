@@ -14,21 +14,20 @@
 
 static const char sql_init[] =
     "CREATE TABLE IF NOT EXISTS users("                                        "\n"
-        "id INT64 NOT NULL primary key,"                                       "\n"
         "username varchar(" mSTRINGIFY(CHAT_USER_MAX_NAME_SIZE) ") NOT NULL,"  "\n"
         "password varchar(" mSTRINGIFY(CHAT_EVENT_MAX_DATA_SIZE) ") NOT NULL"  "\n"
     ");";
 
 
 static const char sql_create_user[] =
-    "INSERT INTO users"                  "\n"
-        "(id, username, password)"       "\n"
-        "VALUES"                         "\n"
-        "(:id, :username, :password);";
+    "INSERT INTO users"             "\n"
+        "(username, password)"      "\n"
+        "VALUES"                    "\n"
+        "(:username, :password);";
 
 
 static const char sql_select_first_user[] =
-    "SELECT id, username, password"   "\n"
+    "SELECT username, password"       "\n"
         "FROM users"                  "\n"
         "WHERE username = :username"  "\n"
         "LIMIT 1;";
@@ -51,8 +50,7 @@ eSTATUS chat_auth_sql_init_database(
 
 eSTATUS chat_auth_sql_create_user(
     sqlite3*                      database,
-    const sCHAT_USER_CREDENTIALS* credentials,
-    CHAT_USER_ID                  id)
+    const sCHAT_USER_CREDENTIALS* credentials)
 {
     eSTATUS       status;
     int           sqlite_status;
@@ -66,16 +64,6 @@ eSTATUS chat_auth_sql_create_user(
     if (SQLITE_OK != sqlite_status || NULL == sql_statement)
     {
         return STATUS_ALLOC_FAILED;
-    }
-
-    // Bind id
-    sqlite_status = sqlite3_bind_int64(sql_statement,
-                                       sqlite3_bind_parameter_index(sql_statement, ":id"),
-                                       id);
-    if (SQLITE_OK != sqlite_status)
-    {
-        status = STATUS_FAILURE;
-        goto func_exit;
     }
 
     // Bind username
@@ -102,6 +90,13 @@ eSTATUS chat_auth_sql_create_user(
         goto func_exit;
     }
 
+    sqlite_status = sqlite3_step(sql_statement);
+    if (SQLITE_DONE != sqlite_status)
+    {
+        status = STATUS_FAILURE;
+        goto func_exit;
+    }
+
     status = STATUS_SUCCESS;
 
 func_exit:
@@ -123,7 +118,6 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
     int               strcmp_status;
 
     sqlite3_stmt* sql_statement = NULL;
-
     sqlite_status = sqlite3_prepare_v2(database,
                                        sql_select_first_user,
                                        sizeof(sql_select_first_user),
@@ -165,14 +159,13 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
             if (NULL != credentials->password) // Password given; check it
             {
                 strcmp_status = strcmp(credentials->password,
-                                       sqlite3_column_text(sql_statement, 2));
+                                       sqlite3_column_text(sql_statement, 1));
                 if (0 == strcmp_status) // Password matches; user is authenticated
                 {
-                    out_user->id = sqlite3_column_int64(sql_statement, 0);
-                    status       = print_string_to_buffer(out_user->name,
-                                                          sqlite3_column_text(sql_statement, 1),
-                                                          sizeof(out_user->name),
-                                                          NULL);
+                    status = print_string_to_buffer(out_user->name,
+                                                    sqlite3_column_text(sql_statement, 0),
+                                                    sizeof(out_user->name),
+                                                    NULL);
                     if (STATUS_SUCCESS != status)
                     {
                         result = CHAT_AUTH_RESULT_FAILURE;
@@ -199,11 +192,9 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
         {
             if (NULL != credentials->password) // Password given; use it as the password for a new account
             {
-                // TODO generate id
-                // out_user->id = ?;
+                // TODO Remove the id from sCHAT_USER
                 status = chat_auth_sql_create_user(database,
-                                                   credentials,
-                                                   out_user->id);
+                                                   credentials);
                 if (STATUS_SUCCESS != status)
                 {
                     result = CHAT_AUTH_RESULT_FAILURE;

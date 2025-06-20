@@ -48,7 +48,9 @@ typedef enum
     CHAT_CLIENT_STATE_AUTHENTICATING_PROCESSING,
 
     CHAT_CLIENT_STATE_ACTIVE,
-    CHAT_CLIENT_STATE_DISCONNECTING
+
+    CHAT_CLIENT_STATE_DISCONNECTING,
+    CHAT_CLIENT_STATE_DISCONNECTING_FROM_ACTIVE
 } eCHAT_CLIENT_STATE;
 
 
@@ -101,6 +103,11 @@ void chat_clients_process_event(
 
 
 eSTATUS chat_clients_introduce_user(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          client_ptr);
+
+
+eSTATUS chat_clients_outroduce_user(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     SHARED_PTR          client_ptr);
 

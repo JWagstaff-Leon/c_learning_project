@@ -148,8 +148,9 @@ static void open_processing(
                     shared_ptr_release(relevant_client->auth_credentials_ptr);
                     relevant_client->auth_credentials_ptr = NULL;
 
-                    chat_clients_introduce_user(master_cblk_ptr,
-                                                relevant_client_ptr);
+                    status = chat_clients_introduce_user(master_cblk_ptr,
+                                                         relevant_client_ptr);
+                    assert(STATUS_SUCCESS == status);
                     
                     break;
                 }
@@ -180,8 +181,12 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLIENT_CONNECTION_CLOSED:
         {
-            status =chat_clients_client_close(master_cblk_ptr,
-                                              message->params.client_closed.client_ptr);
+            status = chat_clients_outroduce_user(master_cblk_ptr,
+                                                 message->params.client_closed.client_ptr);
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_clients_client_close(master_cblk_ptr,
+                                               message->params.client_closed.client_ptr);
             assert(STATUS_SUCCESS == status);
             break;
         }
