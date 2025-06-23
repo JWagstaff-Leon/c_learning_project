@@ -6,10 +6,11 @@ extern "C" {
 
 // Includes --------------------------------------------------------------------
 
+#include "client_fsm.h"
+
 #include <stdbool.h>
 
 #include "chat_client.h"
-#include "chat_event.h"
 #include "client_ui.h"
 #include "message_queue.h"
 
@@ -22,52 +23,49 @@ extern "C" {
 
 typedef enum
 {
-    CLIENT_MAIN_MESSAGE_PRINT_EVENT,
-    CLIENT_MAIN_MESSAGE_USER_INPUT,
+    CLIENT_STATE_OPEN,
+    CLIENT_STATE_CLOSING,
 
-    CLIENT_MAIN_MESSAGE_CLIENT_CLOSED,
-    CLIENT_MAIN_MESSAGE_UI_CLOSED
-} eCLIENT_MAIN_MESSAGE_TYPE;
-
-
-typedef struct
-{
-    sCHAT_EVENT event;
-} sCLIENT_MAIN_MESSAGE_PARAMS_PRINT_EVENT;
+    CLIENT_STATE_CLOSED
+} eCLIENT_STATE;
 
 
 typedef struct
 {
-    char buffer[CHAT_EVENT_MAX_DATA_SIZE];
-} sCLIENT_MAIN_MESSAGE_PARAMS_USER_INPUT;
-
-
-typedef union
-{
-    sCLIENT_MAIN_MESSAGE_PARAMS_PRINT_EVENT print_event;
-    sCLIENT_MAIN_MESSAGE_PARAMS_USER_INPUT  user_input;
-} uCLIENT_MAIN_MESSAGE_PARAMS;
+    bool ui_open;
+    bool client_open;
+} sCLIENT_MAIN_CBLK_CLOSING_STATES;
 
 
 typedef struct
 {
-    eCLIENT_MAIN_MESSAGE_TYPE   type;
-    uCLIENT_MAIN_MESSAGE_PARAMS params;
-} sCLIENT_MAIN_MESSAGE;
-
-
-typedef struct
-{
-    bool          open;
+    eCLIENT_STATE state;
     MESSAGE_QUEUE message_queue;
 
     CLIENT_UI   ui;
     CHAT_CLIENT client;
+
+    sCLIENT_MAIN_CBLK_CLOSING_STATES closing_states;
 } sCLIENT_MAIN_CBLK;
 
 
 // Functions -------------------------------------------------------------------
 
+void dispatch_message(
+    sCLIENT_MAIN_CBLK*          master_cblk_ptr,
+    const sCLIENT_MAIN_MESSAGE* message);
+
+
+void chat_client_cback(
+    void*                          user_arg,
+    bCHAT_CLIENT_EVENT_TYPE        event,
+    const sCHAT_CLIENT_CBACK_DATA* data);
+
+
+void client_ui_cback(
+    void*                        user_arg,
+    bCLIENT_UI_EVENT_TYPE        event_mask,
+    const sCLIENT_UI_CBACK_DATA* data);
 
 
 #ifdef __cplusplus

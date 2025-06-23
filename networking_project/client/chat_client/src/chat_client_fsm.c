@@ -335,26 +335,6 @@ static void dispatch_message(
 }
 
 
-static void fsm_cblk_close(
-    sCHAT_CLIENT_CBLK* master_cblk_ptr)
-{
-    // FIXME this should only deallocate the children of this cblk; the destory of this module will deallocate it
-    fCHAT_CLIENT_USER_CBACK user_cback;
-    void*                   user_arg;
-
-    assert(NULL != master_cblk_ptr);
-
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    generic_deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               CHAT_CLIENT_EVENT_CLOSED,
-               NULL);
-}
-
-
 void* chat_client_thread_entry(
     void* arg)
 {
@@ -376,6 +356,8 @@ void* chat_client_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
-    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_CLIENT_EVENT_CLOSED,
+                                NULL);
     return NULL;
 }

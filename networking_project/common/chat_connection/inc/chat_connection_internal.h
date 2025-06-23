@@ -24,9 +24,11 @@ extern "C" {
 // Types -----------------------------------------------------------------------
 
 typedef enum {
+    CHAT_CONNECTION_STATE_INIT,
     CHAT_CONNECTION_STATE_READING,
     CHAT_CONNECTION_STATE_READING_WRITING,
     CHAT_CONNECTION_STATE_CANCELLING,
+    CHAT_CONNECTION_STATE_FLUSHING,        // Flushing out the last of the messages to wirte before closing
     CHAT_CONNECTION_STATE_CLOSING,
     CHAT_CONNECTION_STATE_CLOSED
 } eCHAT_CONNECTION_STATE;

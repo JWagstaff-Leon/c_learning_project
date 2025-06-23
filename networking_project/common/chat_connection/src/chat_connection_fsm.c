@@ -109,14 +109,17 @@ static void reading_processing(
 
     switch (message->type)
     {
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        case CHAT_CONNECTION_MESSAGE_WATCH_COMPLETE:
         {
             if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_READ)
             {
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
                     break;
                 }
             }
@@ -128,7 +131,7 @@ static void reading_processing(
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
+        case CHAT_CONNECTION_MESSAGE_QUEUE_EVENT:
         {
             status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
@@ -142,13 +145,20 @@ static void reading_processing(
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
+        case CHAT_CONNECTION_MESSAGE_CLOSE:
+        case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
         {
-            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
-
-            status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
+            status = network_watcher_close(master_cblk_ptr->network_watcher)
             assert(STATUS_SUCCESS == status);
 
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_WATCHER_CLOSED:
+        {
+            // Should not get here
+            assert(0);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
             break;
         }
     }
@@ -164,14 +174,17 @@ static void reading_writing_processing(
 
     switch (message->type)
     {
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        case CHAT_CONNECTION_MESSAGE_WATCH_COMPLETE:
         {
             if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_WRITE)
             {
                 status = write_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
                     break;
                 }
             }
@@ -181,7 +194,10 @@ static void reading_writing_processing(
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
                     break;
                 }
             }
@@ -204,7 +220,7 @@ static void reading_writing_processing(
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
+        case CHAT_CONNECTION_MESSAGE_QUEUE_EVENT:
         {
             status = message_queue_put(master_cblk_ptr->event_queue,
                                        &message->params.queue_event.event,
@@ -213,13 +229,24 @@ static void reading_writing_processing(
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
+        case CHAT_CONNECTION_MESSAGE_CLOSE:
         {
-            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
-
-            status = network_watcher_cancel_watch(master_cblk_ptr->network_watcher);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_FLUSHING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
+        {
+            status = network_watcher_close(master_cblk_ptr->network_watcher)
             assert(STATUS_SUCCESS == status);
 
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_WATCHER_CLOSED:
+        {
+            // Should not get here
+            assert(0);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
             break;
         }
     }
@@ -234,14 +261,17 @@ static void cancelling_processing(
 
     switch (message->type)
     {
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        case CHAT_CONNECTION_MESSAGE_WATCH_COMPLETE:
         {
             if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_WRITE)
             {
                 status = write_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
                     break;
                 }
             }
@@ -251,14 +281,17 @@ static void cancelling_processing(
                 status = read_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
                     break;
                 }
             }
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
+        case CHAT_CONNECTION_MESSAGE_WATCH_CANCELLED:
         {
             watch_mode = NETWORK_WATCHER_MODE_READ;
 
@@ -278,7 +311,7 @@ static void cancelling_processing(
             assert(STATUS_SUCCESS == status);
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT:
+        case CHAT_CONNECTION_MESSAGE_QUEUE_EVENT:
         {
             status = message_queue_put(master_cblk_ptr->event_queue,
                                        &message->params.queue_event.event,
@@ -287,9 +320,103 @@ static void cancelling_processing(
 
             break;
         }
-        case CHAT_CONNECTION_MESSAGE_TYPE_CLOSE:
+        case CHAT_CONNECTION_MESSAGE_CLOSE:
         {
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_FLUSHING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
+        {
+            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_WATCHER_CLOSED:
+        {
+            // Should not get here
+            assert(0);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+            break;
+        }
+    }
+}
+
+
+static void flushing_processing(
+    sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
+    const sCHAT_CONNECTION_MESSAGE* message)
+{
+    eSTATUS               status;
+    bNETWORK_WATCHER_MODE watch_mode;
+
+    switch (message->type)
+    {
+        case CHAT_CONNECTION_MESSAGE_WATCH_COMPLETE:
+        {
+            if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_WRITE)
+            {
+                status = write_ready(master_cblk_ptr);
+                if (STATUS_CLOSED == status)
+                {
+                    status = network_watcher_close(master_cblk_ptr->network_watcher)
+                    assert(STATUS_SUCCESS == status);
+
+                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+                    break;
+                }
+            }
+
+            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
+            {
+                status = network_watcher_close(master_cblk_ptr->network_watcher)
+                assert(STATUS_SUCCESS == status);
+
+                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+                break;
+            }
+
+            watch_mode = NETWORK_WATCHER_MODE_WRITE;
+            status     = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                     watch_mode,
+                                                     master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
+
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_WATCH_CANCELLED:
+        {
+            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
+            {
+                status = network_watcher_close(master_cblk_ptr->network_watcher)
+                assert(STATUS_SUCCESS == status);
+
+                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+                break;
+            }
+
+            watch_mode = NETWORK_WATCHER_MODE_WRITE;
+
+            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
+                                                 watch_mode,
+                                                 master_cblk_ptr->fd);
+            assert(STATUS_SUCCESS == status);
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
+        {
+            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+            break;
+        }
+        case CHAT_CONNECTION_MESSAGE_WATCHER_CLOSED:
+        {
+            // Should not get here
+            assert(0);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
             break;
         }
     }
@@ -305,47 +432,9 @@ static void closing_processing(
 
     switch (message->type)
     {
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_COMPLETE:
+        case CHAT_CONNECTION_MESSAGE_WATCHER_CLOSED:
         {
-            if (message->params.watch_complete.modes_ready & NETWORK_WATCHER_MODE_WRITE)
-            {
-                status = write_ready(master_cblk_ptr);
-                if (STATUS_CLOSED == status)
-                {
-                    master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
-                    break;
-                }
-            }
-
-            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
-            {
-                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
-                break;
-            }
-
-            watch_mode = NETWORK_WATCHER_MODE_WRITE;
-
-            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
-                                                 watch_mode,
-                                                 master_cblk_ptr->fd);
-            assert(STATUS_SUCCESS == status);
-
-            break;
-        }
-        case CHAT_CONNECTION_MESSAGE_TYPE_WATCH_CANCELLED:
-        {
-            if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
-            {
-                master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
-                break;
-            }
-
-            watch_mode = NETWORK_WATCHER_MODE_WRITE;
-
-            status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
-                                                 watch_mode,
-                                                 master_cblk_ptr->fd);
-            assert(STATUS_SUCCESS == status);
+            master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
             break;
         }
     }
@@ -373,11 +462,17 @@ static void dispatch_message(
             cancelling_processing(master_cblk_ptr, message);
             break;
         }
+        case CHAT_CONNECTION_STATE_FLUSHING:
+        {
+            flushing_processing(master_cblk_ptr, message);
+            break;
+        }
         case CHAT_CONNECTION_STATE_CLOSING:
         {
             closing_processing(master_cblk_ptr, message);
             break;
         }
+        case CHAT_CONNECTION_STATE_INIT:
         case CHAT_CONNECTION_STATE_CLOSED:
         default:
         {
@@ -396,39 +491,11 @@ static void fsm_cblk_init(
     status = network_watcher_start_watch(master_cblk_ptr->network_watcher,
                                          NETWORK_WATCHER_MODE_READ,
                                          master_cblk_ptr->fd);
-    assert(STATUS_SUCCESS == status);
-    master_cblk_ptr->state = CHAT_CONNECTION_STATE_READING;
-}
-
-
-static void fsm_cblk_close(
-    sCHAT_CONNECTION_CBLK* master_cblk_ptr)
-{
-    eSTATUS status;
-
-    fCHAT_CONNECTION_USER_CBACK user_cback;
-    void*                       user_arg;
-
-    status = network_watcher_close(master_cblk_ptr->network_watcher);
-    assert(STATUS_SUCCESS == status);
-
-    status = message_queue_destroy(master_cblk_ptr->event_queue);
-    assert(STATUS_SUCCESS == status);
-
-    status = message_queue_destroy(master_cblk_ptr->message_queue);
-    assert(STATUS_SUCCESS == status);
-
-    status = chat_event_io_close(master_cblk_ptr->io);
-    assert(STATUS_SUCCESS == status);
-
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    generic_deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               CHAT_CONNECTION_EVENT_CLOSED,
-               NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        network_watcher_close(master_cblk_ptr->network_watcher);
+        master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
+    }
 }
 
 
@@ -440,8 +507,8 @@ void* chat_connection_thread_entry(
     eSTATUS                  status;
 
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)arg;
-    fsm_cblk_init(master_cblk_ptr);
 
+    fsm_cblk_init(master_cblk_ptr);
     while (CHAT_CONNECTION_STATE_CLOSED != master_cblk_ptr->state)
     {
         status = message_queue_get(master_cblk_ptr->message_queue,
@@ -452,6 +519,8 @@ void* chat_connection_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
-    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_CONNECTION_EVENT_CLOSED,
+                                NULL);
     return NULL;
 }

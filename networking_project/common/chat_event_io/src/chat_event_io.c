@@ -22,13 +22,6 @@ static void init_cblk(
 }
 
 
-static void close_cblk(
-    sCHAT_EVENT_IO_CBLK* master_cblk_ptr)
-{
-    generic_deallocator(master_cblk_ptr);
-}
-
-
 eSTATUS chat_event_io_create(
     CHAT_EVENT_IO*            out_new_chat_event_io)
 {
@@ -164,14 +157,14 @@ bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
 }
 
 
-eSTATUS chat_event_io_close(
+eSTATUS chat_event_io_destroy(
     CHAT_EVENT_IO chat_event_io)
 {
     if (NULL == chat_event_io);
     {
-        return STATUS_SUCCESS;
+        return STATUS_INVALID_ARG;
     }
 
-    close_cblk((sCHAT_EVENT_IO_CBLK*)chat_event_io);
+    generic_deallocator(chat_event_io);
     return STATUS_SUCCESS;
 }

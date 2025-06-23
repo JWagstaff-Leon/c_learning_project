@@ -13,8 +13,7 @@
 eSTATUS chat_connection_create(
     CHAT_CONNECTION*            out_chat_connection,
     fCHAT_CONNECTION_USER_CBACK user_cback,
-    void*                       user_arg,
-    int                         fd)
+    void*                       user_arg)
 {
     sCHAT_CONNECTION_CBLK* new_chat_connection;
     eSTATUS                status;
@@ -28,7 +27,7 @@ eSTATUS chat_connection_create(
 
     new_chat_connection->user_cback = user_cback;
     new_chat_connection->user_arg   = user_arg;
-    new_chat_connection->fd         = fd;
+    new_chat_connection->state      = CHAT_CONNECTION_STATE_INIT;
 
     status = chat_event_io_create(&new_chat_connection->io);
     if (STATUS_SUCCESS != status)
@@ -60,19 +59,8 @@ eSTATUS chat_connection_create(
         goto fail_create_network_watcher;
     }
 
-    status = generic_create_thread(chat_connection_thread_entry,
-                                   new_chat_connection,
-                                   NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_thread;
-    }
-
     *out_chat_connection = (CHAT_CONNECTION)new_chat_connection;
     return STATUS_SUCCESS;
-
-fail_create_thread:
-    network_watcher_close(new_chat_connection->network_watcher);
 
 fail_create_network_watcher:
     message_queue_destroy(new_chat_connection->event_queue);
@@ -81,13 +69,52 @@ fail_create_event_queue:
     message_queue_destroy(new_chat_connection->message_queue);
 
 fail_create_message_queue:
-    chat_event_io_close(new_chat_connection->io);
+    chat_event_io_destroy(new_chat_connection->io);
 
 fail_create_chat_event_io:
     generic_deallocator(new_chat_connection);
 
 fail_alloc_chat_connection:
     return status;
+}
+
+
+eSTATUS chat_connection_open(
+    CHAT_CONNECTION chat_connection,
+    int             fd)
+{
+    eSTATUS                status;
+    sCHAT_CONNECTION_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_connection)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    if (CHAT_CONNECTION_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    master_cblk_ptr->fd = fd;
+    master_cblk_ptr->state = CHAT_CONNECTION_STATE_READING;
+
+    status = network_watcher_open(master_cblk_ptr->network_watcher);
+    if (STATUS_SUCCESS != status)
+    {
+        master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
+        return status;
+    }
+    
+    status = generic_create_thread(chat_connection_thread_entry,
+                                   master_cblk_ptr,
+                                   NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return STATUS_SUCCESS;
 }
 
 
@@ -136,7 +163,7 @@ eSTATUS chat_connection_queue_event(
 
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
 
-    message.type = CHAT_CONNECTION_MESSAGE_TYPE_QUEUE_EVENT;
+    message.type = CHAT_CONNECTION_MESSAGE_QUEUE_EVENT;
 
     status = chat_event_copy(&message.params.queue_event.event,
                              event);
@@ -172,7 +199,7 @@ eSTATUS chat_connection_close(
 
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
 
-    message.type = CHAT_CONNECTION_MESSAGE_TYPE_CLOSE;
+    message.type = CHAT_CONNECTION_MESSAGE_CLOSE;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
@@ -185,8 +212,36 @@ eSTATUS chat_connection_close(
     return status;
 }
 
+
 eSTATUS chat_connection_destroy(
     CHAT_CONNECTION chat_connection)
 {
-    // TODO this
+    eSTATUS                status;
+    sCHAT_CONNECTION_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_connection)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
+    if (CHAT_CONNECTION_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = network_watcher_destroy(master_cblk_ptr->network_watcher);
+    assert(STATUS_SUCCESS == status);
+
+    status = message_queue_destroy(master_cblk_ptr->event_queue);
+    assert(STATUS_SUCCESS == status);
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    status = chat_event_io_destroy(master_cblk_ptr->io);
+    assert(STATUS_SUCCESS == status);
+
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }

@@ -140,7 +140,7 @@ eSTATUS chat_client_open(
         chat_connection_destroy(master_cblk_ptr->server_connection);
         goto func_exit;
     }
-    
+
     status = STATUS_SUCCESS;
 
 func_exit:
@@ -198,4 +198,32 @@ eSTATUS chat_client_close(
                                &message,
                                sizeof(message));
     return status;
+}
+
+
+eSTATUS chat_client_destroy(
+    CHAT_CLIENT client)
+{
+    eSTATUS            status;
+    sCHAT_CLIENT_CBLK* master_cblk_ptr;
+
+    if (NULL == client)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
+    if (CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    chat_connection_destroy(master_cblk_ptr->server_connection);
+    assert(STATUS_SUCCESS == status);
+
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }

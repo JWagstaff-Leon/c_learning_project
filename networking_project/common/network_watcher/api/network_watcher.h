@@ -79,6 +79,10 @@ eSTATUS network_watcher_close(
     NETWORK_WATCHER network_watcher);
 
 
+eSTATUS network_watcher_destroy(
+    NETWORK_WATCHER network_watcher);
+
+
 #ifdef __cplusplus
 }
 #endif

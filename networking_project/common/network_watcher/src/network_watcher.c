@@ -149,7 +149,7 @@ eSTATUS network_watcher_cancel_watch(
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
 
     pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
-    
+
     do
     {
         write_status = write(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE], " ", 2);
@@ -184,4 +184,29 @@ eSTATUS network_watcher_close(
     assert(STATUS_SUCCESS == status);
 
     return STATUS_SUCCESS;
+}
+
+
+eSTATUS network_watcher_destroy(
+    NETWORK_WATCHER network_watcher)
+{
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+
+    if (NULL == network_watcher)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+    if (NETWORK_WATCHER_STATE_CLOSED != network_watcher)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    close(master_cblk_ptr->cancel_pipe[PIPE_END_READ]);
+    close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
+    pthread_mutex_destroy(&master_cblk_ptr->cancel_mutex);
+    message_queue_destroy(master_cblk_ptr->message_queue);
+    
+    generic_deallocator(master_cblk_ptr);
 }

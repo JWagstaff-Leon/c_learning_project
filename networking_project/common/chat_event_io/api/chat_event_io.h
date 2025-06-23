@@ -65,7 +65,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
     int                fd);
 
 
-eSTATUS chat_event_io_close(
+eSTATUS chat_event_io_destroy(
     CHAT_EVENT_IO chat_event_io);
 
 

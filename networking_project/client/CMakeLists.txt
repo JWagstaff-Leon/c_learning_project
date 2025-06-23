@@ -35,6 +35,9 @@ target_include_directories(client
 target_sources(client
   PRIVATE
     client.c
+
+    src/client_fsm.c
+    src/client_cback.c
 )
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")

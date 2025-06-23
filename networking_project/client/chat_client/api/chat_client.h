@@ -70,6 +70,10 @@ eSTATUS chat_client_close(
     CHAT_CLIENT client);
 
 
+eSTATUS chat_client_destroy(
+    CHAT_CLIENT client);
+
+
 #ifdef __cplusplus
 }
 #endif
