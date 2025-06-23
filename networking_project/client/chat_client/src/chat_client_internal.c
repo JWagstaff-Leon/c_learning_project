@@ -76,6 +76,25 @@ static void handler_username_entry(
 }
 
 
+static void handler_username_submit(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr,
+    const sCHAT_EVENT* event)
+{
+    eSTATUS status;
+
+    if (master_cblk_ptr->state == CHAT_CLIENT_STATE_AUTHENTICATED)
+    {
+        status = print_string_to_buffer(master_cblk_ptr->user_info.name,
+                                        event->data,
+                                        sizeof(master_cblk_ptr->user_info.name),
+                                        NULL);
+        assert(STATUS_SUCCESS == status);
+
+        master_cblk_ptr->state = CHAT_CLIENT_STATE_ACTIVE;
+    }
+}
+
+
 static void handler_password_entry(
     sCHAT_CLIENT_CBLK* master_cblk_ptr,
     const sCHAT_EVENT* event)
@@ -118,11 +137,17 @@ static void handler_authenticated(
             status = chat_event_copy(&cback_data.print_event.event, event);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_ACTIVE;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_AUTHENTICATED;
             master_cblk_ptr->user_info.id = event->origin.id;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
+
+            status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
+                                                    CHAT_EVENT_USERNAME_REQUEST,
+                                                    master_cblk_ptr->user_info,
+                                                    "");
+            assert(STATUS_SUCCESS == status);
             break;
         }
     }
@@ -161,7 +186,7 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_no_op,           // CHAT_EVENT_SERVER_ERROR
     handler_no_op,           // CHAT_EVENT_OVERSIZED_CONTENT
     handler_username_entry,  // CHAT_EVENT_USERNAME_REQUEST
-    handler_no_op,           // CHAT_EVENT_USERNAME_SUBMIT
+    handler_username_submit, // CHAT_EVENT_USERNAME_SUBMIT
     handler_username_entry,  // CHAT_EVENT_USERNAME_REJECTED
     handler_password_entry,  // CHAT_EVENT_PASSWORD_REQUEST
     handler_no_op,           // CHAT_EVENT_PASSWORD_SUBMIT

@@ -70,12 +70,6 @@ static void auth_entry_processing(
                 case CHAT_CLIENT_STATE_USERNAME_ENTRY:
                 {
                     event_type = CHAT_EVENT_USERNAME_SUBMIT;
-                    
-                    status = print_string_to_buffer(master_cblk_ptr->user_info.name,
-                                                    message->params.user_input.text,
-                                                    sizeof(master_cblk_ptr->user_info.name),
-                                                    NULL);
-                    assert(STATUS_SUCCESS == status);
                     break;
                 }
                 case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
@@ -148,6 +142,43 @@ static void auth_verifying_processing(
 {
     eSTATUS              status;
     sCHAT_CLIENT_MESSAGE new_message;
+
+    switch (message->type)
+    {
+        case CHAT_CLIENT_MESSAGE_INCOMING_EVENT:
+        {
+            chat_client_handle_incoming_event(master_cblk_ptr,
+                                              &message->params.incoming_event.event);
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
+        {
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            break;
+        }
+        case CHAT_CLIENT_MESSAGE_CLOSE:
+        {
+            status = chat_connection_queue_new_event(master_cblk_ptr->server_connection,
+                                                     CHAT_EVENT_USER_LEAVE,
+                                                     master_cblk_ptr->user_info,
+                                                     "");
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            break;
+        }
+    }
+}
+
+
+static void authenticated_processing(
+    sCHAT_CLIENT_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENT_MESSAGE* message)
+{
+    eSTATUS              status;
+    sCHAT_CLIENT_MESSAGE new_message;
+
+    sCHAT_CLIENT_CBACK_DATA cback_data;
 
     switch (message->type)
     {
@@ -264,6 +295,7 @@ static void dispatch_message(
         case CHAT_CLIENT_STATE_INIT:
         {
             init_processing(master_cblk_ptr, message);
+            break;
         }
         case CHAT_CLIENT_STATE_USERNAME_ENTRY:
         case CHAT_CLIENT_STATE_PASSWORD_ENTRY:
@@ -275,6 +307,11 @@ static void dispatch_message(
         case CHAT_CLIENT_STATE_PASSWORD_VERIFYING:
         {
             auth_verifying_processing(master_cblk_ptr, message);
+            break;
+        }
+        case CHAT_CLIENT_STATE_AUTHENTICATED:
+        {
+            authenticated_processing(master_cblk_ptr, message);
             break;
         }
         case CHAT_CLIENT_STATE_ACTIVE:

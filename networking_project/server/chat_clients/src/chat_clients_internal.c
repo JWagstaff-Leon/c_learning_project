@@ -70,6 +70,26 @@ static void handler_chat_message(
 }
 
 
+static void handler_username_request(
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr,
+    SHARED_PTR          source_client_ptr,
+    const sCHAT_EVENT*  event)
+{
+    eSTATUS status;
+
+    sCHAT_CLIENT*           source_client;
+    sCHAT_USER_CREDENTIALS* credentials_ptr;
+
+    source_client = SP_POINTEE_AS(source_client_ptr, sCHAT_CLIENT);
+
+    status = chat_connection_queue_new_event(source_client->connection,
+                                             CHAT_EVENT_USERNAME_SUBMIT,
+                                             k_server_info,
+                                             source_client->user_info.name);
+    assert(STATUS_SUCCESS == status);
+}
+
+
 static void handler_username_submit(
     sCHAT_CLIENTS_CBLK* master_cblk_ptr,
     SHARED_PTR          source_client_ptr,
@@ -287,7 +307,7 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_no_op,            // CHAT_EVENT_CONNECTION_FAILED
     handler_no_op,            // CHAT_EVENT_SERVER_ERROR
     handler_no_op,            // CHAT_EVENT_OVERSIZED_CONTENT
-    handler_no_op,            // CHAT_EVENT_USERNAME_REQUEST
+    handler_username_request, // CHAT_EVENT_USERNAME_REQUEST
     handler_username_submit,  // CHAT_EVENT_USERNAME_SUBMIT
     handler_no_op,            // CHAT_EVENT_USERNAME_REJECTED
     handler_no_op,            // CHAT_EVENT_PASSWORD_REQUEST

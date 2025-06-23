@@ -28,6 +28,7 @@ typedef enum
     CHAT_CLIENT_STATE_USERNAME_VERIFYING,
     CHAT_CLIENT_STATE_PASSWORD_ENTRY,
     CHAT_CLIENT_STATE_PASSWORD_VERIFYING,
+    CHAT_CLIENT_STATE_AUTHENTICATED,
     CHAT_CLIENT_STATE_ACTIVE,
     CHAT_CLIENT_STATE_DISCONNECTING
 } eCHAT_CLIENT_STATE;
@@ -53,7 +54,7 @@ typedef struct
 void* chat_client_thread_entry(
     void* arg);
 
-    
+
 void chat_client_handle_incoming_event(
     sCHAT_CLIENT_CBLK* master_cblk_ptr,
     const sCHAT_EVENT* event);

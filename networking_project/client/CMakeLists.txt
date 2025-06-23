@@ -15,7 +15,7 @@ target_link_libraries(client
   PRIVATE
     chat_client
     client_ui
-  
+
     Common::chat_connection
     Common::chat_event
     Common::chat_event_io
@@ -23,6 +23,8 @@ target_link_libraries(client
     Common::message_queue
     Common::network_watcher
     Common::types
+
+    ncurses
 )
 
 target_include_directories(client
@@ -33,11 +35,6 @@ target_include_directories(client
 target_sources(client
   PRIVATE
     client.c
-)
-
-target_link_options(client
-  PUBLIC
-    -lncurses
 )
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
