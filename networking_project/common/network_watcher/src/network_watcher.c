@@ -59,14 +59,6 @@ eSTATUS network_watcher_create(
         goto fail_create_pipe;
     }
 
-    status = generic_create_thread(network_watcher_thread_entry,
-                                   new_network_watcher,
-                                   NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_thread;
-    }
-
     new_network_watcher->user_cback = user_cback;
     new_network_watcher->user_arg   = user_arg;
 
@@ -76,9 +68,6 @@ eSTATUS network_watcher_create(
     *out_new_network_watcher = new_network_watcher;
     return STATUS_SUCCESS;
 
-fail_create_thread:
-    close(new_network_watcher->cancel_pipe[PIPE_END_WRITE]);
-    close(new_network_watcher->cancel_pipe[PIPE_END_READ]);
 
 fail_create_pipe:
     message_queue_destroy(new_network_watcher->message_queue);
@@ -87,6 +76,30 @@ fail_create_message_queue:
     generic_deallocator(new_network_watcher);
 
 fail_alloc_cblk:
+    return status;
+}
+
+
+eSTATUS network_watcher_open(
+    NETWORK_WATCHER network_watcher)
+{
+    eSTATUS                status;
+    sNETWORK_WATCHER_CBLK* master_cblk_ptr;
+
+    if (NULL == network_watcher)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+    if (NETWORK_WATCHER_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = generic_create_thread(network_watcher_thread_entry,
+                                   master_cblk_ptr,
+                                   NULL);
     return status;
 }
 
@@ -112,6 +125,11 @@ eSTATUS network_watcher_start_watch(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+
+    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
 
     message.type = NETWORK_WATCHER_MESSAGE_WATCH;
 
@@ -146,7 +164,12 @@ eSTATUS network_watcher_cancel_watch(
     {
         return STATUS_INVALID_ARG;
     }
+
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
 
     pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
 
@@ -172,7 +195,12 @@ eSTATUS network_watcher_close(
     {
         return STATUS_INVALID_ARG;
     }
+
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
+    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
 
     status = network_watcher_cancel_watch(network_watcher);
     assert(STATUS_SUCCESS == status);
@@ -198,7 +226,7 @@ eSTATUS network_watcher_destroy(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
-    if (NETWORK_WATCHER_STATE_CLOSED != network_watcher)
+    if (NETWORK_WATCHER_STATE_CLOSED != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
     }
@@ -207,6 +235,6 @@ eSTATUS network_watcher_destroy(
     close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
     pthread_mutex_destroy(&master_cblk_ptr->cancel_mutex);
     message_queue_destroy(master_cblk_ptr->message_queue);
-    
+
     generic_deallocator(master_cblk_ptr);
 }

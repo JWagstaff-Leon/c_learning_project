@@ -65,6 +65,10 @@ eSTATUS network_watcher_create(
     void*                       user_arg);
 
 
+eSTATUS network_watcher_open(
+    NETWORK_WATCHER network_watcher);
+
+
 eSTATUS network_watcher_start_watch(
     NETWORK_WATCHER       network_watcher,
     bNETWORK_WATCHER_MODE mode,

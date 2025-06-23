@@ -30,35 +30,50 @@ eSTATUS chat_client_create(
     fCHAT_CLIENT_USER_CBACK user_cback,
     void*                   user_arg)
 {
-    sCHAT_CLIENT_CBLK* new_master_cblk_ptr;
+    sCHAT_CLIENT_CBLK* new_chat_client;
     eSTATUS            status;
 
 
     assert(NULL != user_cback);
     assert(NULL != out_new_client);
 
-    new_master_cblk_ptr = (sCHAT_CLIENT_CBLK*)generic_allocator(sizeof(sCHAT_CLIENT_CBLK));
-    if (NULL == new_master_cblk_ptr)
+    new_chat_client = (sCHAT_CLIENT_CBLK*)generic_allocator(sizeof(sCHAT_CLIENT_CBLK));
+    if (NULL == new_chat_client)
     {
         return STATUS_ALLOC_FAILED;
     }
 
-    init_cblk(new_master_cblk_ptr);
+    init_cblk(new_chat_client);
 
-    new_master_cblk_ptr->user_cback = user_cback;
-    new_master_cblk_ptr->user_arg   = user_arg;
+    new_chat_client->user_cback = user_cback;
+    new_chat_client->user_arg   = user_arg;
 
-    status = message_queue_create(&new_master_cblk_ptr->message_queue,
+    status = message_queue_create(&new_chat_client->message_queue,
                                   CHAT_CLIENT_MSG_QUEUE_SIZE,
                                   sizeof(sCHAT_CLIENT_MESSAGE));
     if (STATUS_SUCCESS != status)
     {
-        generic_deallocator(new_master_cblk_ptr);
-        return status;
+        goto fail_create_message_queue;
     }
 
-    *out_new_client = new_master_cblk_ptr;
+    status = chat_connection_create(&new_chat_client->server_connection,
+                                    chat_client_connection_cback,
+                                    new_chat_client);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_connection;
+    }
+
+    *out_new_client = new_chat_client;
     return STATUS_SUCCESS;
+
+fail_create_connection:
+    message_queue_destroy(new_chat_client->message_queue);
+
+fail_create_message_queue:
+    generic_deallocator(new_chat_client);
+
+    return status;
 }
 
 
@@ -120,10 +135,8 @@ eSTATUS chat_client_open(
         goto func_exit;
     }
 
-    status = chat_connection_create(&master_cblk_ptr->server_connection,
-                                    chat_client_connection_cback,
-                                    master_cblk_ptr,
-                                    connection_fd);
+    status = chat_connection_open(master_cblk_ptr->server_connection,
+                                  connection_fd);
     if(STATUS_SUCCESS != status)
     {
         goto func_exit;

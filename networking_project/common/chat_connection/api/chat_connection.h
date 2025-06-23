@@ -51,8 +51,12 @@ typedef void* CHAT_CONNECTION;
 eSTATUS chat_connection_create(
     CHAT_CONNECTION*            out_chat_connection,
     fCHAT_CONNECTION_USER_CBACK user_cback,
-    void*                       user_arg,
-    int                         fd);
+    void*                       user_arg);
+
+
+eSTATUS chat_connection_open(
+    CHAT_CONNECTION chat_connection,
+    int             fd);
 
 
 eSTATUS chat_connection_queue_new_event(

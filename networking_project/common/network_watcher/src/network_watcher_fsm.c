@@ -41,7 +41,7 @@ static eSTATUS do_watch(
     {
         return STATUS_FAILURE;
     }
-    
+
     if (master_cblk_ptr->fds[1].revents & POLLIN)
     {
         return STATUS_CLOSED;
@@ -144,13 +144,6 @@ static void dispatch_message(
 }
 
 
-static void fsm_cblk_init(
-    sNETWORK_WATCHER_CBLK* master_cblk_ptr)
-{
-    // no-op
-}
-
-
 static void fsm_cblk_close(
     sNETWORK_WATCHER_CBLK* master_cblk_ptr)
 {
@@ -163,9 +156,9 @@ static void fsm_cblk_close(
 
     close(master_cblk_ptr->cancel_pipe[PIPE_END_READ]);
     close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
-    
+
     message_queue_destroy(master_cblk_ptr->message_queue);
-    
+
     user_cback = master_cblk_ptr->user_cback;
     user_arg   = master_cblk_ptr->user_arg;
 
@@ -186,8 +179,6 @@ void* network_watcher_thread_entry(
 
     assert(NULL != arg);
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)arg;
-
-    fsm_cblk_init(master_cblk_ptr);
 
     while (NETWORK_WATCHER_STATE_CLOSED != master_cblk_ptr->state)
     {

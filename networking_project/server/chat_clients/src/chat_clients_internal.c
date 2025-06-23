@@ -463,17 +463,26 @@ eSTATUS chat_clients_client_create(
 
     status = chat_connection_create(&new_client->connection,
                                     chat_clients_connection_cback,
-                                    shared_ptr_share(new_client_ptr),
-                                    fd);
+                                    shared_ptr_share(new_client_ptr));
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_connection;
+    }
+
+    status = chat_connection_open(new_client->connection,
+                                  fd);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_open_connection;
     }
 
     new_client->state = CHAT_CLIENT_STATE_INIT;
 
     *out_new_client_ptr = new_client_ptr;
     return STATUS_SUCCESS;
+
+fail_open_connection:
+    chat_connection_destroy(new_client->connection);
 
 fail_create_connection:
     shared_ptr_release(new_client_ptr); // Release the reference shared with the connection

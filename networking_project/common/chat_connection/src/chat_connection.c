@@ -2,6 +2,8 @@
 #include "chat_connection_internal.h"
 #include "chat_connection_fsm.h"
 
+#include <assert.h>
+
 #include "chat_event.h"
 #include "chat_event_io.h"
 #include "chat_user.h"

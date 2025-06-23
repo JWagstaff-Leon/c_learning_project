@@ -148,7 +148,7 @@ static void reading_processing(
         case CHAT_CONNECTION_MESSAGE_CLOSE:
         case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
         {
-            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            status = network_watcher_close(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -236,7 +236,7 @@ static void reading_writing_processing(
         }
         case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
         {
-            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            status = network_watcher_close(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -327,7 +327,7 @@ static void cancelling_processing(
         }
         case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
         {
-            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            status = network_watcher_close(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -360,7 +360,7 @@ static void flushing_processing(
                 status = write_ready(master_cblk_ptr);
                 if (STATUS_CLOSED == status)
                 {
-                    status = network_watcher_close(master_cblk_ptr->network_watcher)
+                    status = network_watcher_close(master_cblk_ptr->network_watcher);
                     assert(STATUS_SUCCESS == status);
 
                     master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -370,7 +370,7 @@ static void flushing_processing(
 
             if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
             {
-                status = network_watcher_close(master_cblk_ptr->network_watcher)
+                status = network_watcher_close(master_cblk_ptr->network_watcher);
                 assert(STATUS_SUCCESS == status);
 
                 master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -389,7 +389,7 @@ static void flushing_processing(
         {
             if (message_queue_get_count(master_cblk_ptr->event_queue) <= 0)
             {
-                status = network_watcher_close(master_cblk_ptr->network_watcher)
+                status = network_watcher_close(master_cblk_ptr->network_watcher);
                 assert(STATUS_SUCCESS == status);
 
                 master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
@@ -406,7 +406,7 @@ static void flushing_processing(
         }
         case CHAT_CONNECTION_MESSAGE_CLOSE_IMMEDIATELY:
         {
-            status = network_watcher_close(master_cblk_ptr->network_watcher)
+            status = network_watcher_close(master_cblk_ptr->network_watcher);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
