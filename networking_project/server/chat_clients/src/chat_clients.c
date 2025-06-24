@@ -18,7 +18,7 @@ static void init_cblk(
 {
     memset(master_cblk_ptr, 0, sizeof(sCHAT_CLIENTS_CBLK));
 
-    master_cblk_ptr->state = CHAT_CLIENTS_STATE_OPEN;
+    master_cblk_ptr->state = CHAT_CLIENTS_STATE_INIT;
 }
 
 
@@ -49,19 +49,8 @@ eSTATUS chat_clients_create(
         goto fail_create_message_queue;
     }
 
-    status = generic_create_thread(chat_clients_thread_entry,
-                                   new_chat_clients_cblk,
-                                   NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_thread;
-    }
-
     *out_new_chat_clients = (CHAT_CLIENTS)new_chat_clients_cblk;
     return STATUS_SUCCESS;
-
-fail_create_thread:
-    message_queue_destroy(new_chat_clients_cblk->message_queue);
 
 fail_create_message_queue:
     generic_deallocator(new_chat_clients_cblk);
@@ -69,6 +58,52 @@ fail_create_message_queue:
 fail_alloc_cblk:
     return status;
 }
+
+
+eSTATUS chat_clients_open(
+    CHAT_CLIENTS chat_clients)
+{
+    eSTATUS             status;
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_clients)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+    if (CHAT_CLIENTS_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    master_cblk_ptr->state = CHAT_CLIENTS_STATE_OPEN;
+    status = generic_create_thread(chat_clients_thread_entry,
+                                   master_cblk_ptr,
+                                   NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        master_cblk_ptr->state = CHAT_CLIENTS_STATE_INIT;
+    }
+
+    return status;
+}
+
+
+
+eSTATUS chat_clients_close(
+    CHAT_CLIENTS chat_clients)
+{
+    // TODO this
+}
+
+
+eSTATUS chat_clients_destroy(
+    CHAT_CLIENTS chat_clients)
+{
+    // TODO this
+}
+
 
 
 eSTATUS chat_clients_open_client(
@@ -110,7 +145,7 @@ eSTATUS chat_clients_auth_event(
     {
         return STATUS_INVALID_ARG;
     }
-    
+
     master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
 
     message.type = CHAT_CLIENTS_MESSAGE_AUTH_EVENT;
@@ -123,11 +158,4 @@ eSTATUS chat_clients_auth_event(
                                &message,
                                sizeof(message));
     return status;
-}
-
-
-eSTATUS chat_clients_close(
-    CHAT_CLIENTS* chat_clients)
-{
-    // TODO this
 }

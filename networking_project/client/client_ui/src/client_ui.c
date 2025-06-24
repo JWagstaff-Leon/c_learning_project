@@ -2,6 +2,7 @@
 #include "client_ui_internal.h"
 #include "client_ui_fsm.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <ncurses.h>
 #include <stdbool.h>
@@ -10,30 +11,6 @@
 #include "chat_event.h"
 #include "common_types.h"
 #include "message_queue.h"
-
-
-static void init_ncurses(
-    WINDOW** out_input_window,
-    WINDOW** out_message_window)
-{
-    int max_x, max_y;
-
-    initscr();
-    start_color();
-    init_color(8, 650, 650, 650);
-    init_pair(1, 8, COLOR_BLACK);
-    raw();
-    noecho();
-    keypad(stdscr, TRUE);
-    nl();
-
-    getmaxyx(stdscr, max_y, max_x);
-
-    *out_input_window = newwin(1, 0, max_y - 2, 0);
-
-    *out_message_window = newwin(max_y - 2, 0, 0, 0);
-    scrollok(*out_message_window, true);
-}
 
 
 eSTATUS client_ui_create(
@@ -51,11 +28,10 @@ eSTATUS client_ui_create(
         goto fail_alloc_cblk;
     }
     memset(new_client_ui, 0, sizeof(sCLIENT_UI_CBLK));
+
     new_client_ui->user_cback = user_cback;
     new_client_ui->user_arg   = user_arg;
-
-    init_ncurses(&new_client_ui->input_window,
-                 &new_client_ui->messages_window);
+    new_client_ui->state      = CLIENT_UI_STATE_INIT;
 
     status = message_queue_create(&new_client_ui->message_queue,
                                   CLIENT_UI_MESSAGE_QUEUE_SIZE,
@@ -65,37 +41,113 @@ eSTATUS client_ui_create(
         goto fail_create_message_queue;
     }
 
-
-    status = generic_create_thread(client_ui_input_thread_entry,
-                                   new_client_ui,
-                                   &new_client_ui->input_thread);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_input_thread;
-    }
-
-    status = generic_create_thread(client_ui_thread_entry,
-                                   new_client_ui,
-                                   NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_main_thread;
-    }
-
     *out_new_client_ui = new_client_ui;
     return STATUS_SUCCESS;
-
-fail_create_main_thread:
-    generic_kill_thread(new_client_ui->input_thread);
-
-fail_create_input_thread:
-    message_queue_destroy(new_client_ui->message_queue);
 
 fail_create_message_queue:
     generic_deallocator(new_client_ui);
 
 fail_alloc_cblk:
     return status;
+}
+
+
+eSTATUS client_ui_open(
+    CLIENT_UI client_ui)
+{
+    eSTATUS          status;
+    sCLIENT_UI_CBLK* master_cblk_ptr;
+
+    if (NULL == client_ui)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCLIENT_UI_CBLK*)client_ui;
+    if (CLIENT_UI_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    client_ui_init_ncurses(&master_cblk_ptr->input_window,
+                           &master_cblk_ptr->messages_window);
+
+    status = generic_create_thread(client_ui_input_thread_entry,
+                                   master_cblk_ptr,
+                                   &master_cblk_ptr->input_thread);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_input_thread;
+    }
+
+    master_cblk_ptr->state = CLIENT_UI_STATE_OPEN;
+    status                 = generic_create_thread(client_ui_thread_entry,
+                                                   master_cblk_ptr,
+                                                   NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_create_main_thread;
+    }
+
+    return STATUS_SUCCESS;
+
+fail_create_main_thread:
+    generic_kill_thread(master_cblk_ptr->input_thread);
+    master_cblk_ptr->state = CLIENT_UI_STATE_INIT;
+
+fail_create_input_thread:
+    return status;
+}
+
+
+eSTATUS client_ui_close(
+    CLIENT_UI client_ui)
+{
+    eSTATUS            status;
+    sCLIENT_UI_CBLK*   master_cblk_ptr;
+    sCLIENT_UI_MESSAGE message;
+
+    if (NULL == client_ui)
+    {
+        return STATUS_INVALID_ARG;
+    }
+    master_cblk_ptr = (sCLIENT_UI_CBLK*)client_ui;
+
+    message.type = CLIENT_UI_MESSAGE_CLOSE;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    if (STATUS_SUCCESS != status)
+    {
+        return status;
+    }
+}
+
+
+eSTATUS client_ui_destroy(
+    CLIENT_UI client_ui)
+{
+    eSTATUS          status;
+    sCLIENT_UI_CBLK* master_cblk_ptr;
+
+    if (NULL == client_ui)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCLIENT_UI_CBLK*)client_ui;
+    if (CLIENT_UI_STATE_INIT   != master_cblk_ptr->state &&
+        CLIENT_UI_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+    
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }
 
 
@@ -114,7 +166,7 @@ eSTATUS client_ui_post_event(
     }
     master_cblk_ptr = (sCLIENT_UI_CBLK*)client_ui;
 
-    message.type = CLIENT_UI_MESSAGE_TYPE_POST_EVENT;
+    message.type = CLIENT_UI_MESSAGE_POST_EVENT;
 
     status = chat_event_copy(&message.params.post_event.event,
                              event);

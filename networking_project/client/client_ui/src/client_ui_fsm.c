@@ -19,7 +19,7 @@ static void open_processing(
 
     switch (message->type)
     {
-        case CLIENT_UI_MESSAGE_TYPE_POST_EVENT:
+        case CLIENT_UI_MESSAGE_POST_EVENT:
         {
             incoming_event = &message->params.post_event.event;
             switch(incoming_event->type)
@@ -91,12 +91,12 @@ static void open_processing(
             }
             break;
         }
-        case CLIENT_UI_MESSAGE_TYPE_INPUT_THREAD_CLOSED:
+        case CLIENT_UI_MESSAGE_INPUT_THREAD_CLOSED:
         {
             master_cblk_ptr->state = CLIENT_UI_STATE_CLOSED;
             break;
         }
-        case CLIENT_UI_MESSAGE_TYPE_CLOSE:
+        case CLIENT_UI_MESSAGE_CLOSE:
         {
             generic_kill_thread(master_cblk_ptr->input_thread);
             master_cblk_ptr->state = CLIENT_UI_STATE_CLOSED;
@@ -117,6 +117,7 @@ static void dispatch_message(
             open_processing(master_cblk_ptr, message);
             break;
         }
+        case CLIENT_UI_STATE_INIT:
         case CLIENT_UI_STATE_CLOSED:
         default:
         {
@@ -147,6 +148,7 @@ void* client_ui_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
+    client_ui_close_ncurses();
     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                 CLIENT_UI_EVENT_CLOSED,
                                 NULL);

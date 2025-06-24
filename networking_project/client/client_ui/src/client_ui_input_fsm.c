@@ -29,7 +29,7 @@ void* client_ui_input_thread_entry(
     status = generic_thread_set_kill_mode(THREAD_KILL_INSTANT);
     if (STATUS_SUCCESS != status)
     {
-        message.type = CLIENT_UI_MESSAGE_TYPE_INPUT_THREAD_CLOSED;
+        message.type = CLIENT_UI_MESSAGE_INPUT_THREAD_CLOSED;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
                                    &message,
@@ -92,7 +92,7 @@ void* client_ui_input_thread_entry(
         }
     }
 
-    message.type = CLIENT_UI_MESSAGE_TYPE_INPUT_THREAD_CLOSED;
+    message.type = CLIENT_UI_MESSAGE_INPUT_THREAD_CLOSED;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,

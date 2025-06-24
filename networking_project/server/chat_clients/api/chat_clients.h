@@ -78,6 +78,18 @@ eSTATUS chat_clients_create(
     void*                    user_arg);
 
 
+eSTATUS chat_clients_open(
+    CHAT_CLIENTS chat_clients);
+
+
+eSTATUS chat_clients_close(
+    CHAT_CLIENTS chat_clients);
+
+
+eSTATUS chat_clients_destroy(
+    CHAT_CLIENTS chat_clients);
+
+
 eSTATUS chat_clients_open_client(
     CHAT_CLIENTS chat_clients,
     int fd);
@@ -88,10 +100,6 @@ eSTATUS chat_clients_auth_event(
     eCHAT_CLIENTS_AUTH_STEP auth_step,
     sCHAT_USER              user_info,
     SHARED_PTR              client_ptr);
-
-
-eSTATUS chat_clients_close(
-    CHAT_CLIENTS* chat_clients);
 
 
 #ifdef __cplusplus

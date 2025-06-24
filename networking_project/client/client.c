@@ -25,9 +25,9 @@ int main(int argc, char *argv[])
     sCLIENT_MAIN_MESSAGE message;
 
     sCLIENT_MAIN_CBLK master_cblk;
-    memset(&master_cblk, 0, sizeof(master_cblk));
 
-    master_cblk.open = true;
+    memset(&master_cblk, 0, sizeof(master_cblk));
+    master_cblk.state = CLIENT_STATE_OPEN;
 
     status = message_queue_create(&master_cblk.message_queue,
                                   CLIENT_MESSAGE_QUEUE_SIZE,

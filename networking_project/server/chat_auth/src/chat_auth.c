@@ -15,13 +15,10 @@
 
 eSTATUS chat_auth_create(
     CHAT_AUTH*            out_chat_auth,
-    const char*           database_path,
     fCHAT_AUTH_USER_CBACK user_cback,
     void*                 user_arg)
 {
-    eSTATUS status;
-    int     sqlite_status;
-
+    eSTATUS          status;
     sCHAT_AUTH_CBLK* new_auth_chat_cblk;
 
     new_auth_chat_cblk = generic_allocator(sizeof(sCHAT_AUTH_CBLK));
@@ -32,7 +29,7 @@ eSTATUS chat_auth_create(
     }
 
     memset(new_auth_chat_cblk, 0, sizeof(sCHAT_AUTH_CBLK));
-    new_auth_chat_cblk->state = CHAT_AUTH_STATE_OPEN;
+    new_auth_chat_cblk->state = CHAT_AUTH_STATE_INIT;
 
     new_auth_chat_cblk->user_cback = user_cback;
     new_auth_chat_cblk->user_arg   = user_arg;
@@ -45,8 +42,44 @@ eSTATUS chat_auth_create(
         goto fail_create_message_queue;
     }
 
+    *out_chat_auth = (CHAT_AUTH)new_auth_chat_cblk;
+    return STATUS_SUCCESS;
+
+fail_create_message_queue:
+    generic_deallocator(new_auth_chat_cblk);
+
+fail_alloc_cblk:
+    return status;
+}
+
+
+eSTATUS chat_auth_open(
+    CHAT_AUTH   chat_auth,
+    const char* database_path)
+{
+    eSTATUS status;
+    int     sqlite_status;
+
+    sCHAT_AUTH_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_auth)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    if (NULL == database_path)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
+    if (CHAT_AUTH_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
     sqlite_status = sqlite3_open_v2(database_path,
-                                    &new_auth_chat_cblk->database,
+                                    &master_cblk_ptr->database,
                                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                                     NULL);
     if(SQLITE_OK != sqlite_status)
@@ -56,29 +89,68 @@ eSTATUS chat_auth_create(
     }
 
     status = generic_create_thread(chat_auth_thread_entry,
-                                   new_auth_chat_cblk,
+                                   master_cblk_ptr,
                                    NULL);
     if (STATUS_SUCCESS != status)
     {
         goto fail_create_thread;
     }
 
-    *out_chat_auth = (CHAT_AUTH)new_auth_chat_cblk;
-    status = STATUS_SUCCESS;
-    goto success;
+    return STATUS_SUCCESS;
 
 fail_create_thread:
-    sqlite3_close_v2(new_auth_chat_cblk->database);
+    sqlite3_close_v2(master_cblk_ptr->database);
 
 fail_open_database:
-    message_queue_destroy(new_auth_chat_cblk->message_queue);
-
-fail_create_message_queue:
-    generic_deallocator(new_auth_chat_cblk);
-
-fail_alloc_cblk:
-success:
     return status;
+}
+
+
+eSTATUS chat_auth_close(
+    CHAT_AUTH chat_auth)
+{
+    sCHAT_AUTH_CBLK*   master_cblk_ptr;
+    sCHAT_AUTH_MESSAGE message;
+    eSTATUS            status;
+
+    if (NULL == chat_auth)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
+
+    message.type = CHAT_AUTH_MESSAGE_CLOSE;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    return status;
+}
+
+eSTATUS chat_auth_destroy(
+    CHAT_AUTH chat_auth)
+{
+    eSTATUS          status;
+    sCHAT_AUTH_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_auth)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
+    if (CHAT_AUTH_STATE_INIT   != master_cblk_ptr->state &&
+        CHAT_AUTH_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }
 
 
@@ -187,27 +259,4 @@ eSTATUS chat_auth_finish_transaction(
 
     pthread_mutex_unlock(&auth_transaction_cblk->mutex);
     return STATUS_SUCCESS;
-}
-
-
-eSTATUS chat_auth_close(
-    CHAT_AUTH chat_auth)
-{
-    sCHAT_AUTH_CBLK*   master_cblk_ptr;
-    sCHAT_AUTH_MESSAGE message;
-    eSTATUS            status;
-
-    if (NULL == chat_auth)
-    {
-        return STATUS_INVALID_ARG;
-    }
-
-    master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;
-
-    message.type = CHAT_AUTH_MESSAGE_CLOSE;
-
-    status = message_queue_put(master_cblk_ptr->message_queue,
-                               &message,
-                               sizeof(message));
-    return status;
 }

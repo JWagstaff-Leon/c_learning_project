@@ -60,7 +60,7 @@ static void handler_username_entry(
 
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CLIENT_STATE_INIT:
+        case CHAT_CLIENT_STATE_CONNECTED:
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         {
             status = chat_event_copy(&cback_data.print_event.event, event);
@@ -104,7 +104,7 @@ static void handler_password_entry(
 
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CLIENT_STATE_INIT:
+        case CHAT_CLIENT_STATE_CONNECTED:
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         case CHAT_CLIENT_STATE_PASSWORD_VERIFYING:
         {
@@ -130,7 +130,7 @@ static void handler_authenticated(
 
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CLIENT_STATE_INIT:
+        case CHAT_CLIENT_STATE_CONNECTED:
         case CHAT_CLIENT_STATE_USERNAME_VERIFYING:
         case CHAT_CLIENT_STATE_PASSWORD_VERIFYING:
         {
@@ -198,9 +198,24 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_no_op,           // CHAT_EVENT_MAX
 };
 
+
+#include <stdio.h>
 void chat_client_handle_incoming_event(
     sCHAT_CLIENT_CBLK* master_cblk_ptr,
     const sCHAT_EVENT* event)
 {
+fprintf(stderr, "Incoming event from server\n"
+                "\t╔═ Event ════════════════════════\n"
+                "\t║\n"
+                "\t╠══ Type: %d\n"
+                "\t╠══ Origin: %s\n"
+                "\t╠══ Length: %u\n"
+                "\t╠══ Data: %s\n"
+                "\t║\n"
+                "\t╚════════════════════════════════\n",
+                event->type,
+                event->origin.name,
+                event->length,
+                event->data);
     event_handler_table[event->type](master_cblk_ptr, event);
 }

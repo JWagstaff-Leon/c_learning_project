@@ -127,8 +127,9 @@ extern "C" {
 
 typedef enum
 {
+    CLIENT_UI_STATE_INIT,
     CLIENT_UI_STATE_OPEN,
-    
+
     CLIENT_UI_STATE_CLOSED
 } eCLIENT_UI_STATE;
 
@@ -155,6 +156,15 @@ void* client_ui_thread_entry(
 
 void* client_ui_input_thread_entry(
     void* arg);
+
+
+void client_ui_init_ncurses(
+    WINDOW** out_input_window,
+    WINDOW** out_message_window);
+
+
+void client_ui_close_ncurses(
+    void);
 
 
 #ifdef __cplusplus

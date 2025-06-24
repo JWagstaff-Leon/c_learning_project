@@ -109,6 +109,16 @@ static void dispatch_message(
 }
 
 
+static void fsm_cblk_close(
+    sCHAT_AUTH_CBLK* master_cblk_ptr)
+{
+    int sqlite_status;
+
+    sqlite_status = sqlite3_close(master_cblk_ptr->database);
+    assert(SQLITE_OK == sqlite_status);
+}
+
+
 void* chat_auth_thread_entry(
     void* arg)
 {
@@ -130,4 +140,11 @@ void* chat_auth_thread_entry(
 
         dispatch_message(master_cblk_ptr, &message);
     }
+
+    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_AUTH_EVENT_CLOSED,
+                                NULL);
+
+    return NULL;
 }

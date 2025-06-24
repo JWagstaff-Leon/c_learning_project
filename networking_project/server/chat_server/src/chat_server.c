@@ -14,24 +14,15 @@
 #include "message_queue.h"
 
 
-// Constants -------------------------------------------------------------------
-
-static const char k_database_path[] = "./chat_users.db";
-
-
 // Function Implementations ----------------------------------------------------
 
-static eSTATUS init_cblk(
+static void init_cblk(
     sCHAT_SERVER_CBLK *master_cblk_ptr)
 {
-    assert(NULL != master_cblk_ptr);
-
     memset(master_cblk_ptr, 0, sizeof(master_cblk_ptr));
 
-    master_cblk_ptr->state     = CHAT_SERVER_STATE_OPEN;
+    master_cblk_ptr->state     = CHAT_SERVER_STATE_INIT;
     master_cblk_ptr->listen_fd = -1;
-
-    return STATUS_SUCCESS;
 }
 
 
@@ -53,11 +44,7 @@ eSTATUS chat_server_create(
         goto fail_alloc_cblk;
     }
 
-    status = init_cblk(new_chat_server);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_init_cblk;
-    }
+    init_cblk(new_chat_server);
 
     new_chat_server->user_cback = user_cback;
     new_chat_server->user_arg   = user_arg;
@@ -67,7 +54,7 @@ eSTATUS chat_server_create(
                                   sizeof(sCHAT_SERVER_MESSAGE));
     if (STATUS_SUCCESS != status)
     {
-        goto fail_init_msg_queue;
+        goto fail_create_msg_queue;
     }
 
     status = chat_clients_create(&new_chat_server->clients,
@@ -95,42 +82,65 @@ eSTATUS chat_server_create(
         goto fail_create_connection_listener;
     }
 
-    status = generic_create_thread(chat_server_thread_entry,
-                                   new_chat_server,
-                                   NULL);
-    if (STATUS_SUCCESS != status)
-    {
-        goto fail_create_thread;
-    }
-
     *out_new_chat_server = new_chat_server;
-    status               = STATUS_SUCCESS;
-    goto success;
-
-fail_create_thread:
-    network_watcher_close(new_chat_server->connection_listener);
+    return STATUS_SUCCESS;
 
 fail_create_connection_listener:
-    chat_auth_close(new_chat_server->auth);
+    chat_auth_destroy(new_chat_server->auth);
 
 fail_create_auth:
-    // FIXME change all immediate "close"s to "destroy"s; "destroy"s will not callback when closed
-    //       calling back would lead to a use-after-free (trying to get the message queue off of a freed cblk)
-    chat_clients_close(new_chat_server->clients);
+    chat_clients_destroy(new_chat_server->clients);
 
 fail_create_clients:
     message_queue_destroy(new_chat_server->message_queue);
 
-fail_init_msg_queue:
-    // Fallthrough
-
-fail_init_cblk:
+fail_create_msg_queue:
     generic_deallocator(new_chat_server);
 
 fail_alloc_cblk:
-    // Fallthrough
+    return status;
+}
 
-success:
+
+eSTATUS chat_server_open(
+    CHAT_SERVER chat_server)
+{
+    eSTATUS            status;
+    sCHAT_SERVER_CBLK* master_cblk_ptr;
+    
+    if (NULL == chat_server)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
+    if (CHAT_SERVER_STATE_INIT != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = open_listen_socket(&master_cblk_ptr->listen_fd);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_open_listen_socket;
+    }
+
+    master_cblk_ptr->state = CHAT_SERVER_STATE_OPEN;
+    status = generic_create_thread(chat_server_thread_entry,
+                                   master_cblk_ptr,
+                                   NULL);
+    if (STATUS_SUCCESS != status)
+    {
+        master_cblk_ptr->state = CHAT_SERVER_STATE_INIT;
+        goto fail_create_thread;
+    }
+
+    return STATUS_SUCCESS;
+
+fail_create_thread:
+    close(master_cblk_ptr->listen_fd);
+
+fail_open_listen_socket:
     return status;
 }
 
@@ -151,4 +161,40 @@ eSTATUS chat_server_close(
                                      sizeof(message));
 
     return status;
+}
+
+
+eSTATUS chat_server_destroy(
+    CHAT_SERVER chat_server)
+{
+    eSTATUS            status;
+    sCHAT_SERVER_CBLK* master_cblk_ptr;
+    
+    if (NULL == chat_server)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_SERVER_CBLK*)chat_server;
+    if (CHAT_SERVER_STATE_INIT   != master_cblk_ptr->state &&
+        CHAT_SERVER_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = network_watcher_destroy(master_cblk_ptr->connection_listener);
+    assert(STATUS_SUCCESS == status);
+
+    status = chat_auth_destroy(master_cblk_ptr->auth);
+    assert(STATUS_SUCCESS == status);
+    
+    // TODO make this function
+    status = chat_clients_destroy(master_cblk_ptr->clients);
+    assert(STATUS_SUCCESS == status);
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }

@@ -47,7 +47,7 @@ eSTATUS chat_server_create(
     void*                   user_arg);
 
 
-eSTATUS chat_server_reset(
+eSTATUS chat_server_open(
     CHAT_SERVER chat_server);
 
 

@@ -13,6 +13,7 @@ target_sources(client_ui
     src/client_ui.c
     src/client_ui_fsm.c
     src/client_ui_input_fsm.c
+    src/client_ui_internal.c
 )
 
 target_link_libraries(client_ui

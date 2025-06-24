@@ -26,6 +26,7 @@ static const char* k_auth_strings[] = {
 };
 
 
+#include <stdio.h>
 static void open_processing(
     sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENTS_MESSAGE* message)
@@ -47,6 +48,7 @@ static void open_processing(
     {
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
+fprintf(stderr, "New connection message on fd %d\n", message->params.open_client.fd);
             new_connection_fd = message->params.open_client.fd;
 
             status = chat_clients_client_create(&relevant_client_ptr,
@@ -81,6 +83,7 @@ static void open_processing(
             cback_data.start_auth_transaction.auth_transaction_container = &relevant_client->auth_transaction;
             cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(relevant_client->auth_credentials_ptr);
 
+fprintf(stderr, "Starting auth transaction for new client\n");
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);

@@ -3,6 +3,7 @@
 #include "chat_server_fsm.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 #include "chat_auth.h"
@@ -11,6 +12,12 @@
 #include "common_types.h"
 #include "message_queue.h"
 
+// Constants -------------------------------------------------------------------
+
+static const char k_database_path[] = "./chat_users.db";
+
+
+// Function Implementations ----------------------------------------------------
 
 static void open_processing(
     const sCHAT_SERVER_MESSAGE* message,
@@ -31,6 +38,9 @@ static void open_processing(
             assert(STATUS_SUCCESS == status);
 
             status = network_watcher_close(master_cblk_ptr->connection_listener);
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_auth_close(master_cblk_ptr->auth);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSING;
@@ -62,7 +72,7 @@ static void open_processing(
         }
         case CHAT_SERVER_MESSAGE_CLIENTS_CLOSED:
         {
-            master_cblk_ptr->clients = NULL;
+            master_cblk_ptr->dependants_states.clients_open = false;
 
             status = chat_auth_close(master_cblk_ptr->auth);
             assert(STATUS_SUCCESS == status);
@@ -97,14 +107,20 @@ static void open_processing(
             status = network_watcher_close(master_cblk_ptr->connection_listener);
             assert(STATUS_SUCCESS == status);
 
+            status = chat_auth_close(master_cblk_ptr->auth);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSING;
             break;
         }
         case CHAT_SERVER_MESSAGE_LISTENER_CLOSED:
         {
-            master_cblk_ptr->connection_listener = NULL;
-
+            master_cblk_ptr->dependants_states.listener_open = false;
+            
             status = chat_clients_close(master_cblk_ptr->clients);
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_auth_close(master_cblk_ptr->auth);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSING;
@@ -159,8 +175,8 @@ static void open_processing(
         }
         case CHAT_SERVER_MESSAGE_AUTH_CLOSED:
         {
-            master_cblk_ptr->auth = NULL;
-
+            master_cblk_ptr->dependants_states.auth_open = false;
+            
             status = chat_clients_close(master_cblk_ptr->clients);
             assert(STATUS_SUCCESS == status);
 
@@ -179,6 +195,19 @@ static void open_processing(
 }
 
 
+static bool check_closed(
+    sCHAT_SERVER_CBLK* master_cblk_ptr)
+{
+    bool open = false;
+
+    open |= master_cblk_ptr->dependants_states.auth_open;
+    open |= master_cblk_ptr->dependants_states.clients_open;
+    open |= master_cblk_ptr->dependants_states.listener_open;
+
+    return !open;
+}
+
+
 static void closing_processing(
     const sCHAT_SERVER_MESSAGE* message,
     sCHAT_SERVER_CBLK*          master_cblk_ptr)
@@ -189,14 +218,9 @@ static void closing_processing(
     {
         case CHAT_SERVER_MESSAGE_CLIENTS_CLOSED:
         {
-            master_cblk_ptr->clients = NULL;
-            if (NULL != master_cblk_ptr->auth)
-            {
-                status = chat_auth_close(master_cblk_ptr->auth);
-                assert(STATUS_SUCCESS == status);
-            }
+            master_cblk_ptr->dependants_states.clients_open = false;
 
-            if (NULL == master_cblk_ptr->auth && master_cblk_ptr->connection_listener)
+            if (check_closed(master_cblk_ptr))
             {
                 master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             }
@@ -204,9 +228,9 @@ static void closing_processing(
         }
         case CHAT_SERVER_MESSAGE_AUTH_CLOSED:
         {
-            master_cblk_ptr->auth = NULL;
+             master_cblk_ptr->dependants_states.auth_open = false;
 
-            if (NULL == master_cblk_ptr->clients && master_cblk_ptr->connection_listener)
+            if (check_closed(master_cblk_ptr))
             {
                 master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             }
@@ -214,28 +238,13 @@ static void closing_processing(
         }
         case CHAT_SERVER_MESSAGE_LISTENER_CLOSED:
         {
-            master_cblk_ptr->connection_listener = NULL;
+             master_cblk_ptr->dependants_states.listener_open = false;
 
-            if (NULL == master_cblk_ptr->clients && master_cblk_ptr->auth)
+            if (check_closed(master_cblk_ptr))
             {
                 master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSED;
             }
             break;
-        }
-        case CHAT_SERVER_MESSAGE_START_AUTH_TRANSACTION:
-        case CHAT_SERVER_MESSAGE_FINISH_AUTH_TRANSACTION:
-        case CHAT_SERVER_MESSAGE_INCOMING_CONNECTION:
-        case CHAT_SERVER_MESSAGE_LISTENER_CANCELLED:
-        case CHAT_SERVER_MESSAGE_LISTENER_ERROR:
-        case CHAT_SERVER_MESSAGE_AUTH_RESULT:
-        {
-            // Ignore any of these messages
-            break;
-        }
-        default:
-        {
-            // Should never get here
-            assert(0);
         }
     }
 }
@@ -260,6 +269,7 @@ static void dispatch_message(
             closing_processing(message, master_cblk_ptr);
             break;
         }
+        case CHAT_SERVER_STATE_INIT:
         case CHAT_SERVER_STATE_CLOSED:
         default:
         {
@@ -276,38 +286,49 @@ static void fsm_cblk_init(
 {
     eSTATUS status;
 
-    status = open_listen_socket(&master_cblk_ptr->listen_fd);
-    assert(STATUS_SUCCESS == status);
+    status = network_watcher_open(master_cblk_ptr->connection_listener);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_open_listener;
+    }
+    master_cblk_ptr->dependants_states.listener_open = true;
 
     status = network_watcher_start_watch(master_cblk_ptr->connection_listener,
                                          NETWORK_WATCHER_MODE_READ,
                                          master_cblk_ptr->listen_fd);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_start_listener;
+    }
+
+    status = chat_auth_open(master_cblk_ptr->auth,
+                            k_database_path);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_open_auth;
+    }
+    master_cblk_ptr->dependants_states.auth_open = true;
+
+    status = chat_clients_open(master_cblk_ptr->clients);
+    if (STATUS_SUCCESS != status)
+    {
+        goto fail_open_clients;
+    }
+    master_cblk_ptr->dependants_states.clients_open = true;
+
+    return;
+
+fail_open_clients:
+    status = chat_auth_close(master_cblk_ptr->auth);
     assert(STATUS_SUCCESS == status);
-}
 
-
-static void fsm_cblk_close(
-    sCHAT_SERVER_CBLK* master_cblk_ptr)
-{
-    eSTATUS                 status;
-    fCHAT_SERVER_USER_CBACK user_cback;
-    void*                   user_arg;
-
-    assert(NULL != master_cblk_ptr);
-
-    close(master_cblk_ptr->listen_fd);
-
-    status = message_queue_destroy(master_cblk_ptr->message_queue);
+fail_open_auth:
+fail_start_listener:
+    status = network_watcher_close(master_cblk_ptr->connection_listener);
     assert(STATUS_SUCCESS == status);
 
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    generic_deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               CHAT_SERVER_EVENT_CLOSED,
-               NULL);
+fail_open_listener:
+    master_cblk_ptr->state = CHAT_SERVER_STATE_CLOSING;
 }
 
 
@@ -331,6 +352,8 @@ void* chat_server_thread_entry(
         dispatch_message(&message, master_cblk_ptr);
     }
 
-    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_SERVER_EVENT_CLOSED,
+                                NULL);
     return NULL;
 }

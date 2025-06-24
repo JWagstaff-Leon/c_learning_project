@@ -441,10 +441,12 @@ static void closing_processing(
 }
 
 
+#include <stdio.h>
 static void dispatch_message(
     sCHAT_CONNECTION_CBLK*          master_cblk_ptr,
     const sCHAT_CONNECTION_MESSAGE* message)
 {
+fprintf(stderr, "chat connection dispatching message %d in state %d\n", message->type, master_cblk_ptr->state);
     switch (master_cblk_ptr->state)
     {
         case CHAT_CONNECTION_STATE_READING:
@@ -483,6 +485,7 @@ static void dispatch_message(
 }
 
 
+#include <stdio.h>
 static void fsm_cblk_init(
     sCHAT_CONNECTION_CBLK* master_cblk_ptr)
 {
@@ -493,6 +496,7 @@ static void fsm_cblk_init(
                                          master_cblk_ptr->fd);
     if (STATUS_SUCCESS != status)
     {
+fprintf(stderr, "connection fsm_cblk_init fail start watcher\n");
         network_watcher_close(master_cblk_ptr->network_watcher);
         master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSING;
     }
@@ -508,6 +512,7 @@ void* chat_connection_thread_entry(
 
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)arg;
 
+fprintf(stderr, "connection thread entry\n");
     fsm_cblk_init(master_cblk_ptr);
     while (CHAT_CONNECTION_STATE_CLOSED != master_cblk_ptr->state)
     {
@@ -522,5 +527,6 @@ void* chat_connection_thread_entry(
     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                 CHAT_CONNECTION_EVENT_CLOSED,
                                 NULL);
+fprintf(stderr, "connection thread exit\n");
     return NULL;
 }

@@ -93,6 +93,7 @@ eSTATUS chat_connection_open(
         return STATUS_INVALID_ARG;
     }
 
+    master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
     if (CHAT_CONNECTION_STATE_INIT != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
@@ -227,7 +228,8 @@ eSTATUS chat_connection_destroy(
     }
 
     master_cblk_ptr = (sCHAT_CONNECTION_CBLK*)chat_connection;
-    if (CHAT_CONNECTION_STATE_CLOSED != master_cblk_ptr->state)
+    if (CHAT_CONNECTION_STATE_INIT   != master_cblk_ptr->state &&
+        CHAT_CONNECTION_STATE_CLOSED != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
     }

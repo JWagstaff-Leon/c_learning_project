@@ -53,6 +53,18 @@ eSTATUS client_ui_create(
     void*            user_arg);
 
 
+eSTATUS client_ui_open(
+    CLIENT_UI client_ui);
+
+
+eSTATUS client_ui_close(
+    CLIENT_UI client_ui);
+
+
+eSTATUS client_ui_destroy(
+    CLIENT_UI client_ui);
+
+
 eSTATUS client_ui_post_event(
     CLIENT_UI          client_ui,
     const sCHAT_EVENT* event);

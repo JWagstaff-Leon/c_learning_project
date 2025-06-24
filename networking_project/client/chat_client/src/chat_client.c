@@ -20,7 +20,7 @@ static void init_cblk(
 {
     memset(master_cblk_ptr, 0, sizeof(sCHAT_CLIENT_CBLK));
 
-    master_cblk_ptr->state     = CHAT_CLIENT_STATE_CLOSED;
+    master_cblk_ptr->state     = CHAT_CLIENT_STATE_INIT;
     master_cblk_ptr->server_fd = -1;
 }
 
@@ -106,7 +106,7 @@ eSTATUS chat_client_open(
     }
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-    if (master_cblk_ptr->state > CHAT_CLIENT_STATE_CLOSED)
+    if (CHAT_CLIENT_STATE_INIT != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
     }
@@ -143,7 +143,7 @@ eSTATUS chat_client_open(
     }
 
     master_cblk_ptr->server_fd = connection_fd;
-    master_cblk_ptr->state     = CHAT_CLIENT_STATE_INIT;
+    master_cblk_ptr->state     = CHAT_CLIENT_STATE_CONNECTED;
 
     status = generic_create_thread(chat_client_thread_entry,
                                    master_cblk_ptr,
@@ -226,7 +226,8 @@ eSTATUS chat_client_destroy(
     }
 
     master_cblk_ptr = (sCHAT_CLIENT_CBLK*)client;
-    if (CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)
+    if (CHAT_CLIENT_STATE_INIT   != master_cblk_ptr->state &&
+        CHAT_CLIENT_STATE_CLOSED != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
     }

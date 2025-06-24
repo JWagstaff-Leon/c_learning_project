@@ -18,7 +18,7 @@ static void init_cblk(
 {
     memset(master_cblk_ptr, 0, sizeof(sNETWORK_WATCHER_CBLK));
 
-    master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN;
+    master_cblk_ptr->state = NETWORK_WATCHER_STATE_INIT;
 
     pthread_mutex_init(&master_cblk_ptr->cancel_mutex, NULL);
 }
@@ -97,6 +97,7 @@ eSTATUS network_watcher_open(
         return STATUS_INVALID_STATE;
     }
 
+    master_cblk_ptr->state = NETWORK_WATCHER_STATE_OPEN;
     status = generic_create_thread(network_watcher_thread_entry,
                                    master_cblk_ptr,
                                    NULL);
@@ -125,11 +126,6 @@ eSTATUS network_watcher_start_watch(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
-
-    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
-    {
-        return STATUS_INVALID_STATE;
-    }
 
     message.type = NETWORK_WATCHER_MESSAGE_WATCH;
 
@@ -166,10 +162,6 @@ eSTATUS network_watcher_cancel_watch(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
-    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
-    {
-        return STATUS_INVALID_STATE;
-    }
 
     pthread_mutex_lock(&master_cblk_ptr->cancel_mutex);
 
@@ -197,10 +189,6 @@ eSTATUS network_watcher_close(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
-    if (NETWORK_WATCHER_STATE_INIT == master_cblk_ptr->state)
-    {
-        return STATUS_INVALID_STATE;
-    }
 
     status = network_watcher_cancel_watch(network_watcher);
     assert(STATUS_SUCCESS == status);
@@ -226,7 +214,8 @@ eSTATUS network_watcher_destroy(
     }
 
     master_cblk_ptr = (sNETWORK_WATCHER_CBLK*)network_watcher;
-    if (NETWORK_WATCHER_STATE_CLOSED != master_cblk_ptr->state)
+    if (NETWORK_WATCHER_STATE_INIT   != master_cblk_ptr->state &&
+        NETWORK_WATCHER_STATE_CLOSED != master_cblk_ptr->state)
     {
         return STATUS_INVALID_STATE;
     }

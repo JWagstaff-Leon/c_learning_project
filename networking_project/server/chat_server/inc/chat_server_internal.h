@@ -9,6 +9,7 @@ extern "C" {
 
 #include "chat_server.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "chat_auth.h"
@@ -27,10 +28,19 @@ extern "C" {
 
 typedef enum
 {
+    CHAT_SERVER_STATE_INIT,
     CHAT_SERVER_STATE_OPEN,
     CHAT_SERVER_STATE_CLOSING,
     CHAT_SERVER_STATE_CLOSED
 } eCHAT_SERVER_STATE;
+
+
+typedef struct
+{
+    bool auth_open;
+    bool clients_open;
+    bool listener_open;
+} sCHAT_SERVER_DEPENDANTS_STATES;
 
 
 typedef struct
@@ -46,6 +56,8 @@ typedef struct
 
     NETWORK_WATCHER connection_listener;
     int             listen_fd;
+
+    sCHAT_SERVER_DEPENDANTS_STATES dependants_states;
 } sCHAT_SERVER_CBLK;
 
 

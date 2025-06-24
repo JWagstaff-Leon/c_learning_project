@@ -15,7 +15,7 @@
 #include "common_types.h"
 
 
-static void init_processing(
+static void connected_processing(
     sCHAT_CLIENT_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENT_MESSAGE* message)
 {
@@ -44,7 +44,10 @@ static void init_processing(
                                                      master_cblk_ptr->user_info,
                                                      "");
             assert(STATUS_SUCCESS == status);
-
+            
+            status = chat_connection_close(master_cblk_ptr->server_connection);
+            assert(STATUS_SUCCESS == status);
+            
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
             break;
         }
@@ -292,9 +295,9 @@ static void dispatch_message(
 
     switch (master_cblk_ptr->state)
     {
-        case CHAT_CLIENT_STATE_INIT:
+        case CHAT_CLIENT_STATE_CONNECTED:
         {
-            init_processing(master_cblk_ptr, message);
+            connected_processing(master_cblk_ptr, message);
             break;
         }
         case CHAT_CLIENT_STATE_USERNAME_ENTRY:
@@ -324,6 +327,7 @@ static void dispatch_message(
             disconnecting_processing(master_cblk_ptr, message);
             break;
         }
+        case CHAT_CLIENT_STATE_INIT:
         case CHAT_CLIENT_STATE_CLOSED:
         default:
         {

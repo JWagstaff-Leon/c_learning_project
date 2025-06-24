@@ -70,6 +70,19 @@ eSTATUS chat_auth_create(
     void*                 user_arg);
 
 
+eSTATUS chat_auth_open(
+    CHAT_AUTH   chat_auth,
+    const char* database_path);
+
+
+eSTATUS chat_auth_close(
+    CHAT_AUTH chat_auth);
+
+
+eSTATUS chat_auth_destroy(
+    CHAT_AUTH chat_auth);
+
+
 eSTATUS chat_auth_submit_credentials(
     CHAT_AUTH              chat_auth,
     SHARED_PTR             credentials_ptr,
@@ -79,10 +92,6 @@ eSTATUS chat_auth_submit_credentials(
 
 eSTATUS chat_auth_finish_transaction(
     CHAT_AUTH_TRANSACTION auth_transaction);
-
-
-eSTATUS chat_auth_close(
-    CHAT_AUTH chat_auth);
 
 
 #ifdef __cplusplus

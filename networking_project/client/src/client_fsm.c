@@ -51,8 +51,8 @@ static bool check_closed(
 {
     bool open = false;
 
-    open &= master_cblk_ptr->closing_states.client_open;
-    open &= master_cblk_ptr->closing_states.ui_open;
+    open |= master_cblk_ptr->closing_states.client_open;
+    open |= master_cblk_ptr->closing_states.ui_open;
 
     return !open;
 }
