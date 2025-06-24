@@ -9,14 +9,14 @@
 
 void chat_client_cback(
     void*                          user_arg,
-    bCHAT_CLIENT_EVENT_TYPE        event,
+    bCHAT_CLIENT_EVENT_TYPE        event_mask,
     const sCHAT_CLIENT_CBACK_DATA* data)
 {
     eSTATUS              status;
     sCLIENT_MAIN_MESSAGE message;
     sCLIENT_MAIN_CBLK*   master_cblk_ptr = (sCLIENT_MAIN_CBLK*)user_arg;
 
-    if (CHAT_CLIENT_EVENT_PRINT_EVENT)
+    if (event_mask & CHAT_CLIENT_EVENT_PRINT_EVENT)
     {
         message.type = CLIENT_MAIN_MESSAGE_PRINT_EVENT;
 
@@ -30,7 +30,7 @@ void chat_client_cback(
         assert(STATUS_SUCCESS == status);
     }
 
-    if (CHAT_CLIENT_EVENT_CLOSED)
+    if (event_mask & CHAT_CLIENT_EVENT_CLOSED)
     {
         message.type = CLIENT_MAIN_MESSAGE_CLIENT_CLOSED;
 

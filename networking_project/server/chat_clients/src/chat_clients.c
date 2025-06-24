@@ -90,18 +90,52 @@ eSTATUS chat_clients_open(
 }
 
 
-
 eSTATUS chat_clients_close(
     CHAT_CLIENTS chat_clients)
 {
-    // TODO this
+    eSTATUS               status;
+    sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
+    sCHAT_CLIENTS_MESSAGE message;
+
+    if (NULL == chat_clients)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+
+    message.type = CHAT_CLIENTS_MESSAGE_CLOSE;
+
+    status = message_queue_put(master_cblk_ptr->message_queue,
+                               &message,
+                               sizeof(message));
+    return status;
 }
 
 
 eSTATUS chat_clients_destroy(
     CHAT_CLIENTS chat_clients)
 {
-    // TODO this
+    eSTATUS             status;
+    sCHAT_CLIENTS_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_clients)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
+    if (CHAT_CLIENTS_STATE_INIT   != master_cblk_ptr->state &&
+        CHAT_CLIENTS_STATE_CLOSED != master_cblk_ptr->state)
+    {
+        return STATUS_INVALID_STATE;
+    }
+
+    status = message_queue_destroy(master_cblk_ptr->message_queue);
+    assert(STATUS_SUCCESS == status);
+
+    generic_deallocator(master_cblk_ptr);
+    return STATUS_SUCCESS;
 }
 
 
@@ -114,7 +148,11 @@ eSTATUS chat_clients_open_client(
     sCHAT_CLIENTS_CBLK*   master_cblk_ptr;
     sCHAT_CLIENTS_MESSAGE message;
 
-    assert(NULL != chat_clients);
+    if (NULL == chat_clients)
+    {
+        return STATUS_INVALID_ARG;
+    }
+
     master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)chat_clients;
 
     message.type                  = CHAT_CLIENTS_MESSAGE_OPEN_CLIENT;

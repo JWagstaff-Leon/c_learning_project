@@ -235,7 +235,7 @@ eSTATUS chat_client_destroy(
     status = message_queue_destroy(master_cblk_ptr->message_queue);
     assert(STATUS_SUCCESS == status);
 
-    chat_connection_destroy(master_cblk_ptr->server_connection);
+    status = chat_connection_destroy(master_cblk_ptr->server_connection);
     assert(STATUS_SUCCESS == status);
 
     generic_deallocator(master_cblk_ptr);

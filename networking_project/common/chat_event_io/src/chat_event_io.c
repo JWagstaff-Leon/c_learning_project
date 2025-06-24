@@ -14,7 +14,6 @@
 static void init_cblk(
     sCHAT_EVENT_IO_CBLK* master_cblk_ptr)
 {
-    assert(NULL != master_cblk_ptr);
     memset(master_cblk_ptr, 0, sizeof(sCHAT_EVENT_IO_CBLK));
 
     master_cblk_ptr->reader.state = CHAT_EVENT_IO_OPERATOR_STATE_READY;
@@ -23,7 +22,7 @@ static void init_cblk(
 
 
 eSTATUS chat_event_io_create(
-    CHAT_EVENT_IO*            out_new_chat_event_io)
+    CHAT_EVENT_IO* out_new_chat_event_io)
 {
     sCHAT_EVENT_IO_CBLK* new_chat_event_io;
 
@@ -37,7 +36,7 @@ eSTATUS chat_event_io_create(
 
     init_cblk(new_chat_event_io);
 
-    *out_new_chat_event_io = (void*)new_chat_event_io;
+    *out_new_chat_event_io = (CHAT_EVENT_IO)new_chat_event_io;
     return STATUS_SUCCESS;
 }
 

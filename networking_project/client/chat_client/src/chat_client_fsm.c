@@ -44,10 +44,10 @@ static void connected_processing(
                                                      master_cblk_ptr->user_info,
                                                      "");
             assert(STATUS_SUCCESS == status);
-            
+
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
-            
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
             break;
         }
@@ -132,6 +132,9 @@ static void auth_entry_processing(
                                                      "");
             assert(STATUS_SUCCESS == status);
 
+            status = chat_connection_close(master_cblk_ptr->server_connection);
+            assert(STATUS_SUCCESS == status);
+
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
             break;
         }
@@ -165,6 +168,9 @@ static void auth_verifying_processing(
                                                      CHAT_EVENT_USER_LEAVE,
                                                      master_cblk_ptr->user_info,
                                                      "");
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
@@ -202,6 +208,9 @@ static void authenticated_processing(
                                                      CHAT_EVENT_USER_LEAVE,
                                                      master_cblk_ptr->user_info,
                                                      "");
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
@@ -256,6 +265,9 @@ static void active_processing(
                                                      CHAT_EVENT_USER_LEAVE,
                                                      master_cblk_ptr->user_info,
                                                      "");
+            assert(STATUS_SUCCESS == status);
+
+            status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;

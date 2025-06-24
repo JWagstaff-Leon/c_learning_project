@@ -1,12 +1,14 @@
 #include <ncurses.h>
 
 
+#include <stdio.h>
 void client_ui_init_ncurses(
     WINDOW** out_input_window,
     WINDOW** out_message_window)
 {
     int max_x, max_y;
 
+fprintf(stderr, "Init ncurses\n");
     initscr();
     start_color();
     init_color(8, 650, 650, 650);
@@ -28,5 +30,6 @@ void client_ui_init_ncurses(
 void client_ui_close_ncurses(
     void)
 {
+fprintf(stderr, "Close ncurses\n");
     endwin();
 }

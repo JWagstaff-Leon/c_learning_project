@@ -28,6 +28,8 @@ static void open_processing(
         }
         case CLIENT_MAIN_MESSAGE_CLIENT_CLOSED:
         {
+            master_cblk_ptr->closing_states.client_open = false;
+
             status = client_ui_close(master_cblk_ptr->ui);
             assert(STATUS_SUCCESS == status);
 
@@ -36,6 +38,8 @@ static void open_processing(
         }
         case CLIENT_MAIN_MESSAGE_UI_CLOSED:
         {
+            master_cblk_ptr->closing_states.ui_open = false;
+            
             status = chat_client_close(master_cblk_ptr->client);
             assert(STATUS_SUCCESS == status);
 
@@ -46,14 +50,19 @@ static void open_processing(
 }
 
 
+#include <stdio.h>
 static bool check_closed(
     sCLIENT_MAIN_CBLK* master_cblk_ptr)
 {
     bool open = false;
 
+fprintf(stderr, "Checking closed? %s\n", open ? "false" : "true");
     open |= master_cblk_ptr->closing_states.client_open;
+fprintf(stderr, "Checking closed, after client_open? %s\n", open ? "false" : "true");
     open |= master_cblk_ptr->closing_states.ui_open;
+fprintf(stderr, "Checking closed, after ui_open? %s\n", open ? "false" : "true");
 
+fprintf(stderr, "Checking closed, returning? %s\n", !open ? "true" : "false");
     return !open;
 }
 

@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "chat_auth.h"
 #include "chat_clients.h"
@@ -66,7 +67,6 @@ eSTATUS chat_server_create(
     }
 
     status = chat_auth_create(&new_chat_server->auth,
-                              k_database_path,
                               chat_server_auth_cback,
                               new_chat_server);
     if (STATUS_SUCCESS != status)
@@ -188,7 +188,6 @@ eSTATUS chat_server_destroy(
     status = chat_auth_destroy(master_cblk_ptr->auth);
     assert(STATUS_SUCCESS == status);
     
-    // TODO make this function
     status = chat_clients_destroy(master_cblk_ptr->clients);
     assert(STATUS_SUCCESS == status);
 

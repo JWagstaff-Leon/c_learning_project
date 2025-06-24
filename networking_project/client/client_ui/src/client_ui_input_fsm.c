@@ -10,6 +10,7 @@
 #include "message_queue.h"
 
 
+#include <stdio.h>
 void* client_ui_input_thread_entry(
     void* arg)
 {
@@ -23,12 +24,14 @@ void* client_ui_input_thread_entry(
 
     bool done = false;
 
+fprintf(stderr, "Input thread entry\n");
     sCLIENT_UI_MESSAGE    message;
     sCLIENT_UI_CBACK_DATA cback_data;
 
     status = generic_thread_set_kill_mode(THREAD_KILL_INSTANT);
     if (STATUS_SUCCESS != status)
     {
+fprintf(stderr, "Input thread early exit\n");
         message.type = CLIENT_UI_MESSAGE_INPUT_THREAD_CLOSED;
 
         status = message_queue_put(master_cblk_ptr->message_queue,
@@ -40,6 +43,7 @@ void* client_ui_input_thread_entry(
 
     while (!done)
     {
+fprintf(stderr, "Input gotten\n");
         input_char = wgetch(master_cblk_ptr->input_window);
         switch (input_char)
         {
@@ -98,5 +102,6 @@ void* client_ui_input_thread_entry(
                                &message,
                                sizeof(message));
     assert(STATUS_SUCCESS == status);
+fprintf(stderr, "Input thread exit\n");
     return NULL;
 }

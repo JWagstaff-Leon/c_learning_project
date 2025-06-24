@@ -26,7 +26,6 @@ static const char* k_auth_strings[] = {
 };
 
 
-#include <stdio.h>
 static void open_processing(
     sCHAT_CLIENTS_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENTS_MESSAGE* message)
@@ -37,9 +36,9 @@ static void open_processing(
     uint32_t      client_index;
     SHARED_PTR    relevant_client_ptr;
     sCHAT_CLIENT* relevant_client;
-    
+
     sCHAT_CLIENTS_CBACK_DATA cback_data;
-    
+
     eCHAT_CLIENTS_AUTH_STEP auth_step;
     SHARED_PTR              outgoing_client_ptr;
     sCHAT_EVENT             outgoing_event;
@@ -48,7 +47,6 @@ static void open_processing(
     {
         case CHAT_CLIENTS_MESSAGE_OPEN_CLIENT:
         {
-fprintf(stderr, "New connection message on fd %d\n", message->params.open_client.fd);
             new_connection_fd = message->params.open_client.fd;
 
             status = chat_clients_client_create(&relevant_client_ptr,
@@ -83,7 +81,6 @@ fprintf(stderr, "New connection message on fd %d\n", message->params.open_client
             cback_data.start_auth_transaction.auth_transaction_container = &relevant_client->auth_transaction;
             cback_data.start_auth_transaction.credentials_ptr            = shared_ptr_share(relevant_client->auth_credentials_ptr);
 
-fprintf(stderr, "Starting auth transaction for new client\n");
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENTS_EVENT_START_AUTH_TRANSACTION,
                                         &cback_data);
@@ -135,7 +132,7 @@ fprintf(stderr, "Starting auth transaction for new client\n");
                     relevant_client->state = CHAT_CLIENT_STATE_ACTIVE;
 
                     relevant_client->user_info.id = message->params.auth_event.user_info.id;
-                    
+
                     status = print_string_to_buffer(relevant_client->user_info.name,
                                                     message->params.auth_event.user_info.name,
                                                     sizeof(relevant_client->user_info.name),
@@ -154,7 +151,7 @@ fprintf(stderr, "Starting auth transaction for new client\n");
                     status = chat_clients_introduce_user(master_cblk_ptr,
                                                          relevant_client_ptr);
                     assert(STATUS_SUCCESS == status);
-                    
+
                     break;
                 }
                 case CHAT_CLIENTS_AUTH_STEP_CLOSED:
@@ -195,6 +192,8 @@ fprintf(stderr, "Starting auth transaction for new client\n");
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
         {
+            master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSING;
+
             for (relevant_client_ptr = master_cblk_ptr->client_list_head;
                 NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
                 relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
@@ -264,6 +263,7 @@ void dispatch_message(
             closing_processing(master_cblk_ptr, message);
             break;
         }
+        case CHAT_CLIENTS_STATE_INIT:
         case CHAT_CLIENTS_STATE_CLOSED:
         default:
         {
@@ -271,30 +271,6 @@ void dispatch_message(
             assert(0);
         }
     }
-}
-
-
-static void fsm_cblk_close(
-    sCHAT_CLIENTS_CBLK* master_cblk_ptr)
-{
-    eSTATUS status;
-
-    fCHAT_CLIENTS_USER_CBACK user_cback;
-    void*                    user_arg;
-
-    assert(NULL != master_cblk_ptr);
-
-    status = message_queue_destroy(master_cblk_ptr->message_queue);
-    assert(STATUS_SUCCESS == status);
-
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    generic_deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               CHAT_CLIENTS_EVENT_CLOSED,
-               NULL);
 }
 
 
@@ -307,7 +283,7 @@ void* chat_clients_thread_entry(
     sCHAT_CLIENTS_MESSAGE message;
 
     assert(NULL != arg);
-    master_cblk_ptr = arg;
+    master_cblk_ptr = (sCHAT_CLIENTS_CBLK*)arg;
 
     while (CHAT_CLIENTS_STATE_CLOSED != master_cblk_ptr->state)
     {
@@ -318,6 +294,8 @@ void* chat_clients_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
-    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_CLIENTS_EVENT_CLOSED,
+                                NULL);
     return NULL;
 }

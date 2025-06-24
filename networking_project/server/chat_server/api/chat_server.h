@@ -55,6 +55,10 @@ eSTATUS chat_server_close(
     CHAT_SERVER chat_server);
 
 
+eSTATUS chat_server_destroy(
+    CHAT_SERVER chat_server);
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -187,6 +187,7 @@ eSTATUS chat_connection_queue_event(
 }
 
 
+#include <stdio.h>
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection)
 {
@@ -195,6 +196,7 @@ eSTATUS chat_connection_close(
     sCHAT_CONNECTION_CBLK*   master_cblk_ptr;
     sCHAT_CONNECTION_MESSAGE message;
 
+fprintf(stderr, "chat_connection_close mah boi\n");
     if (NULL == chat_connection)
     {
         return STATUS_INVALID_ARG;

@@ -144,32 +144,6 @@ static void dispatch_message(
 }
 
 
-static void fsm_cblk_close(
-    sNETWORK_WATCHER_CBLK* master_cblk_ptr)
-{
-    fNETWORK_WATCHER_USER_CBACK user_cback;
-    void*                       user_arg;
-
-    assert(NULL != master_cblk_ptr);
-
-    pthread_mutex_destroy(&master_cblk_ptr->cancel_mutex);
-
-    close(master_cblk_ptr->cancel_pipe[PIPE_END_READ]);
-    close(master_cblk_ptr->cancel_pipe[PIPE_END_WRITE]);
-
-    message_queue_destroy(master_cblk_ptr->message_queue);
-
-    user_cback = master_cblk_ptr->user_cback;
-    user_arg   = master_cblk_ptr->user_arg;
-
-    generic_deallocator(master_cblk_ptr);
-
-    user_cback(user_arg,
-               NETWORK_WATCHER_EVENT_CLOSED,
-               NULL);
-}
-
-
 void* network_watcher_thread_entry(
     void* arg)
 {
@@ -191,6 +165,8 @@ void* network_watcher_thread_entry(
                          &message);
     }
 
-    fsm_cblk_close(master_cblk_ptr);
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                NETWORK_WATCHER_EVENT_CLOSED,
+                                NULL);
     return NULL;
 }

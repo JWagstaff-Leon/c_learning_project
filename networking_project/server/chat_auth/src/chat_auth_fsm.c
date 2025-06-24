@@ -98,6 +98,7 @@ static void dispatch_message(
             open_processing(master_cblk_ptr, message);
             break;
         }
+        case CHAT_AUTH_STATE_INIT:
         case CHAT_AUTH_STATE_CLOSED:
         default:
         {

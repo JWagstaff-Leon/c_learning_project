@@ -83,6 +83,7 @@ void chat_server_cback(
 
 int main(int argc, char *argv[])
 {
+    int     retcode = 0;
     eSTATUS status;
 
     sMAIN_CBLK master_cblk;
@@ -99,6 +100,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    status = chat_server_open(master_cblk.chat_server);
+    if (STATUS_SUCCESS != status)
+    {
+        fprintf(stderr, "Failed to open server with status %d\n", status);
+        retcode = 1;
+        goto fail_open_server;
+    }
+
     while (MAIN_FSM_STATE_CLOSED != master_cblk.state)
     {
         getline(&user_input, &user_input_size, stdin);
@@ -108,5 +117,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    return 0;
+fail_open_server:
+    chat_server_destroy(master_cblk.chat_server);
+
+    return retcode;
 }

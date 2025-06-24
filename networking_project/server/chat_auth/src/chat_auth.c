@@ -88,11 +88,13 @@ eSTATUS chat_auth_open(
         goto fail_open_database;
     }
 
+    master_cblk_ptr->state = CHAT_AUTH_STATE_OPEN;
     status = generic_create_thread(chat_auth_thread_entry,
                                    master_cblk_ptr,
                                    NULL);
     if (STATUS_SUCCESS != status)
     {
+        master_cblk_ptr->state = CHAT_AUTH_STATE_INIT;
         goto fail_create_thread;
     }
 
