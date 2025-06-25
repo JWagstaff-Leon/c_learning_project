@@ -537,6 +537,8 @@ static void chat_clients_client_destroy(
     sCHAT_CLIENTS_CBLK*      master_cblk_ptr;
     sCHAT_CLIENTS_CBACK_DATA cback_data;
 
+    eSTATUS status;
+
     client = (sCHAT_CLIENT*)client_ptr;
 
     shared_ptr_release(client->prev);
@@ -550,6 +552,9 @@ static void chat_clients_client_destroy(
                                     CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
                                     &cback_data);
     }
+
+    status = chat_connection_destroy(client->connection);
+    assert(STATUS_SUCCESS == status);
 
     shared_ptr_release(client->auth_credentials_ptr);
 }
