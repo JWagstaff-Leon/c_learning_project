@@ -81,9 +81,8 @@ fail_post_open_socket:
     close(listen_fd);
 
 fail_post_getaddrinfo:
-    freeaddrinfo(address);    
-
 success:
+    freeaddrinfo(address);
     return status;
 }
 

@@ -116,7 +116,7 @@ static void open_processing(
         case CHAT_SERVER_MESSAGE_LISTENER_CLOSED:
         {
             master_cblk_ptr->dependants_states.listener_open = false;
-            
+
             status = chat_clients_close(master_cblk_ptr->clients);
             assert(STATUS_SUCCESS == status);
 
@@ -176,7 +176,7 @@ static void open_processing(
         case CHAT_SERVER_MESSAGE_AUTH_CLOSED:
         {
             master_cblk_ptr->dependants_states.auth_open = false;
-            
+
             status = chat_clients_close(master_cblk_ptr->clients);
             assert(STATUS_SUCCESS == status);
 
@@ -213,9 +213,19 @@ static void closing_processing(
     sCHAT_SERVER_CBLK*          master_cblk_ptr)
 {
     eSTATUS status;
+    int     new_connection_fd;
 
     switch (message->type)
     {
+        case CHAT_SERVER_MESSAGE_INCOMING_CONNECTION:
+        {
+            status = chat_server_accept_connection(master_cblk_ptr,
+                                                   &new_connection_fd);
+            assert(STATUS_SUCCESS == status);
+
+            close(new_connection_fd);
+            break;
+        }
         case CHAT_SERVER_MESSAGE_CLIENTS_CLOSED:
         {
             master_cblk_ptr->dependants_states.clients_open = false;

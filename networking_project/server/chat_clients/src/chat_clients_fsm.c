@@ -192,6 +192,13 @@ static void open_processing(
         }
         case CHAT_CLIENTS_MESSAGE_CLOSE:
         {
+            if (NULL == master_cblk_ptr->client_list_head)
+            {
+                assert(NULL == master_cblk_ptr->client_list_tail);
+                master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSED;
+                break;
+            }
+            
             master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSING;
 
             for (relevant_client_ptr = master_cblk_ptr->client_list_head;

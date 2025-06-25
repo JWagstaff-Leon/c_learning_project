@@ -78,8 +78,6 @@ static void open_processing(
         }
         case CHAT_AUTH_MESSAGE_CLOSE:
         {
-            sqlite_status = sqlite3_close_v2(master_cblk_ptr->database);
-            assert(SQLITE_OK == sqlite_status);
             master_cblk_ptr->state = CHAT_AUTH_STATE_CLOSED;
             break;
         }

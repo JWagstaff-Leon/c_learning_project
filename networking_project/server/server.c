@@ -115,6 +115,8 @@ int main(int argc, char *argv[])
         {
             chat_server_close(master_cblk.chat_server);
         }
+        free(user_input);
+        user_input = NULL;
     }
 
 fail_open_server:

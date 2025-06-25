@@ -212,9 +212,9 @@ eSTATUS message_queue_destroy(
 {
     sMESSAGE_QUEUE* message_queue_cblk;
 
-    if (NULL == message_queue);
+    if (NULL == message_queue)
     {
-        return STATUS_SUCCESS;
+        return STATUS_INVALID_ARG;
     }
     message_queue_cblk = (sMESSAGE_QUEUE*)message_queue;
 
