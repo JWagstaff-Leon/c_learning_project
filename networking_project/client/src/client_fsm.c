@@ -50,19 +50,14 @@ static void open_processing(
 }
 
 
-#include <stdio.h>
 static bool check_closed(
     sCLIENT_MAIN_CBLK* master_cblk_ptr)
 {
     bool open = false;
 
-fprintf(stderr, "Checking closed? %s\n", open ? "false" : "true");
     open |= master_cblk_ptr->closing_states.client_open;
-fprintf(stderr, "Checking closed, after client_open? %s\n", open ? "false" : "true");
     open |= master_cblk_ptr->closing_states.ui_open;
-fprintf(stderr, "Checking closed, after ui_open? %s\n", open ? "false" : "true");
 
-fprintf(stderr, "Checking closed, returning? %s\n", !open ? "true" : "false");
     return !open;
 }
 

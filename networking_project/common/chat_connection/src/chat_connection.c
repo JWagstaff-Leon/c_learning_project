@@ -3,6 +3,7 @@
 #include "chat_connection_fsm.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "chat_event.h"
 #include "chat_event_io.h"
@@ -10,6 +11,14 @@
 #include "common_types.h"
 #include "message_queue.h"
 #include "network_watcher.h"
+
+
+static void init_cblk(
+    sCHAT_CONNECTION_CBLK* master_cblk_ptr)
+{
+    memset(master_cblk_ptr, 0, sizeof(sCHAT_CONNECTION_CBLK));
+    master_cblk_ptr->state = CHAT_CONNECTION_STATE_INIT;
+}
 
 
 eSTATUS chat_connection_create(
@@ -27,9 +36,10 @@ eSTATUS chat_connection_create(
         goto fail_alloc_chat_connection;
     }
 
+    init_cblk(new_chat_connection);
+
     new_chat_connection->user_cback = user_cback;
     new_chat_connection->user_arg   = user_arg;
-    new_chat_connection->state      = CHAT_CONNECTION_STATE_INIT;
 
     status = chat_event_io_create(&new_chat_connection->io);
     if (STATUS_SUCCESS != status)
@@ -108,7 +118,7 @@ eSTATUS chat_connection_open(
         master_cblk_ptr->state = CHAT_CONNECTION_STATE_CLOSED;
         return status;
     }
-    
+
     status = generic_create_thread(chat_connection_thread_entry,
                                    master_cblk_ptr,
                                    NULL);
@@ -187,7 +197,6 @@ eSTATUS chat_connection_queue_event(
 }
 
 
-#include <stdio.h>
 eSTATUS chat_connection_close(
     CHAT_CONNECTION chat_connection)
 {
@@ -196,7 +205,6 @@ eSTATUS chat_connection_close(
     sCHAT_CONNECTION_CBLK*   master_cblk_ptr;
     sCHAT_CONNECTION_MESSAGE message;
 
-fprintf(stderr, "chat_connection_close mah boi\n");
     if (NULL == chat_connection)
     {
         return STATUS_INVALID_ARG;

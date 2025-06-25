@@ -159,7 +159,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
 eSTATUS chat_event_io_destroy(
     CHAT_EVENT_IO chat_event_io)
 {
-    if (NULL == chat_event_io);
+    if (NULL == chat_event_io)
     {
         return STATUS_INVALID_ARG;
     }

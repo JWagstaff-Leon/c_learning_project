@@ -52,7 +52,6 @@ fail_alloc_cblk:
 }
 
 
-#include <stdio.h>
 eSTATUS client_ui_open(
     CLIENT_UI client_ui)
 {
@@ -73,24 +72,20 @@ eSTATUS client_ui_open(
     client_ui_init_ncurses(&master_cblk_ptr->input_window,
                            &master_cblk_ptr->messages_window);
 
-fprintf(stderr, "Create input thread\n");
     status = generic_create_thread(client_ui_input_thread_entry,
                                    master_cblk_ptr,
                                    &master_cblk_ptr->input_thread);
     if (STATUS_SUCCESS != status)
     {
-fprintf(stderr, "Create input thread failed\n");
         goto fail_create_input_thread;
     }
 
-fprintf(stderr, "Create main ui thread\n");
     master_cblk_ptr->state = CLIENT_UI_STATE_OPEN;
     status                 = generic_create_thread(client_ui_thread_entry,
                                                    master_cblk_ptr,
                                                    NULL);
     if (STATUS_SUCCESS != status)
     {
-fprintf(stderr, "Create main ui thread failed\n");
         goto fail_create_main_thread;
     }
 

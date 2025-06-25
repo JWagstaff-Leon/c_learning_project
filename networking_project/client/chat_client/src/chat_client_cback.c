@@ -37,6 +37,11 @@ void chat_client_connection_cback(
 
     if (event_mask & CHAT_CONNECTION_EVENT_CLOSED)
     {
-        // TODO
+        message.type = CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED;
+
+        status = message_queue_put(master_cblk_ptr->message_queue,
+                                   &message,
+                                   sizeof(message));
+        assert(STATUS_SUCCESS == status);
     }
 }
