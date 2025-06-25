@@ -186,7 +186,6 @@ eSTATUS chat_auth_submit_credentials(
     {
         status = STATUS_ALLOC_FAILED;
         goto func_fail;
-
     }
 
     master_cblk_ptr = (sCHAT_AUTH_CBLK*)chat_auth;

@@ -159,14 +159,14 @@ static void open_processing(
                     // REVIEW should this close the client?
                     break;
                 }
-
-                cback_data.finish_auth_transaction.auth_transaction = relevant_client->auth_transaction;
-                relevant_client->auth_transaction                   = NULL;
-
-                master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
-                                            CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
-                                            &cback_data);
             }
+
+            cback_data.finish_auth_transaction.auth_transaction = relevant_client->auth_transaction;
+            relevant_client->auth_transaction                   = NULL;
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENTS_EVENT_FINISH_AUTH_TRANSACTION,
+                                        &cback_data);
 
             shared_ptr_release(relevant_client_ptr);
             break;
@@ -198,7 +198,7 @@ static void open_processing(
                 master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSED;
                 break;
             }
-            
+
             master_cblk_ptr->state = CHAT_CLIENTS_STATE_CLOSING;
 
             for (relevant_client_ptr = master_cblk_ptr->client_list_head;

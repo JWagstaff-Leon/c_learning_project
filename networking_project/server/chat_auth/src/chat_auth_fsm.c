@@ -60,7 +60,7 @@ static void open_processing(
             auth_result = chat_auth_sql_auth_user(master_cblk_ptr->database,
                                                   credentials_ptr,
                                                   &cback_data.auth_result.user_info);
-            assert(CHAT_AUTH_RESULT_FAILURE != auth_result); // TODO make this do a retry
+            assert(CHAT_AUTH_RESULT_FAILURE != auth_result); // REVIEW make this do a retry?
             shared_ptr_release(message->params.process_credentials.credentials_ptr);
 
             auth_transaction->state = CHAT_AUTH_TRANSACTION_STATE_DONE;
