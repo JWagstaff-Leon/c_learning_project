@@ -81,12 +81,10 @@ int main(int argc, char *argv[])
 
     while(CLIENT_STATE_CLOSED != master_cblk.state)
     {
-fprintf(stderr, "message get\n");
         status = message_queue_get(master_cblk.message_queue,
                                    &message,
                                    sizeof(message));
         assert(STATUS_SUCCESS == status);
-fprintf(stderr, "message got\n");
 
         dispatch_message(&master_cblk, &message);
     }
