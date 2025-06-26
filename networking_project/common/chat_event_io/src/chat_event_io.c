@@ -111,7 +111,6 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
 
     event_buffer->type = ntohl(reader->event.type);
 
-    event_buffer->origin.id = ntohll(reader->event.origin.id);
     memcpy(event_buffer->origin.name,
            &reader->event.origin.name,
            sizeof(event_buffer->origin.name));

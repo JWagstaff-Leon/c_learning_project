@@ -26,8 +26,7 @@ eSTATUS chat_event_populate(
     eSTATUS status;
     int     printed_length;
 
-    event->type      = type;
-    event->origin.id = origin.id;
+    event->type = type;
 
     status = print_string_to_buffer(event->origin.name,
                                     origin.name,

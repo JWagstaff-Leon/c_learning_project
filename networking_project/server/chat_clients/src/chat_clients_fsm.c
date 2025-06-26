@@ -131,8 +131,6 @@ static void open_processing(
                 {
                     relevant_client->state = CHAT_CLIENT_STATE_ACTIVE;
 
-                    relevant_client->user_info.id = message->params.auth_event.user_info.id;
-
                     status = print_string_to_buffer(relevant_client->user_info.name,
                                                     message->params.auth_event.user_info.name,
                                                     sizeof(relevant_client->user_info.name),

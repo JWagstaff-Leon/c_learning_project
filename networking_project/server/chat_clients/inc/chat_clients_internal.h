@@ -88,7 +88,7 @@ typedef struct
 
 // Constants -------------------------------------------------------------------
 
-static sCHAT_USER k_server_info = { .id = CHAT_USER_ID_SERVER, .name = "Server" };
+static sCHAT_USER k_server_info = { .name = "Server" };
 
 
 // Functions -------------------------------------------------------------------

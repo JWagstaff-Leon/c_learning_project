@@ -69,8 +69,7 @@ eSTATUS client_ui_open(
         return STATUS_INVALID_STATE;
     }
 
-    client_ui_init_ncurses(&master_cblk_ptr->input_window,
-                           &master_cblk_ptr->messages_window);
+    client_ui_init_ncurses(master_cblk_ptr);
 
     status = generic_create_thread(client_ui_input_thread_entry,
                                    master_cblk_ptr,

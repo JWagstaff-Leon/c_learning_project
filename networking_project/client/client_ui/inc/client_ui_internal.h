@@ -145,6 +145,9 @@ typedef struct
     THREAD_ID input_thread;
 
     WINDOW *input_window, *messages_window;
+
+    char input_buffer[CHAT_EVENT_MAX_DATA_SIZE];
+    int  input_position;
 } sCLIENT_UI_CBLK;
 
 
@@ -159,12 +162,15 @@ void* client_ui_input_thread_entry(
 
 
 void client_ui_init_ncurses(
-    WINDOW** out_input_window,
-    WINDOW** out_message_window);
+    sCLIENT_UI_CBLK* master_cblk_ptr);
 
 
 void client_ui_close_ncurses(
-    void);
+    sCLIENT_UI_CBLK* master_cblk_ptr);
+
+
+void client_ui_reset_input_window(
+    sCLIENT_UI_CBLK* master_cblk_ptr);
 
 
 #ifdef __cplusplus

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <endian.h>
 #include <pthread.h>
 #include <stddef.h>
 
@@ -8,9 +7,6 @@
 
 #define mSTRINGIFY(x) _m_stringify(x)
 #define _m_stringify(x) #x
-
-#define htonll htobe64
-#define ntohll be64toh
 
 
 typedef enum

@@ -138,7 +138,6 @@ static void handler_authenticated(
             assert(STATUS_SUCCESS == status);
 
             master_cblk_ptr->state = CHAT_CLIENT_STATE_AUTHENTICATED;
-            master_cblk_ptr->user_info.id = event->origin.id;
             master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                         CHAT_CLIENT_EVENT_PRINT_EVENT,
                                         &cback_data);
@@ -199,23 +198,9 @@ static const fEVENT_HANDLER event_handler_table[] = {
 };
 
 
-#include <stdio.h>
 void chat_client_handle_incoming_event(
     sCHAT_CLIENT_CBLK* master_cblk_ptr,
     const sCHAT_EVENT* event)
 {
-fprintf(stderr, "Incoming event from server\n"
-                "\t╔═ Event ════════════════════════\n"
-                "\t║\n"
-                "\t╠══ Type: %d\n"
-                "\t╠══ Origin: %s\n"
-                "\t╠══ Length: %u\n"
-                "\t╠══ Data: %s\n"
-                "\t║\n"
-                "\t╚════════════════════════════════\n",
-                event->type,
-                event->origin.name,
-                event->length,
-                event->data);
     event_handler_table[event->type](master_cblk_ptr, event);
 }

@@ -7,26 +7,17 @@ extern "C" {
 // Includes --------------------------------------------------------------------
 
 #include <stddef.h>
-#include <stdint.h>
-
 
 // Constants -------------------------------------------------------------------
 
 #define CHAT_USER_MAX_NAME_SIZE 65
 
-#define CHAT_USER_ID_SERVER  0
-#define CHAT_USER_INVALID_ID UINT64_MAX
-
 
 // Types -----------------------------------------------------------------------
 
-typedef uint64_t CHAT_USER_ID;
-
-
 typedef struct
 {
-    CHAT_USER_ID id;
-    char         name[CHAT_USER_MAX_NAME_SIZE];
+    char name[CHAT_USER_MAX_NAME_SIZE];
 } sCHAT_USER;
 
 

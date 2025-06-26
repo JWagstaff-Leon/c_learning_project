@@ -61,7 +61,6 @@ static bCHAT_EVENT_IO_RESULT omni_processing(
         {
             writer->event.type = htonl(message->params.populate_writer.event.type);
 
-            writer->event.origin.id = htonll(message->params.populate_writer.event.origin.id);
             memcpy(writer->event.origin.name,
                    message->params.populate_writer.event.origin.name,
                    sizeof(writer->event.origin.name));

@@ -15,7 +15,9 @@ static void open_processing(
     sCLIENT_UI_CBLK*          master_cblk_ptr,
     const sCLIENT_UI_MESSAGE* message)
 {
-    const sCHAT_EVENT* incoming_event;
+    eSTATUS               status;
+    const sCHAT_EVENT*    incoming_event;
+    sCLIENT_UI_CBACK_DATA cback_data;
 
     switch (message->type)
     {
@@ -91,6 +93,38 @@ static void open_processing(
             }
             break;
         }
+        case CLIENT_UI_MESSAGE_INPUT_CHAR:
+        {
+            master_cblk_ptr->input_buffer[master_cblk_ptr->input_position++] = message->params.input_char.character;
+            wprintw(master_cblk_ptr->input_window, "%c", message->params.input_char.character);
+            wrefresh(master_cblk_ptr->input_window);
+            break;
+        }
+        case CLIENT_UI_MESSAGE_INPUT_BACKSPACE:
+        {
+            master_cblk_ptr->input_buffer[master_cblk_ptr->input_position--] = '\0';
+            wprintw(master_cblk_ptr->input_window, "\b \b");
+            wrefresh(master_cblk_ptr->input_window);
+            break;
+        }
+        case CLIENT_UI_MESSAGE_INPUT_SEND:
+        {
+            status = print_string_to_buffer(cback_data.user_input.buffer,
+                                            master_cblk_ptr->input_buffer,
+                                            sizeof(cback_data.user_input.buffer),
+                                            NULL);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CLIENT_UI_EVENT_USER_INPUT,
+                                        &cback_data);
+
+            memset(master_cblk_ptr->input_buffer, 0, sizeof(master_cblk_ptr->input_buffer));
+            master_cblk_ptr->input_position = 0;
+
+            client_ui_reset_input_window(master_cblk_ptr);
+            break;
+        }
         case CLIENT_UI_MESSAGE_INPUT_THREAD_CLOSED:
         {
             master_cblk_ptr->state = CLIENT_UI_STATE_CLOSED;
@@ -148,7 +182,7 @@ void* client_ui_thread_entry(
         dispatch_message(master_cblk_ptr, &message);
     }
 
-    client_ui_close_ncurses();
+    client_ui_close_ncurses(master_cblk_ptr);
     master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
                                 CLIENT_UI_EVENT_CLOSED,
                                 NULL);
