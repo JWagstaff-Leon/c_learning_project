@@ -25,7 +25,12 @@ target_link_libraries(client_ui
     Common::message_queue
 )
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+    target_compile_options(client_ui
+      PUBLIC
+        -O3
+    )
+elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_options(client_ui
       PUBLIC
         -g

@@ -10,7 +10,12 @@ target_sources(common_types
     src/common_types.c
 )
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+    target_compile_options(common_types
+      PUBLIC
+        -O3
+    )
+elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_options(common_types
       PUBLIC
         -g

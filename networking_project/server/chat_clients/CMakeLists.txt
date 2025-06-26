@@ -32,7 +32,12 @@ target_link_libraries(chat_clients
     Common::message_queue
 )
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+    target_compile_options(chat_clients
+      PUBLIC
+        -O3
+    )
+elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_options(chat_clients
       PUBLIC
         -g

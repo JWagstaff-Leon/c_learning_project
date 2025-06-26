@@ -22,7 +22,12 @@ target_link_libraries(network_watcher
     Common::message_queue
 )
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+    target_compile_options(network_watcher
+      PUBLIC
+        -O3
+    )
+elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_options(network_watcher
       PUBLIC
         -g

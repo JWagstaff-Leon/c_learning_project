@@ -192,7 +192,6 @@ eCHAT_AUTH_RESULT chat_auth_sql_auth_user(
         {
             if (NULL != credentials->password) // Password given; use it as the password for a new account
             {
-                // TODO Remove the id from sCHAT_USER
                 status = chat_auth_sql_create_user(database,
                                                    credentials);
                 if (STATUS_SUCCESS != status)
