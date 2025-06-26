@@ -19,10 +19,14 @@ static void open_processing(
     const sCHAT_EVENT*    incoming_event;
     sCLIENT_UI_CBACK_DATA cback_data;
 
+    int cur_y, cur_x;
+
     switch (message->type)
     {
         case CLIENT_UI_MESSAGE_POST_EVENT:
         {
+            getyx(master_cblk_ptr->input_window, cur_y, cur_x);
+
             incoming_event = &message->params.post_event.event;
             switch(incoming_event->type)
             {
@@ -91,6 +95,9 @@ static void open_processing(
                     break;
                 }
             }
+
+            wmove(master_cblk_ptr->input_window, cur_y, cur_x);
+            wrefresh(master_cblk_ptr->input_window);
             break;
         }
         case CLIENT_UI_MESSAGE_INPUT_CHAR:
