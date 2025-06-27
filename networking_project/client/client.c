@@ -26,6 +26,12 @@ int main(int argc, char *argv[])
 
     sCLIENT_MAIN_CBLK master_cblk;
 
+    if (argc < 3)
+    {
+        fprintf(stderr, "Usage '%s <address> <port>'\n", argv[0]);
+        return 1;
+    }
+
     memset(&master_cblk, 0, sizeof(master_cblk));
     master_cblk.state = CLIENT_STATE_OPEN;
 
@@ -60,7 +66,7 @@ int main(int argc, char *argv[])
     }
 
     status = chat_client_open(master_cblk.client,
-                              "127.0.0.1", "8080");
+                              argv[1], argv[2]);
     if (STATUS_SUCCESS != status)
     {
         fprintf(stderr, "Unable to open client\n");

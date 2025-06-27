@@ -39,7 +39,7 @@ static void open_processing(
         case CLIENT_MAIN_MESSAGE_UI_CLOSED:
         {
             master_cblk_ptr->closing_states.ui_open = false;
-            
+
             status = chat_client_close(master_cblk_ptr->client);
             assert(STATUS_SUCCESS == status);
 
