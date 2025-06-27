@@ -1,15 +1,12 @@
-cmake_minimum_required(VERSION 3.22.1)
-
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-add_compile_definitions(_GNU_SOURCE)
-
-add_subdirectory(chat_client ${CMAKE_BINARY_DIR}/chat_client)
-add_subdirectory(client_ui ${CMAKE_BINARY_DIR}/client_ui)
-add_subdirectory(../common ${CMAKE_BINARY_DIR}/common)
+add_subdirectory(chat_client ./chat_client)
+add_subdirectory(client_ui ./client_ui)
 
 add_executable(client)
+
+set_target_properties(client PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ./lib
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
 
 target_link_libraries(client
   PRIVATE
