@@ -1,5 +1,5 @@
-*.o
 bin/
 sqlite/
 CMakeFiles/
 build/
+template.h
