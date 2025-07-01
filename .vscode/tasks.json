@@ -2,17 +2,109 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Debug",
+            "label": "Remove debug directory",
             "type": "shell",
-            "command": "cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja .. && cmake --build .",
+            "command": "rmdir -r ${workspaceFolder}/build/Debug &>/dev/null; [[ 1 ]]",
             "args": [],
             "options": {
-                "cwd": "${workspaceFolder}/build"
+                "cwd": "${workspaceFolder}"
             },
             "presentation": {
                 "reveal": "always"
             },
-            "group": "build"
+            "hide": true,
+        },
+        {
+            "label": "Remove release directory",
+            "type": "shell",
+            "command": "rmdir -r ${workspaceFolder}/build/Release &>/dev/null; [[ 1 ]]",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "hide": true
+        },
+        {
+            "label": "Configure Debug",
+            "type": "shell",
+            "command": "cmake --preset Debug",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "hide": true
+        },
+        {
+            "label": "Configure Release",
+            "type": "shell",
+            "command": "cmake --preset Release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "hide": true
+        },
+        {
+            "label": "Build Debug",
+            "type": "shell",
+            "command": "cmake --build --preset Debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "dependsOn": [ "Configure Debug" ]
+        },
+        {
+            "label": "Build Release",
+            "type": "shell",
+            "command": "cmake --build --preset Release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "dependsOn": [ "Configure Debug" ]
+        },
+        {
+            "label": "Clean Build Debug",
+            "type": "shell",
+            "command": "cmake --build --preset Debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "dependsOn": [ "Remove debug directory", "Configure Debug" ],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "Clean Build Release",
+            "type": "shell",
+            "command": "cmake --build --preset Release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "dependsOn": [ "Remove release directory", "Configure Release" ],
+            "dependsOrder": "sequence"
         }
     ]
 }

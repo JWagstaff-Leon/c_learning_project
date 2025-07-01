@@ -1,15 +1,29 @@
 {
     "version": "0.2.0",
+    "inputs": [
+        {
+            "id": "serverIp",
+            "type": "promptString",
+            "default": "127.0.0.1",
+            "description": "The IP address of the server"
+        },
+        {
+            "id": "serverPort",
+            "type": "promptString",
+            "default": "8080",
+            "description": "The port of the server"
+        }
+    ],
     "configurations": [
         {
             "name": "Debug Server",
             "type": "cppdbg",
             "preLaunchTask": "Build Debug",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/server",
+            "program": "${workspaceFolder}/build/Debug/bin/server",
             "args": [],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/build/Debug",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -32,10 +46,10 @@
             "type": "cppdbg",
             "preLaunchTask": "Build Debug",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/client",
-            "args": ["127.0.0.1", "8080"],
+            "program": "${workspaceFolder}/build/Debug/bin/client",
+            "args": ["${input:serverIp}", "${input:serverPort}"],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/build/Debug",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
