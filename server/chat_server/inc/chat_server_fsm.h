@@ -74,7 +74,7 @@ typedef struct
 } sCHAT_SERVER_MESSAGE_PARAMS_AUTH_TRANSACTION_DONE;
 
 
-typedef struct
+typedef union
 {
     sCHAT_SERVER_MESSAGE_PARAMS_AUTH_RESULT           auth_result;
     sCHAT_SERVER_MESSAGE_PARAMS_AUTH_TRANSACTION_DONE transaction_done;

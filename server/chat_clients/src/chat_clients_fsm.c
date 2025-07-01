@@ -203,6 +203,12 @@ static void open_processing(
                 NULL != relevant_client_ptr && NULL != SP_POINTEE(relevant_client_ptr);
                 relevant_client_ptr = SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, next))
             {
+                status = chat_connection_queue_new_event(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection),
+                                                         CHAT_EVENT_SERVER_SHUTDOWN,
+                                                         k_server_info,
+                                                         "Server is shutting down");
+                assert(STATUS_SUCCESS == status);
+
                 status = chat_connection_close(SP_PROPERTY(relevant_client_ptr, sCHAT_CLIENT, connection));
                 assert(STATUS_SUCCESS == status);
             }

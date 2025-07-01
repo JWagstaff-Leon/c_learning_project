@@ -15,6 +15,9 @@
 #include "common_types.h"
 
 
+static char k_disconnect_message[] = "Lost connection to server; ctrl-c to exit";
+
+
 static void connected_processing(
     sCHAT_CLIENT_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENT_MESSAGE* message)
@@ -22,7 +25,8 @@ static void connected_processing(
     eSTATUS              status;
     sCHAT_CLIENT_MESSAGE new_message;
 
-    eCHAT_EVENT_TYPE event_type;
+    sCHAT_CLIENT_CBACK_DATA cback_data;
+    eCHAT_EVENT_TYPE        event_type;
 
     switch (message->type)
     {
@@ -34,7 +38,17 @@ static void connected_processing(
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
         {
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTED;
+
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CONNECTION_FAILED,
+                                         master_cblk_ptr->user_info,
+                                         k_disconnect_message);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
@@ -48,7 +62,7 @@ static void connected_processing(
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSING;
             break;
         }
     }
@@ -62,7 +76,8 @@ static void auth_entry_processing(
     eSTATUS              status;
     sCHAT_CLIENT_MESSAGE new_message;
 
-    eCHAT_EVENT_TYPE event_type;
+    eCHAT_EVENT_TYPE        event_type;
+    sCHAT_CLIENT_CBACK_DATA cback_data;
 
     switch (message->type)
     {
@@ -121,7 +136,17 @@ static void auth_entry_processing(
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
         {
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTED;
+
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CONNECTION_FAILED,
+                                         master_cblk_ptr->user_info,
+                                         k_disconnect_message);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
@@ -135,7 +160,7 @@ static void auth_entry_processing(
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSING;
             break;
         }
     }
@@ -146,8 +171,9 @@ static void auth_verifying_processing(
     sCHAT_CLIENT_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENT_MESSAGE* message)
 {
-    eSTATUS              status;
-    sCHAT_CLIENT_MESSAGE new_message;
+    eSTATUS                 status;
+    sCHAT_CLIENT_MESSAGE    new_message;
+    sCHAT_CLIENT_CBACK_DATA cback_data;
 
     switch (message->type)
     {
@@ -159,7 +185,17 @@ static void auth_verifying_processing(
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
         {
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTED;
+
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CONNECTION_FAILED,
+                                         master_cblk_ptr->user_info,
+                                         k_disconnect_message);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
@@ -173,7 +209,7 @@ static void auth_verifying_processing(
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSING;
             break;
         }
     }
@@ -199,7 +235,17 @@ static void authenticated_processing(
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
         {
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTED;
+
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CONNECTION_FAILED,
+                                         master_cblk_ptr->user_info,
+                                         k_disconnect_message);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
@@ -213,7 +259,7 @@ static void authenticated_processing(
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSING;
             break;
         }
     }
@@ -256,7 +302,17 @@ static void active_processing(
         }
         case CHAT_CLIENT_MESSAGE_CONNECTION_CLOSED:
         {
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTED;
+
+            status = chat_event_populate(&cback_data.print_event.event,
+                                         CHAT_EVENT_CONNECTION_FAILED,
+                                         master_cblk_ptr->user_info,
+                                         k_disconnect_message);
+            assert(STATUS_SUCCESS == status);
+
+            master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                        CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                        &cback_data);
             break;
         }
         case CHAT_CLIENT_MESSAGE_CLOSE:
@@ -270,14 +326,35 @@ static void active_processing(
             status = chat_connection_close(master_cblk_ptr->server_connection);
             assert(STATUS_SUCCESS == status);
 
-            master_cblk_ptr->state = CHAT_CLIENT_STATE_DISCONNECTING;
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSING;
             break;
         }
     }
 }
 
 
-static void disconnecting_processing(
+static void disconnected_processing(
+    sCHAT_CLIENT_CBLK*          master_cblk_ptr,
+    const sCHAT_CLIENT_MESSAGE* message)
+{
+    eSTATUS              status;
+    sCHAT_CLIENT_MESSAGE new_message;
+
+    assert(NULL != message);
+    assert(NULL != master_cblk_ptr);
+
+    switch (message->type)
+    {
+        case CHAT_CLIENT_MESSAGE_CLOSE:
+        {
+            master_cblk_ptr->state = CHAT_CLIENT_STATE_CLOSED;
+            break;
+        }
+    }
+}
+
+
+static void closing_processing(
     sCHAT_CLIENT_CBLK*          master_cblk_ptr,
     const sCHAT_CLIENT_MESSAGE* message)
 {
@@ -334,9 +411,14 @@ static void dispatch_message(
             active_processing(master_cblk_ptr, message);
             break;
         }
-        case CHAT_CLIENT_STATE_DISCONNECTING:
+        case CHAT_CLIENT_STATE_DISCONNECTED:
         {
-            disconnecting_processing(master_cblk_ptr, message);
+            disconnected_processing(master_cblk_ptr, message);
+            break;
+        }
+        case CHAT_CLIENT_STATE_CLOSING:
+        {
+            closing_processing(master_cblk_ptr, message);
             break;
         }
         case CHAT_CLIENT_STATE_INIT:

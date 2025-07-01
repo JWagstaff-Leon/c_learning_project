@@ -41,11 +41,14 @@ static void open_processing(
                     break;
                 }
 
+                case CHAT_EVENT_CONNECTION_FAILED:
                 case CHAT_EVENT_USERNAME_REQUEST:
                 case CHAT_EVENT_USERNAME_REJECTED:
                 case CHAT_EVENT_PASSWORD_REQUEST:
                 case CHAT_EVENT_PASSWORD_REJECTED:
                 case CHAT_EVENT_AUTHENTICATED:
+                case CHAT_EVENT_SERVER_ERROR:
+                case CHAT_EVENT_SERVER_SHUTDOWN:
                 {
                     wattr_on(master_cblk_ptr->messages_window, A_ITALIC, NULL);
                     wcolor_set(master_cblk_ptr->messages_window, 1, NULL);
@@ -63,7 +66,6 @@ static void open_processing(
 
                 case CHAT_EVENT_USER_JOIN:
                 {
-
                     wattr_on(master_cblk_ptr->messages_window, A_ITALIC, NULL);
                     wcolor_set(master_cblk_ptr->messages_window, 1, NULL);
 
@@ -80,7 +82,6 @@ static void open_processing(
 
                 case CHAT_EVENT_USER_LEAVE:
                 {
-
                     wattr_on(master_cblk_ptr->messages_window, A_ITALIC, NULL);
                     wcolor_set(master_cblk_ptr->messages_window, 1, NULL);
 

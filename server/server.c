@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,12 +11,15 @@
 #include "message_queue.h"
 
 
+#define MAIN_MESSAGE_QUEUE_SIZE 8
+
+
 typedef enum
 {
     MAIN_MESSAGE_SERVER_OPENED,
     MAIN_MESSAGE_SERVER_CLOSED,
 
-    MAIN_MESSAGE_INPUT_CLOSED
+    MAIN_MESSAGE_CLOSE
 } eMAIN_MESSAGE_TYPE;
 
 
@@ -43,7 +47,20 @@ typedef struct
 } sMAIN_CBLK;
 
 
-#define MAIN_MESSAGE_QUEUE_SIZE 8
+static MESSAGE_QUEUE signal_message_queue = NULL;
+static const sMAIN_MESSAGE signal_message = { .type = MAIN_MESSAGE_CLOSE };
+
+static void close_signal_handler(
+    int signal)
+{
+    // FIXME with no timeout this is vulnerable to a deadlock
+    if (NULL != signal_message_queue)
+    {
+        message_queue_put(signal_message_queue,
+                          &signal_message,
+                          sizeof(signal_message));
+    }
+}
 
 
 void* server_input_thread_entry(
@@ -75,10 +92,15 @@ void* server_input_thread_entry(
             done = true;
         }
 
+        // NOTE this does *technically* contain a race-condition in which this
+        //      thread closes before freeing due to the main thread closing.
+        //      That is fine with me as the odds of that happening are very
+        //      slim; on the off-chance it does occur, the OS *should* clean up
+        //      the one missed free on its own.
         free(user_input);
     }
 
-    message.type = MAIN_MESSAGE_INPUT_CLOSED;
+    message.type = MAIN_MESSAGE_CLOSE;
 
     status = message_queue_put(master_cblk_ptr->message_queue,
                                &message,
@@ -122,6 +144,13 @@ int main(int argc, char *argv[])
     sMAIN_CBLK    master_cblk;
     sMAIN_MESSAGE message;
 
+    struct sigaction close_signal_action = { .sa_handler = &close_signal_handler, .sa_flags = 0 };
+    sigemptyset(&close_signal_action.sa_mask);
+    sigaction(SIGHUP,  &close_signal_action, NULL);
+    sigaction(SIGINT,  &close_signal_action, NULL);
+    sigaction(SIGABRT, &close_signal_action, NULL);
+    sigaction(SIGTERM, &close_signal_action, NULL);
+
     status = message_queue_create(&master_cblk.message_queue,
                                   MAIN_MESSAGE_QUEUE_SIZE,
                                   sizeof(sMAIN_MESSAGE));
@@ -131,6 +160,7 @@ int main(int argc, char *argv[])
         retcode = 1;
         goto fail_create_message_queue;
     }
+    signal_message_queue = master_cblk.message_queue;
 
     status = chat_server_create(&master_cblk.chat_server,
                                 chat_server_cback,
@@ -172,9 +202,9 @@ int main(int argc, char *argv[])
             case MAIN_MESSAGE_SERVER_CLOSED:
             {
                 master_cblk.state = MAIN_FSM_STATE_CLOSED;
-`                break;
+                break;
             }
-            case MAIN_MESSAGE_INPUT_CLOSED:
+            case MAIN_MESSAGE_CLOSE:
             {
                 chat_server_close(master_cblk.chat_server);
                 break;
@@ -187,6 +217,7 @@ fail_open_input_thread:
     chat_server_destroy(master_cblk.chat_server);
 
 fail_create_chat_server:
+    signal_message_queue = NULL;
     message_queue_destroy(master_cblk.message_queue);
 
 fail_create_message_queue:
