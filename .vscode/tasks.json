@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Debug",
+            "type": "shell",
+            "command": "cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja .. && cmake --build .",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        }
+    ]
+}
