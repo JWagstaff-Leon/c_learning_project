@@ -78,6 +78,8 @@ void* server_input_thread_entry(
 
     master_cblk_ptr = (sMAIN_CBLK*)arg;
 
+    status = generic_thread_set_kill_mode(THREAD_KILL_INSTANT);
+
     while (!done)
     {
         user_input      = NULL;
@@ -206,11 +208,15 @@ int main(int argc, char *argv[])
             }
             case MAIN_MESSAGE_CLOSE:
             {
-                chat_server_close(master_cblk.chat_server);
+                status = chat_server_close(master_cblk.chat_server);
+                assert(STATUS_SUCCESS == status);
                 break;
             }
         }
     }
+
+    generic_kill_thread(master_cblk.input_thread);
+    printf("\n");
 
 fail_open_server:
 fail_open_input_thread:

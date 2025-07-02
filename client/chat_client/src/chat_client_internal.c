@@ -177,6 +177,22 @@ static void handler_active_message(
 }
 
 
+static void handler_server_shutdown(
+    sCHAT_CLIENT_CBLK* master_cblk_ptr,
+    const sCHAT_EVENT* event)
+{
+    eSTATUS                 status;
+    sCHAT_CLIENT_CBACK_DATA cback_data;
+
+    status = chat_event_copy(&cback_data.print_event.event, event);
+    assert(STATUS_SUCCESS == status);
+
+    master_cblk_ptr->user_cback(master_cblk_ptr->user_arg,
+                                CHAT_CLIENT_EVENT_PRINT_EVENT,
+                                &cback_data);
+}
+
+
 // This list should match up to the enum values in eCHAT_EVENT_TYPE
 static const fEVENT_HANDLER event_handler_table[] = {
     handler_no_op,           // CHAT_EVENT_UNDEFINED
@@ -193,7 +209,7 @@ static const fEVENT_HANDLER event_handler_table[] = {
     handler_authenticated,   // CHAT_EVENT_AUTHENTICATED
     handler_active_message,  // CHAT_EVENT_USER_JOIN
     handler_active_message,  // CHAT_EVENT_USER_LEAVE
-    handler_active_message,  // CHAT_EVENT_SERVER_SHUTDOWN
+    handler_server_shutdown, // CHAT_EVENT_SERVER_SHUTDOWN
     handler_no_op,           // CHAT_EVENT_MAX
 };
 
