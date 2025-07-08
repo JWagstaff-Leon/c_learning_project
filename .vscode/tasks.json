@@ -76,7 +76,7 @@
                 "reveal": "always"
             },
             "group": "build",
-            "dependsOn": [ "Configure Debug" ]
+            "dependsOn": [ "Configure Release" ]
         },
         {
             "label": "Clean Build Debug",

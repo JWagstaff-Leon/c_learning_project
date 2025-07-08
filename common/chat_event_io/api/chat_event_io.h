@@ -8,6 +8,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#include <stdbool.h>
+
 #include "chat_event.h"
 #include "common_types.h"
 
@@ -59,7 +61,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     CHAT_EVENT_IO restrict chat_event_io,
     sCHAT_EVENT*  restrict event_buffer);
 
-    
+
 bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
     CHAT_EVENT_IO      chat_event_io,
     int                fd);
@@ -67,6 +69,14 @@ bCHAT_EVENT_IO_RESULT chat_event_io_write_to_fd(
 
 eSTATUS chat_event_io_destroy(
     CHAT_EVENT_IO chat_event_io);
+
+
+bool chat_event_io_read_finished(
+    const CHAT_EVENT_IO chat_event_io);
+
+
+bool chat_event_io_write_finished(
+    const CHAT_EVENT_IO chat_event_io);
 
 
 #ifdef __cplusplus

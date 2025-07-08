@@ -4,6 +4,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -114,7 +115,7 @@ bCHAT_EVENT_IO_RESULT chat_event_io_extract_read_event(
     memcpy(event_buffer->origin.name,
            &reader->event.origin.name,
            sizeof(event_buffer->origin.name));
-    
+
     event_buffer->length = ntohs(reader->event.length);
     memcpy(event_buffer->data,
            &reader->event.data,
@@ -165,4 +166,68 @@ eSTATUS chat_event_io_destroy(
 
     generic_deallocator(chat_event_io);
     return STATUS_SUCCESS;
+}
+
+
+bool chat_event_io_read_finished(
+    const CHAT_EVENT_IO chat_event_io)
+{
+    const sCHAT_EVENT_IO_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_event_io)
+    {
+        return false;
+    }
+
+    master_cblk_ptr = (const sCHAT_EVENT_IO_CBLK*)chat_event_io;
+    switch (master_cblk_ptr->reader.state)
+    {
+        case CHAT_EVENT_IO_OPERATOR_STATE_READY:
+        {
+            return true;
+        }
+        case CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS:
+        {
+            // Should not have this state for a reader
+            assert(0);
+            // Fallthrough
+        }
+        case CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING:
+        default:
+        {
+            return false;
+        }
+    }
+}
+
+
+bool chat_event_io_write_finished(
+    const CHAT_EVENT_IO chat_event_io)
+{
+    const sCHAT_EVENT_IO_CBLK* master_cblk_ptr;
+
+    if (NULL == chat_event_io)
+    {
+        return false;
+    }
+
+    master_cblk_ptr = (const sCHAT_EVENT_IO_CBLK*)chat_event_io;
+    switch (master_cblk_ptr->writer.state)
+    {
+        case CHAT_EVENT_IO_OPERATOR_STATE_READY:
+        {
+            return true;
+        }
+        case CHAT_EVENT_IO_OPERATOR_STATE_FLUSHING:
+        {
+            // Should not have this state for a writer
+            assert(0);
+            // Fallthrough
+        }
+        case CHAT_EVENT_IO_OPERATOR_STATE_IN_PROGRESS:
+        default:
+        {
+            return false;
+        }
+    }
 }
